@@ -1,0 +1,258 @@
+{
+  "name": "ProcureFlow - Email Ingestion (AI-Enriched)",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "readStatus": "unread",
+          "receivedAfter": "={{ $now.startOf('day').toISO() }}"
+        },
+        "options": {}
+      },
+      "id": "gmail-trigger",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "notes": "Polling ogni minuto per email non lette. Configura le credentials Gmail OAuth2 e opzionalmente filtra per sender/label."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Estrai dati grezzi dall'email ricevuta via Gmail OAuth\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const d = item.json;\n\n  // --- FROM ---\n  let from = '';\n  if (typeof d.from === 'string') {\n    from = d.from;\n  } else if (d.from?.text) {\n    from = d.from.text;\n  } else if (d.from?.value?.[0]?.address) {\n    from = d.from.value[0].address;\n  }\n  if (!from && d.payload?.headers) {\n    const h = d.payload.headers.find(h => h.name?.toLowerCase() === 'from');\n    if (h) from = h.value;\n  }\n  from = String(from || 'sconosciuto');\n\n  // --- TO ---\n  let to = '';\n  if (typeof d.to === 'string') {\n    to = d.to;\n  } else if (d.to?.text) {\n    to = d.to.text;\n  }\n\n  // --- SUBJECT ---\n  let subject = '';\n  if (typeof d.subject === 'string') {\n    subject = d.subject;\n  } else if (d.payload?.headers) {\n    const h = d.payload.headers.find(h => h.name?.toLowerCase() === 'subject');\n    if (h) subject = h.value;\n  }\n  subject = subject || 'Senza oggetto';\n\n  // --- DATE ---\n  let emailDate = '';\n  if (d.date) emailDate = d.date;\n  if (d.internalDate) emailDate = new Date(parseInt(d.internalDate)).toISOString();\n\n  // --- MESSAGE-ID ---\n  let messageId = d.messageId || d.id || '';\n\n  // --- BODY ---\n  let body = '';\n  if (d.snippet) body = d.snippet;\n  if (d.text) body = d.text;\n  if (d.textPlain) body = d.textPlain;\n  if (d.payload?.body?.data) {\n    try { body = Buffer.from(d.payload.body.data, 'base64url').toString('utf-8'); } catch(e) {}\n  }\n  if (d.payload?.parts) {\n    for (const part of d.payload.parts) {\n      if (part.mimeType === 'text/plain' && part.body?.data) {\n        try { body = Buffer.from(part.body.data, 'base64url').toString('utf-8'); } catch(e) {}\n        break;\n      }\n    }\n  }\n\n  results.push({\n    json: {\n      email_from: from,\n      email_to: to,\n      email_subject: subject,\n      email_body: String(body).substring(0, 8000),\n      email_date: emailDate,\n      email_message_id: messageId\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "parse-email",
+      "name": "Parsa Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300],
+      "notes": "Estrae from, to, subject, body, date, message-id in formato standardizzato."
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Sei un assistente specializzato nel parsing di email per un sistema di procurement aziendale. Restituisci SEMPRE e SOLO JSON valido, senza markdown, senza commenti, senza testo prima o dopo."
+            },
+            {
+              "role": "user",
+              "content": "=Analizza questa email ricevuta dal sistema di procurement aziendale e restituisci un JSON strutturato.\n\n---\nDA: {{ $json.email_from }}\nA: {{ $json.email_to }}\nOGGETTO: {{ $json.email_subject }}\nDATA: {{ $json.email_date }}\n\nCORPO EMAIL:\n{{ $json.email_body }}\n---\n\nDevi restituire SOLO un oggetto JSON valido (nessun testo prima o dopo) con questi campi:\n\n{\n  \"action\": \"new_request\" | \"update_existing\" | \"info_only\",\n  \n  // Usa \"new_request\" se l'email contiene una NUOVA richiesta d'acquisto (qualcuno chiede di comprare qualcosa)\n  // Usa \"update_existing\" se l'email è un AGGIORNAMENTO su un ordine già esistente (conferma ordine, spedizione, tracking, consegna, fattura)\n  // Usa \"info_only\" se l'email contiene solo informazioni generiche relative a un ordine (preventivo, domande, comunicazioni)\n\n  // Se l'email fa riferimento a un codice richiesta esistente (es. PR-2025-00001)\n  \"ai_matched_request_code\": \"PR-YYYY-NNNNN\" | null,\n  \n  // Se l'email fa riferimento a un numero ordine/riferimento esterno del fornitore\n  \"ai_matched_external_ref\": \"string\" | null,\n\n  // Fornitore - cerca di identificare il codice fornitore o il nome\n  \"ai_vendor_code\": \"string\" | null,\n  \"ai_vendor_name\": \"string\" | null,\n\n  // Titolo sintetico della richiesta (max 100 char)\n  \"ai_title\": \"string\",\n  \n  // Descrizione dettagliata di cosa serve e perché\n  \"ai_description\": \"string\",\n\n  // Priorità: LOW (routine), MEDIUM (standard), HIGH (serve presto), URGENT (critico/bloccante)\n  \"ai_priority\": \"LOW\" | \"MEDIUM\" | \"HIGH\" | \"URGENT\",\n\n  // Categoria merceologica (es. \"Hardware\", \"Software\", \"Cancelleria\", \"Servizi IT\", \"Materiale ufficio\")\n  \"ai_category\": \"string\" | null,\n  \n  // Dipartimento richiedente se menzionato\n  \"ai_department\": \"string\" | null,\n\n  // Data entro cui serve (ISO 8601 format YYYY-MM-DD)\n  \"ai_needed_by\": \"YYYY-MM-DD\" | null,\n\n  // Importo stimato TOTALE in numero (senza valuta)\n  \"ai_estimated_amount\": number | null,\n  \n  // Importo effettivo se presente (es. da fattura/conferma ordine)\n  \"ai_actual_amount\": number | null,\n  \"ai_currency\": \"EUR\",\n\n  // Aggiornamento stato (solo per update_existing)\n  // ORDERED = ordine confermato, SHIPPED = spedito, DELIVERED = consegnato, CANCELLED = annullato\n  \"ai_status_update\": \"ORDERED\" | \"SHIPPED\" | \"DELIVERED\" | \"CANCELLED\" | null,\n\n  // Numero di tracking spedizione\n  \"ai_tracking_number\": \"string\" | null,\n\n  // Riferimento ordine del fornitore\n  \"ai_external_ref\": \"string\" | null,\n\n  // URL per tracciare l'ordine sul sito del fornitore\n  \"ai_external_url\": \"string\" | null,\n\n  // Data prevista di consegna (ISO 8601 YYYY-MM-DD)\n  \"ai_expected_delivery\": \"YYYY-MM-DD\" | null,\n\n  // ITEMS: lista di articoli/prodotti menzionati. ESTRAI TUTTI i dettagli possibili.\n  // Se l'email dice \"2 MacBook Pro da 1500€\" → [{name: \"MacBook Pro\", quantity: 2, unit_price: 1500, unit: \"pz\"}]\n  \"ai_items\": [\n    {\n      \"name\": \"Nome prodotto/servizio\",\n      \"description\": \"Dettagli aggiuntivi (modello, specifiche, colore, ecc.)\",\n      \"quantity\": 1,\n      \"unit\": \"pz\",\n      \"unit_price\": null,\n      \"total_price\": null,\n      \"sku\": null\n    }\n  ],\n\n  // Riepilogo AI in italiano dell'email (2-3 frasi, utile per la timeline)\n  \"ai_summary\": \"string\",\n\n  // Score di confidenza da 0.0 a 1.0 su quanto sei sicuro dell'analisi\n  \"ai_confidence\": 0.85,\n\n  // Tags suggeriti (es. [\"urgente\", \"hardware\", \"it\"])\n  \"ai_tags\": [\"string\"]\n}\n\nREGOLE IMPORTANTI:\n1. Restituisci SOLO JSON valido, nessun markdown, nessun commento\n2. Se non riesci a determinare un campo, usa null\n3. Per gli importi, converti sempre in numero (1.500,00€ → 1500.00)\n4. Se ci sono più articoli, listali tutti separatamente in ai_items\n5. Calcola total_price = unit_price × quantity se hai entrambi\n6. Se l'email menziona un codice tipo PR-YYYY-NNNNN, è sicuramente una richiesta esistente\n7. Se l'email contiene un tracking number, è probabilmente un aggiornamento di spedizione\n8. Valuta e priorità: se menziona \"urgente\", \"ASAP\", \"subito\" → URGENT; se menziona deadline vicina → HIGH\n9. La confidence deve riflettere quanto l'email è chiara e strutturata (email generica = 0.5, ordine formale = 0.95)"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.1,
+          "maxTokens": 2000,
+          "response_format": {
+            "type": "json_object"
+          }
+        }
+      },
+      "id": "ai-parse",
+      "name": "AI Parsing (OpenAI)",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.2,
+      "position": [750, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "",
+          "name": "OpenAI API"
+        }
+      },
+      "notes": "GPT-4o-mini analizza l'email e restituisce JSON strutturato con response_format: json_object. Puoi usare gpt-4o per risultati migliori (più costoso) o gpt-4o-mini per risparmiare."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combina i dati email originali con l'output AI\nconst emailData = $('Parsa Email').first().json;\nconst aiRaw = $input.first().json;\n\n// DEBUG: logga la struttura esatta della risposta AI per diagnostica\nconsole.log('[DEBUG] AI raw response keys:', Object.keys(aiRaw));\nconsole.log('[DEBUG] AI raw response:', JSON.stringify(aiRaw).substring(0, 500));\n\n// Estrai il testo JSON dalla risposta AI\n// Supporta tutti i formati: OpenAI diretto, n8n wrapper, Anthropic\nlet aiText = '';\nlet aiData = null;\n\n// 1. Se l'output è già un oggetto con i campi AI (il nodo l'ha già parsato)\nif (aiRaw.action && (aiRaw.ai_title || aiRaw.ai_description)) {\n  aiData = aiRaw;\n}\n// 2. OpenAI API raw: choices[0].message.content\nelse if (aiRaw.choices?.[0]?.message?.content) {\n  aiText = aiRaw.choices[0].message.content;\n}\n// 3. OpenAI n8n node: message.content come stringa\nelse if (typeof aiRaw.message?.content === 'string') {\n  aiText = aiRaw.message.content;\n}\n// 4. n8n OpenAI node output diretto: content come stringa  \nelse if (typeof aiRaw.content === 'string') {\n  aiText = aiRaw.content;\n}\n// 5. Campo text diretto\nelse if (typeof aiRaw.text === 'string') {\n  aiText = aiRaw.text;\n}\n// 6. Campo output diretto (alcuni nodi n8n)\nelse if (typeof aiRaw.output === 'string') {\n  aiText = aiRaw.output;\n}\n// 7. Campo response diretto\nelse if (typeof aiRaw.response === 'string') {\n  aiText = aiRaw.response;\n}\n// 8. Anthropic: message.content[0].text\nelse if (aiRaw.message?.content?.[0]?.text) {\n  aiText = aiRaw.message.content[0].text;\n}\n// 9. Fallback: serializza tutto\nelse {\n  aiText = JSON.stringify(aiRaw);\n}\n\n// Se non abbiamo già aiData, parsa il testo\nif (!aiData && aiText) {\n  // Pulisci eventuali markdown code blocks\n  aiText = aiText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  \n  try {\n    aiData = JSON.parse(aiText);\n  } catch (e) {\n    console.error('[DEBUG] JSON parse failed:', e.message, 'Text:', aiText.substring(0, 200));\n    // Fallback: crea un payload minimo per non perdere l'email\n    aiData = {\n      action: 'new_request',\n      ai_title: emailData.email_subject,\n      ai_description: `Parsing AI fallito — email da verificare manualmente.\\n\\nRisposta AI raw: ${aiText.substring(0, 300)}`,\n      ai_priority: 'MEDIUM',\n      ai_summary: `Parsing automatico fallito per email da ${emailData.email_from}. Errore: ${e.message}`,\n      ai_confidence: 0.1,\n      ai_items: [],\n      ai_tags: ['parsing-fallito', 'verifica-manuale']\n    };\n  }\n}\n\nconsole.log('[DEBUG] Parsed AI data action:', aiData?.action, 'title:', aiData?.ai_title);\n\n// Merge: dati email grezzi + analisi AI\nconst payload = {\n  // Email originale\n  email_from: emailData.email_from,\n  email_to: emailData.email_to || undefined,\n  email_subject: emailData.email_subject,\n  email_body: emailData.email_body,\n  email_date: emailData.email_date || undefined,\n  email_message_id: emailData.email_message_id || undefined,\n  \n  // AI analysis\n  action: aiData.action || 'new_request',\n  ai_matched_request_code: aiData.ai_matched_request_code || undefined,\n  ai_matched_external_ref: aiData.ai_matched_external_ref || undefined,\n  ai_vendor_code: aiData.ai_vendor_code || undefined,\n  ai_vendor_name: aiData.ai_vendor_name || undefined,\n  ai_title: aiData.ai_title || undefined,\n  ai_description: aiData.ai_description || undefined,\n  ai_priority: aiData.ai_priority || undefined,\n  ai_category: aiData.ai_category || undefined,\n  ai_department: aiData.ai_department || undefined,\n  ai_needed_by: aiData.ai_needed_by || undefined,\n  ai_estimated_amount: typeof aiData.ai_estimated_amount === 'number' ? aiData.ai_estimated_amount : undefined,\n  ai_actual_amount: typeof aiData.ai_actual_amount === 'number' ? aiData.ai_actual_amount : undefined,\n  ai_currency: aiData.ai_currency || 'EUR',\n  ai_status_update: aiData.ai_status_update || undefined,\n  ai_tracking_number: aiData.ai_tracking_number || undefined,\n  ai_external_ref: aiData.ai_external_ref || undefined,\n  ai_external_url: aiData.ai_external_url || undefined,\n  ai_expected_delivery: aiData.ai_expected_delivery || undefined,\n  ai_items: Array.isArray(aiData.ai_items) ? aiData.ai_items : [],\n  ai_summary: aiData.ai_summary || undefined,\n  ai_confidence: typeof aiData.ai_confidence === 'number' ? aiData.ai_confidence : 0.5,\n  ai_tags: Array.isArray(aiData.ai_tags) ? aiData.ai_tags : [],\n  attachments: []\n};\n\nconsole.log('[DEBUG] Final payload action:', payload.action, 'title:', payload.ai_title, 'items:', payload.ai_items.length);\n\nreturn [{ json: payload }];"
+      },
+      "id": "merge-data",
+      "name": "Combina Email + AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 300],
+      "notes": "Unisce i dati email grezzi con l'output strutturato dell'AI. Gestisce fallback se il parsing AI fallisce."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/webhooks/email-ingestion",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer procureflow-dev-secret-2025"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "send-webhook",
+      "name": "Invia a ProcureFlow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 300],
+      "notes": "Invia il payload AI-enriched all'endpoint ProcureFlow. In produzione, usa HMAC signature invece di Bearer token."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-response",
+      "name": "Verifica Risposta",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst data = item.json.data || {};\nconsole.log(`[ProcureFlow] ✅ ${data.action}: ${data.request_code} | items: ${data.items_created} | status_updated: ${data.status_updated} | confidence: ${data.ai_confidence}`);\nreturn [item];"
+      },
+      "id": "log-success",
+      "name": "Log Successo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1750, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst error = item.json.error || item.json;\nconsole.error('[ProcureFlow] ❌ Errore:', JSON.stringify(error));\n\n// Qui puoi aggiungere notifica Slack/email per errori\n\nreturn [item];"
+      },
+      "id": "log-error",
+      "name": "Log Errore",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1750, 400],
+      "notes": "Aggiungere qui notifica Slack/email/Telegram per errori in produzione."
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parsa Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsa Email": {
+      "main": [
+        [
+          {
+            "node": "AI Parsing (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Parsing (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Combina Email + AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combina Email + AI": {
+      "main": [
+        [
+          {
+            "node": "Invia a ProcureFlow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invia a ProcureFlow": {
+      "main": [
+        [
+          {
+            "node": "Verifica Risposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica Risposta": {
+      "main": [
+        [
+          {
+            "node": "Log Successo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Errore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "ProcureFlow"
+    },
+    {
+      "name": "AI"
+    }
+  ]
+}

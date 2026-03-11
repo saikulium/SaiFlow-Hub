@@ -1,0 +1,305 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// --- Auth (NextAuth) ---
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// --- Core Models ---
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  name          String
+  role          UserRole  @default(REQUESTER)
+  department    String?
+  avatar_url    String?
+  password_hash String?
+  created_at    DateTime  @default(now())
+
+  accounts      Account[]
+  sessions      Session[]
+  requests      PurchaseRequest[]
+  approvals     Approval[]
+  comments      Comment[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  REQUESTER
+  VIEWER
+}
+
+model Vendor {
+  id            String            @id @default(cuid())
+  name          String
+  code          String            @unique
+  email         String?
+  phone         String?
+  website       String?
+  portal_url    String?
+  portal_type   VendorPortalType?
+  category      String[]
+  payment_terms String?
+  rating        Float?
+  status        VendorStatus      @default(ACTIVE)
+  notes         String?
+  created_at    DateTime          @default(now())
+  updated_at    DateTime          @updatedAt
+
+  requests PurchaseRequest[]
+  contacts VendorContact[]
+
+  @@map("vendors")
+}
+
+enum VendorPortalType {
+  WEBSITE
+  EMAIL_ONLY
+  API
+  MARKETPLACE
+  PHONE
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+  PENDING_REVIEW
+}
+
+model VendorContact {
+  id        String @id @default(cuid())
+  vendor_id String
+  vendor    Vendor @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+  name      String
+  role      String?
+  email     String?
+  phone     String?
+
+  @@map("vendor_contacts")
+}
+
+model PurchaseRequest {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  title       String
+  description String?
+  status      RequestStatus @default(DRAFT)
+  priority    Priority      @default(MEDIUM)
+
+  requester_id String
+  requester    User   @relation(fields: [requester_id], references: [id])
+  vendor_id    String?
+  vendor       Vendor? @relation(fields: [vendor_id], references: [id])
+
+  estimated_amount  Decimal?  @db.Decimal(12, 2)
+  currency          String    @default("EUR")
+  actual_amount     Decimal?  @db.Decimal(12, 2)
+
+  needed_by         DateTime?
+  ordered_at        DateTime?
+  expected_delivery DateTime?
+  delivered_at      DateTime?
+
+  email_message_id String?   @unique
+
+  external_ref    String?
+  external_url    String?
+  tracking_number String?
+
+  category    String?
+  department  String?
+  cost_center String?
+  budget_code String?
+
+  tags       String[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  items       RequestItem[]
+  approvals   Approval[]
+  comments    Comment[]
+  attachments Attachment[]
+  timeline    TimelineEvent[]
+
+  @@index([status, created_at])
+  @@index([requester_id, status])
+  @@index([vendor_id, status])
+  @@index([needed_by])
+  @@index([department, cost_center])
+  @@map("purchase_requests")
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  ORDERED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  ON_HOLD
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model RequestItem {
+  id          String          @id @default(cuid())
+  request_id  String
+  request     PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  quantity    Int
+  unit        String?
+  unit_price  Decimal? @db.Decimal(12, 2)
+  total_price Decimal? @db.Decimal(12, 2)
+  sku         String?
+
+  @@map("request_items")
+}
+
+model Approval {
+  id          String          @id @default(cuid())
+  request_id  String
+  request     PurchaseRequest @relation(fields: [request_id], references: [id])
+  approver_id String
+  approver    User            @relation(fields: [approver_id], references: [id])
+
+  status      ApprovalStatus @default(PENDING)
+  decision_at DateTime?
+  notes       String?
+
+  created_at DateTime @default(now())
+
+  @@map("approvals")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DELEGATED
+}
+
+model TimelineEvent {
+  id          String          @id @default(cuid())
+  request_id  String
+  request     PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+
+  type             String
+  title            String
+  description      String?
+  metadata         Json?
+  actor            String?
+  email_message_id String?
+
+  created_at DateTime @default(now())
+
+  @@index([email_message_id])
+  @@map("timeline_events")
+}
+
+model Comment {
+  id          String          @id @default(cuid())
+  request_id  String
+  request     PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  author_id   String
+  author      User            @relation(fields: [author_id], references: [id])
+
+  content     String
+  is_internal Boolean @default(true)
+
+  created_at DateTime @default(now())
+
+  @@map("comments")
+}
+
+model Attachment {
+  id          String          @id @default(cuid())
+  request_id  String
+  request     PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+
+  filename  String
+  file_url  String
+  file_size Int?
+  mime_type String?
+
+  created_at DateTime @default(now())
+
+  @@map("attachments")
+}
+
+model Notification {
+  id      String  @id @default(cuid())
+  user_id String
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  title String
+  body  String
+  type  String
+  link  String?
+  read  Boolean @default(false)
+
+  created_at DateTime @default(now())
+
+  @@index([user_id, read])
+  @@map("notifications")
+}

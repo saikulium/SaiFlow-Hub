@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ProcureFlow Design System — Dark-first */
+:root {
+  /* Core Backgrounds */
+  --pf-bg-primary: #0A0A0B;
+  --pf-bg-secondary: #141416;
+  --pf-bg-tertiary: #1C1C1F;
+  --pf-bg-hover: #252528;
+
+  /* Brand Accent */
+  --pf-accent: #6366F1;
+  --pf-accent-hover: #818CF8;
+  --pf-accent-subtle: rgba(99,102,241,0.12);
+
+  /* Semantic */
+  --pf-success: #22C55E;
+  --pf-warning: #F59E0B;
+  --pf-danger: #EF4444;
+  --pf-info: #3B82F6;
+
+  /* Text */
+  --pf-text-primary: #FAFAFA;
+  --pf-text-secondary: #A1A1AA;
+  --pf-text-muted: #52525B;
+
+  /* Borders */
+  --pf-border: rgba(255,255,255,0.06);
+  --pf-border-hover: rgba(255,255,255,0.12);
+
+  /* Sidebar */
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 64px;
+}
+
+/* Light mode overrides */
+.light {
+  --pf-bg-primary: #FAFAFA;
+  --pf-bg-secondary: #FFFFFF;
+  --pf-bg-tertiary: #F4F4F5;
+  --pf-bg-hover: #E4E4E7;
+  --pf-text-primary: #09090B;
+  --pf-text-secondary: #71717A;
+  --pf-text-muted: #A1A1AA;
+  --pf-border: rgba(0,0,0,0.06);
+  --pf-border-hover: rgba(0,0,0,0.12);
+}
+
+@layer base {
+  body {
+    @apply bg-pf-bg-primary text-pf-text-primary font-body antialiased;
+  }
+
+  * {
+    @apply border-pf-border;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(82, 82, 91, 0.3);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(82, 82, 91, 0.5);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Gradient border utility */
+  .gradient-border {
+    position: relative;
+  }
+
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--pf-accent-subtle), transparent 60%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Shimmer skeleton */
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--pf-bg-tertiary) 25%,
+      var(--pf-bg-hover) 50%,
+      var(--pf-bg-tertiary) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite linear;
+  }
+}

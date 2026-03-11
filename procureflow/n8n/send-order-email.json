@@ -1,0 +1,94 @@
+{
+  "name": "ProcureFlow - Invio Ordine a Vendor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-order-email",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Ordine",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "send-order-email",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "ProcureFlow Bearer Auth"
+        }
+      },
+      "notes": "Riceve il payload dall'app ProcureFlow quando una richiesta viene approvata. Payload: { to, subject, body, request_code, request_id, vendor_name }"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {
+          "replyTo": ""
+        }
+      },
+      "id": "send-email",
+      "name": "Invia Email Ordine",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [500, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "notes": "Invia l'email di ordine al fornitore tramite Gmail. L'oggetto contiene [PR-CODE] per il tracking delle risposte."
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst data = item.json;\nconsole.log(`[ProcureFlow] Email ordine inviata: ${$('Webhook Ordine').first().json.request_code} → ${$('Webhook Ordine').first().json.to}`);\nreturn [{ json: { success: true, request_code: $('Webhook Ordine').first().json.request_code, sent_to: $('Webhook Ordine').first().json.to } }];"
+      },
+      "id": "log-success",
+      "name": "Log Successo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Ordine": {
+      "main": [
+        [
+          {
+            "node": "Invia Email Ordine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invia Email Ordine": {
+      "main": [
+        [
+          {
+            "node": "Log Successo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "ProcureFlow"
+    },
+    {
+      "name": "Ordini"
+    }
+  ]
+}
