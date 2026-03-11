@@ -53,3 +53,14 @@ export interface MonthlySpendTrend {
   period: string
   amount: number
 }
+
+// --- Invoice Stats ---
+
+export interface InvoiceStats {
+  totalInvoices: number
+  unmatchedInvoices: number
+  pendingReconciliation: number
+  disputedInvoices: number
+  totalInvoicedAmount: number
+  totalApprovedAmount: number
+}

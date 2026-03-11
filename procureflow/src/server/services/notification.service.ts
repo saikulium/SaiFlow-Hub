@@ -8,6 +8,11 @@ export const NOTIFICATION_TYPES = {
   STATUS_CHANGED: 'status_changed',
   EMAIL_INGESTION: 'email_ingestion',
   EMAIL_UPDATE: 'email_update',
+  INVOICE_RECEIVED: 'invoice_received',
+  INVOICE_MATCHED: 'invoice_matched',
+  INVOICE_MATCH_FAILED: 'invoice_match_failed',
+  INVOICE_DISCREPANCY: 'invoice_discrepancy',
+  INVOICE_RECONCILED: 'invoice_reconciled',
 } as const
 
 export type NotificationType =

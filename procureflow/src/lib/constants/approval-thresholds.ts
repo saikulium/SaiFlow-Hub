@@ -34,6 +34,9 @@ export const REQUEST_LIFECYCLE_STEPS: readonly RequestStatus[] = [
   'ORDERED',
   'SHIPPED',
   'DELIVERED',
+  'INVOICED',
+  'RECONCILED',
+  'CLOSED',
 ] as const
 
 /** Step labels in italiano */
@@ -45,6 +48,9 @@ export const LIFECYCLE_STEP_LABELS: Record<string, string> = {
   ORDERED: 'Ordinata',
   SHIPPED: 'Spedita',
   DELIVERED: 'Consegnata',
+  INVOICED: 'Fatturata',
+  RECONCILED: 'Riconciliata',
+  CLOSED: 'Chiusa',
   REJECTED: 'Rifiutata',
   CANCELLED: 'Annullata',
   ON_HOLD: 'In Attesa',

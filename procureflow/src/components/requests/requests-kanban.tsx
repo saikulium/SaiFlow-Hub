@@ -3,10 +3,7 @@
 import { useMemo } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import {
-  REQUEST_STATUS_CONFIG,
-  type RequestStatusKey,
-} from '@/lib/constants'
+import { REQUEST_STATUS_CONFIG, type RequestStatusKey } from '@/lib/constants'
 import { PriorityBadge } from '@/components/shared/priority-badge'
 import { formatCurrency, cn } from '@/lib/utils'
 import type { RequestListItem } from '@/hooks/use-requests'
@@ -31,6 +28,9 @@ const STATUS_BORDER_COLORS: Record<RequestStatusKey, string> = {
   DELIVERED: 'border-t-emerald-400',
   CANCELLED: 'border-t-zinc-500',
   ON_HOLD: 'border-t-orange-400',
+  INVOICED: 'border-t-violet-400',
+  RECONCILED: 'border-t-teal-400',
+  CLOSED: 'border-t-zinc-600',
 }
 
 interface RequestsKanbanProps {
@@ -53,7 +53,7 @@ function KanbanCard({ request, index }: KanbanCardProps) {
     >
       <Link
         href={`/requests/${request.id}`}
-        className="block rounded-card border border-pf-border bg-pf-bg-primary/60 p-3 transition-colors hover:border-pf-accent/40 hover:bg-pf-bg-elevated/50"
+        className="bg-pf-bg-primary/60 hover:border-pf-accent/40 hover:bg-pf-bg-elevated/50 block rounded-card border border-pf-border p-3 transition-colors"
       >
         <div className="mb-2 flex items-center justify-between">
           <span className="font-mono text-[11px] font-medium text-pf-accent">
@@ -83,7 +83,7 @@ function KanbanColumnSkeleton() {
       {Array.from({ length: 3 }, (_, i) => (
         <div
           key={i}
-          className="h-24 animate-pulse rounded-card border border-pf-border bg-pf-bg-elevated/40"
+          className="bg-pf-bg-elevated/40 h-24 animate-pulse rounded-card border border-pf-border"
         />
       ))}
     </div>
@@ -110,7 +110,7 @@ export function RequestsKanban({ data, isLoading }: RequestsKanbanProps) {
       <div className="flex gap-4 overflow-x-auto pb-4">
         {KANBAN_STATUSES.map((status) => (
           <div key={status} className="min-w-[280px] flex-1">
-            <div className="mb-3 h-8 w-32 animate-pulse rounded bg-pf-bg-elevated/40" />
+            <div className="bg-pf-bg-elevated/40 mb-3 h-8 w-32 animate-pulse rounded" />
             <KanbanColumnSkeleton />
           </div>
         ))}
@@ -129,7 +129,7 @@ export function RequestsKanban({ data, isLoading }: RequestsKanbanProps) {
             {/* Column header */}
             <div
               className={cn(
-                'mb-3 rounded-card border border-pf-border border-t-2 bg-pf-bg-secondary/60 px-3 py-2 backdrop-blur-xl',
+                'bg-pf-bg-secondary/60 mb-3 rounded-card border border-t-2 border-pf-border px-3 py-2 backdrop-blur-xl',
                 STATUS_BORDER_COLORS[status],
               )}
             >
@@ -155,12 +155,16 @@ export function RequestsKanban({ data, isLoading }: RequestsKanbanProps) {
             {/* Column cards */}
             <div className="flex max-h-[calc(100vh-340px)] flex-col gap-2 overflow-y-auto pr-1">
               {items.length === 0 ? (
-                <div className="rounded-card border border-dashed border-pf-border/60 p-4 text-center text-xs text-pf-text-secondary/60">
+                <div className="border-pf-border/60 text-pf-text-secondary/60 rounded-card border border-dashed p-4 text-center text-xs">
                   Nessuna richiesta
                 </div>
               ) : (
                 items.map((request, index) => (
-                  <KanbanCard key={request.id} request={request} index={index} />
+                  <KanbanCard
+                    key={request.id}
+                    request={request}
+                    index={index}
+                  />
                 ))
               )}
             </div>

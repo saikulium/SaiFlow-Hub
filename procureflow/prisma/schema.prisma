@@ -96,8 +96,11 @@ model Vendor {
   created_at    DateTime          @default(now())
   updated_at    DateTime          @updatedAt
 
+  vat_id   String?           @unique  // Partita IVA (per matching fatture)
+
   requests PurchaseRequest[]
   contacts VendorContact[]
+  invoices Invoice[]
 
   @@map("vendors")
 }
@@ -157,6 +160,15 @@ model PurchaseRequest {
   external_url    String?
   tracking_number String?
 
+  // Compliance italiana
+  cig             String?       // Codice Identificativo Gara (10 char alfanum)
+  cup             String?       // Codice Unico Progetto (15 char alfanum)
+  is_mepa         Boolean       @default(false) // Acquisto su MEPA/Consip
+  mepa_oda_number String?       // Numero ODA o trattativa diretta MEPA
+
+  // Importi fatturati
+  invoiced_amount Decimal?      @db.Decimal(12, 2)
+
   category    String?
   department  String?
   cost_center String?
@@ -171,6 +183,7 @@ model PurchaseRequest {
   comments    Comment[]
   attachments Attachment[]
   timeline    TimelineEvent[]
+  invoices    Invoice[]
 
   @@index([status, created_at])
   @@index([requester_id, status])
@@ -189,6 +202,9 @@ enum RequestStatus {
   ORDERED
   SHIPPED
   DELIVERED
+  INVOICED
+  RECONCILED
+  CLOSED
   CANCELLED
   ON_HOLD
 }
@@ -212,6 +228,12 @@ model RequestItem {
   unit_price  Decimal? @db.Decimal(12, 2)
   total_price Decimal? @db.Decimal(12, 2)
   sku         String?
+
+  // IVA per riga
+  vat_rate          Decimal? @db.Decimal(5, 2) @default(22.00)
+  vat_nature        String?  // Natura operazione se IVA=0 (N1-N7)
+  is_split_payment  Boolean  @default(false)
+  is_reverse_charge Boolean  @default(false)
 
   @@map("request_items")
 }
@@ -241,8 +263,11 @@ enum ApprovalStatus {
 
 model TimelineEvent {
   id          String          @id @default(cuid())
-  request_id  String
-  request     PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  request_id  String?
+  request     PurchaseRequest? @relation(fields: [request_id], references: [id], onDelete: Cascade)
+
+  invoice_id  String?
+  invoice     Invoice?        @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
 
   type             String
   title            String
@@ -254,6 +279,7 @@ model TimelineEvent {
   created_at DateTime @default(now())
 
   @@index([email_message_id])
+  @@index([invoice_id])
   @@map("timeline_events")
 }
 
@@ -302,4 +328,139 @@ model Notification {
 
   @@index([user_id, read])
   @@map("notifications")
+}
+
+// --- Fatturazione Elettronica (SDI) ---
+
+model Invoice {
+  id                    String               @id @default(cuid())
+
+  // Identificativi SDI
+  sdi_id                String?              @unique
+  sdi_filename          String?
+  sdi_status            String?              // RECEIVED, ACCEPTED, REJECTED
+
+  xml_raw               String?              @db.Text
+
+  // Dati fattura
+  invoice_number        String
+  invoice_date          DateTime
+  due_date              DateTime?
+  document_type         String               @default("TD01") // TD01=Fattura, TD04=Nota credito
+
+  // Importi
+  total_taxable         Decimal              @db.Decimal(12, 2)
+  total_tax             Decimal              @db.Decimal(12, 2)
+  total_amount          Decimal              @db.Decimal(12, 2)
+  currency              String               @default("EUR")
+
+  // Fornitore (estratti da XML)
+  supplier_vat_id       String
+  supplier_tax_code     String?
+  supplier_name         String
+
+  // Cliente (nostro tenant)
+  customer_vat_id       String
+
+  // Riferimenti per matching
+  causale               String?
+  external_ref          String?
+  pr_code_extracted     String?
+
+  // Pagamento
+  payment_method        String?
+  payment_terms         String?
+  iban                  String?
+
+  // Matching
+  match_status          InvoiceMatchStatus   @default(UNMATCHED)
+  match_confidence      Float?
+  match_candidates      Json?                // Array di request_id candidati
+  matched_at            DateTime?
+  matched_by            String?
+
+  // Riconciliazione
+  reconciliation_status ReconciliationStatus @default(PENDING)
+  reconciliation_notes  String?              @db.Text
+  reconciled_at         DateTime?
+  reconciled_by         String?
+
+  // Discrepanze three-way match
+  amount_discrepancy    Decimal?             @db.Decimal(12, 2)
+  discrepancy_type      DiscrepancyType?
+  discrepancy_resolved  Boolean              @default(false)
+
+  // Relazioni
+  vendor_id             String?
+  vendor                Vendor?              @relation(fields: [vendor_id], references: [id])
+  purchase_request_id   String?
+  purchase_request      PurchaseRequest?     @relation(fields: [purchase_request_id], references: [id])
+  tenant_id             String               @default("default")
+
+  line_items            InvoiceLineItem[]
+  timeline_events       TimelineEvent[]
+
+  received_at           DateTime             @default(now())
+  created_at            DateTime             @default(now())
+  updated_at            DateTime             @updatedAt
+
+  @@index([supplier_vat_id])
+  @@index([pr_code_extracted])
+  @@index([match_status])
+  @@index([reconciliation_status])
+  @@index([tenant_id])
+  @@index([invoice_date])
+  @@index([purchase_request_id])
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id              String   @id @default(cuid())
+
+  invoice_id      String
+  invoice         Invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  line_number     Int
+  description     String
+  quantity        Decimal  @db.Decimal(12, 4)
+  unit_of_measure String?
+  unit_price      Decimal  @db.Decimal(12, 4)
+  total_price     Decimal  @db.Decimal(12, 2)
+
+  // IVA per riga
+  vat_rate        Decimal  @db.Decimal(5, 2)
+  vat_amount      Decimal? @db.Decimal(12, 2)
+  vat_nature      String?  // Natura operazione se IVA=0 (N1-N7)
+
+  // Matching con riga ordine
+  matched_item_id String?
+
+  created_at      DateTime @default(now())
+
+  @@map("invoice_line_items")
+}
+
+enum InvoiceMatchStatus {
+  UNMATCHED
+  AUTO_MATCHED
+  SUGGESTED
+  MANUALLY_MATCHED
+  NO_MATCH
+}
+
+enum ReconciliationStatus {
+  PENDING
+  MATCHED
+  APPROVED
+  DISPUTED
+  REJECTED
+  PAID
+}
+
+enum DiscrepancyType {
+  AMOUNT_MISMATCH
+  QUANTITY_MISMATCH
+  PRICE_MISMATCH
+  ITEM_MISMATCH
+  NONE
 }

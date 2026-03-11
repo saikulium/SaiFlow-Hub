@@ -15,6 +15,9 @@ import {
   PackageCheck,
   Ban,
   Pause,
+  Receipt,
+  CheckCheck,
+  Lock,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -29,6 +32,9 @@ export type RequestStatusKey =
   | 'ORDERED'
   | 'SHIPPED'
   | 'DELIVERED'
+  | 'INVOICED'
+  | 'RECONCILED'
+  | 'CLOSED'
   | 'CANCELLED'
   | 'ON_HOLD'
 
@@ -99,6 +105,24 @@ export const REQUEST_STATUS_CONFIG: Record<RequestStatusKey, StatusConfig> = {
     color: 'text-orange-400',
     bgColor: 'bg-orange-400/10',
     icon: Pause,
+  },
+  INVOICED: {
+    label: 'Fatturata',
+    color: 'text-violet-400',
+    bgColor: 'bg-violet-400/10',
+    icon: Receipt,
+  },
+  RECONCILED: {
+    label: 'Riconciliata',
+    color: 'text-teal-400',
+    bgColor: 'bg-teal-400/10',
+    icon: CheckCheck,
+  },
+  CLOSED: {
+    label: 'Chiusa',
+    color: 'text-zinc-500',
+    bgColor: 'bg-zinc-500/10',
+    icon: Lock,
   },
 }
 
@@ -190,14 +214,30 @@ export interface NavItem {
   label: string
   href: string
   icon: LucideIcon
-  badge?: 'requests' | 'approvals'
+  badge?: 'requests' | 'approvals' | 'invoices'
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { label: 'Richieste', href: '/requests', icon: ClipboardList, badge: 'requests' },
+  {
+    label: 'Richieste',
+    href: '/requests',
+    icon: ClipboardList,
+    badge: 'requests',
+  },
   { label: 'Fornitori', href: '/vendors', icon: Building2 },
-  { label: 'Approvazioni', href: '/approvals', icon: CheckCircle2, badge: 'approvals' },
+  {
+    label: 'Approvazioni',
+    href: '/approvals',
+    icon: CheckCircle2,
+    badge: 'approvals',
+  },
+  {
+    label: 'Fatture',
+    href: '/invoices',
+    icon: Receipt,
+    badge: 'invoices',
+  },
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Impostazioni', href: '/settings', icon: Settings },
 ]

@@ -18,7 +18,18 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   // Sequential queries to avoid exhausting Supabase free tier connection pool
   const activeRequests = await prisma.purchaseRequest.count({
-    where: { status: { notIn: ['DELIVERED', 'CANCELLED', 'REJECTED'] } },
+    where: {
+      status: {
+        notIn: [
+          'DELIVERED',
+          'INVOICED',
+          'RECONCILED',
+          'CLOSED',
+          'CANCELLED',
+          'REJECTED',
+        ],
+      },
+    },
   })
   const pendingApprovals = await prisma.purchaseRequest.count({
     where: { status: 'PENDING_APPROVAL' },
@@ -38,7 +49,16 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   })
   const prevActiveRequests = await prisma.purchaseRequest.count({
     where: {
-      status: { notIn: ['DELIVERED', 'CANCELLED', 'REJECTED'] },
+      status: {
+        notIn: [
+          'DELIVERED',
+          'INVOICED',
+          'RECONCILED',
+          'CLOSED',
+          'CANCELLED',
+          'REJECTED',
+        ],
+      },
       created_at: { lt: startOfMonth },
     },
   })
@@ -152,7 +172,16 @@ export async function getSpendByVendor(): Promise<SpendByVendor[]> {
     by: ['vendor_id'],
     _sum: { estimated_amount: true },
     where: {
-      status: { in: ['ORDERED', 'SHIPPED', 'DELIVERED'] },
+      status: {
+        in: [
+          'ORDERED',
+          'SHIPPED',
+          'DELIVERED',
+          'INVOICED',
+          'RECONCILED',
+          'CLOSED',
+        ],
+      },
       vendor_id: { not: null },
     },
     orderBy: { _sum: { estimated_amount: 'desc' } },

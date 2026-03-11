@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<p:FatturaElettronica versione="FPR12" xmlns:p="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2">
+  <FatturaElettronicaHeader>
+    <DatiTrasmissione>
+      <IdTrasmittente>
+        <IdPaese>IT</IdPaese>
+        <IdCodice>11223344556</IdCodice>
+      </IdTrasmittente>
+      <ProgressivoInvio>00042</ProgressivoInvio>
+      <FormatoTrasmissione>FPR12</FormatoTrasmissione>
+      <CodiceDestinatario>XYZ9876</CodiceDestinatario>
+    </DatiTrasmissione>
+    <CedentePrestatore>
+      <DatiAnagrafici>
+        <IdFiscaleIVA>
+          <IdPaese>IT</IdPaese>
+          <IdCodice>11223344556</IdCodice>
+        </IdFiscaleIVA>
+        <Anagrafica>
+          <Denominazione>Ufficio Supplies Italia Srl</Denominazione>
+        </Anagrafica>
+        <RegimeFiscale>RF01</RegimeFiscale>
+      </DatiAnagrafici>
+      <Sede>
+        <Indirizzo>Corso Vittorio Emanuele 55</Indirizzo>
+        <CAP>10100</CAP>
+        <Comune>Torino</Comune>
+        <Provincia>TO</Provincia>
+        <Nazione>IT</Nazione>
+      </Sede>
+    </CedentePrestatore>
+    <CessionarioCommittente>
+      <DatiAnagrafici>
+        <IdFiscaleIVA>
+          <IdPaese>IT</IdPaese>
+          <IdCodice>09876543210</IdCodice>
+        </IdFiscaleIVA>
+        <Anagrafica>
+          <Denominazione>SaiFlow Srl</Denominazione>
+        </Anagrafica>
+      </DatiAnagrafici>
+      <Sede>
+        <Indirizzo>Via Milano 10</Indirizzo>
+        <CAP>20100</CAP>
+        <Comune>Milano</Comune>
+        <Provincia>MI</Provincia>
+        <Nazione>IT</Nazione>
+      </Sede>
+    </CessionarioCommittente>
+  </FatturaElettronicaHeader>
+  <FatturaElettronicaBody>
+    <DatiGenerali>
+      <DatiGeneraliDocumento>
+        <TipoDocumento>TD01</TipoDocumento>
+        <Divisa>EUR</Divisa>
+        <Data>2025-03-10</Data>
+        <Numero>2025/FT/088</Numero>
+        <ImportoTotaleDocumento>610.00</ImportoTotaleDocumento>
+        <Causale>Vs. ordine PR-2025-00003 del 25/02 - materiale ufficio e cancelleria</Causale>
+      </DatiGeneraliDocumento>
+    </DatiGenerali>
+    <DatiBeniServizi>
+      <DettaglioLinee>
+        <NumeroLinea>1</NumeroLinea>
+        <Descrizione>Penne BIC Cristal (confezione 50)</Descrizione>
+        <Quantita>20.00</Quantita>
+        <PrezzoUnitario>8.00</PrezzoUnitario>
+        <PrezzoTotale>160.00</PrezzoTotale>
+        <AliquotaIVA>22.00</AliquotaIVA>
+      </DettaglioLinee>
+      <DettaglioLinee>
+        <NumeroLinea>2</NumeroLinea>
+        <Descrizione>Post-it 76x76mm assortiti</Descrizione>
+        <Quantita>50.00</Quantita>
+        <PrezzoUnitario>3.00</PrezzoUnitario>
+        <PrezzoTotale>150.00</PrezzoTotale>
+        <AliquotaIVA>22.00</AliquotaIVA>
+      </DettaglioLinee>
+      <DettaglioLinee>
+        <NumeroLinea>3</NumeroLinea>
+        <Descrizione>Raccoglitore ad anelli A4</Descrizione>
+        <Quantita>30.00</Quantita>
+        <PrezzoUnitario>6.00</PrezzoUnitario>
+        <PrezzoTotale>180.00</PrezzoTotale>
+        <AliquotaIVA>22.00</AliquotaIVA>
+      </DettaglioLinee>
+      <DatiRiepilogo>
+        <AliquotaIVA>22.00</AliquotaIVA>
+        <ImponibileImporto>490.00</ImponibileImporto>
+        <Imposta>107.80</Imposta>
+      </DatiRiepilogo>
+    </DatiBeniServizi>
+    <DatiPagamento>
+      <CondizioniPagamento>TP02</CondizioniPagamento>
+      <DettaglioPagamento>
+        <ModalitaPagamento>MP05</ModalitaPagamento>
+        <DataScadenzaPagamento>2025-04-10</DataScadenzaPagamento>
+        <ImportoPagamento>610.00</ImportoPagamento>
+      </DettaglioPagamento>
+    </DatiPagamento>
+  </FatturaElettronicaBody>
+</p:FatturaElettronica>
