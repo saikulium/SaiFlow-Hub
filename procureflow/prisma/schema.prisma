@@ -69,6 +69,9 @@ model User {
   comments      Comment[]
   notifications Notification[]
 
+  tenders_assigned  Tender[]  @relation("TenderAssigned")
+  tenders_created   Tender[]  @relation("TenderCreated")
+
   @@map("users")
 }
 
@@ -101,6 +104,8 @@ model Vendor {
   requests PurchaseRequest[]
   contacts VendorContact[]
   invoices Invoice[]
+
+  tenders_as_authority  Tender[]  @relation("TenderAuthority")
 
   @@map("vendors")
 }
@@ -190,6 +195,7 @@ model PurchaseRequest {
   @@index([vendor_id, status])
   @@index([needed_by])
   @@index([department, cost_center])
+  @@index([cost_center, status])
   @@map("purchase_requests")
 }
 
@@ -463,4 +469,220 @@ enum DiscrepancyType {
   PRICE_MISMATCH
   ITEM_MISMATCH
   NONE
+}
+
+// --- Budget Management ---
+
+enum BudgetPeriodType {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum BudgetEnforcementMode {
+  SOFT
+  HARD
+}
+
+model Budget {
+  id                      String                @id @default(cuid())
+  cost_center             String
+  department              String?
+  period_type             BudgetPeriodType
+  period_start            DateTime
+  period_end              DateTime
+  allocated_amount        Decimal               @db.Decimal(12, 2)
+  alert_threshold_percent Int                   @default(80)
+  enforcement_mode        BudgetEnforcementMode @default(SOFT)
+  notes                   String?
+  is_active               Boolean               @default(true)
+
+  created_by              String
+  created_at              DateTime              @default(now())
+  updated_at              DateTime              @updatedAt
+
+  snapshots               BudgetSnapshot[]
+
+  @@index([cost_center, period_start, period_end])
+  @@index([is_active, cost_center])
+  @@map("budgets")
+}
+
+model BudgetSnapshot {
+  id          String   @id @default(cuid())
+  budget_id   String
+  budget      Budget   @relation(fields: [budget_id], references: [id], onDelete: Cascade)
+
+  spent       Decimal  @db.Decimal(12, 2)
+  committed   Decimal  @db.Decimal(12, 2)
+  available   Decimal  @db.Decimal(12, 2)
+  computed_at DateTime @default(now())
+
+  @@index([budget_id, computed_at])
+  @@map("budget_snapshots")
+}
+
+// --- Deploy Configuration ---
+
+model DeployConfig {
+  id              String   @id @default("default")
+  deploy_name     String   @default("ProcureFlow")
+  enabled_modules String[] // ["core", "invoicing", "budgets", ...]
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@map("deploy_config")
+}
+
+// --- Tenders (Gare d'Appalto) ---
+
+enum TenderStatus {
+  DISCOVERED
+  EVALUATING
+  GO
+  NO_GO
+  PREPARING
+  SUBMITTED
+  UNDER_EVALUATION
+  WON
+  LOST
+  AWARDED
+  CANCELLED
+  WITHDRAWN
+}
+
+enum TenderType {
+  OPEN
+  RESTRICTED
+  NEGOTIATED
+  DIRECT_AWARD
+  MEPA
+  FRAMEWORK
+  PRIVATE
+}
+
+enum TenderDocumentType {
+  BANDO
+  CAPITOLATO
+  DISCIPLINARE
+  ALLEGATO
+  OFFERTA_TECNICA
+  OFFERTA_ECONOMICA
+  CAUZIONE
+  DGUE
+  CONTRATTO
+  VERBALE
+  ALTRO
+}
+
+enum GoNoGoDecision {
+  PENDING
+  GO
+  NO_GO
+}
+
+model Tender {
+  id                        String          @id @default(cuid())
+  code                      String          @unique  // GARA-2026-00001
+  title                     String
+  description               String?         @db.Text
+  status                    TenderStatus    @default(DISCOVERED)
+  tender_type               TenderType
+
+  contracting_authority_id  String?
+  contracting_authority     Vendor?         @relation("TenderAuthority", fields: [contracting_authority_id], references: [id])
+
+  cig                       String?
+  cup                       String?
+  gara_number               String?
+  lotto_number              String?
+  platform_url              String?
+  anac_id                   String?
+
+  base_amount               Decimal?        @db.Decimal(12, 2)
+  our_offer_amount          Decimal?        @db.Decimal(12, 2)
+  awarded_amount            Decimal?        @db.Decimal(12, 2)
+  currency                  String          @default("EUR")
+
+  go_no_go                  GoNoGoDecision  @default(PENDING)
+  go_no_go_score            Int?
+  go_no_go_notes            String?         @db.Text
+  go_no_go_decided_by       String?
+  go_no_go_decided_at       DateTime?
+
+  publication_date          DateTime?
+  question_deadline         DateTime?
+  submission_deadline       DateTime?
+  opening_date              DateTime?
+  award_date                DateTime?
+  contract_start_date       DateTime?
+  contract_end_date         DateTime?
+
+  award_criteria            String?
+  technical_weight          Int?
+  economic_weight           Int?
+
+  our_technical_score       Decimal?        @db.Decimal(5, 2)
+  our_economic_score        Decimal?        @db.Decimal(5, 2)
+  our_total_score           Decimal?        @db.Decimal(5, 2)
+  winner_name               String?
+  winner_amount             Decimal?        @db.Decimal(12, 2)
+  participants_count        Int?
+
+  category                  String?
+  department                String?
+  cost_center               String?
+  tags                      String[]
+
+  assigned_to_id            String?
+  assigned_to               User?           @relation("TenderAssigned", fields: [assigned_to_id], references: [id])
+  created_by_id             String
+  created_by                User            @relation("TenderCreated", fields: [created_by_id], references: [id])
+
+  notes                     String?         @db.Text
+  created_at                DateTime        @default(now())
+  updated_at                DateTime        @updatedAt
+
+  documents                 TenderDocument[]
+  timeline                  TenderTimeline[]
+
+  @@index([status, submission_deadline])
+  @@index([status, created_at])
+  @@index([cig])
+  @@index([contracting_authority_id, status])
+  @@index([assigned_to_id, status])
+  @@map("tenders")
+}
+
+model TenderDocument {
+  id              String              @id @default(cuid())
+  tender_id       String
+  tender          Tender              @relation(fields: [tender_id], references: [id], onDelete: Cascade)
+  document_type   TenderDocumentType
+  filename        String
+  file_url        String
+  file_size       Int?
+  mime_type       String?
+  version         Int                 @default(1)
+  notes           String?
+  uploaded_by     String?
+  created_at      DateTime            @default(now())
+
+  @@index([tender_id, document_type])
+  @@map("tender_documents")
+}
+
+model TenderTimeline {
+  id              String    @id @default(cuid())
+  tender_id       String
+  tender          Tender    @relation(fields: [tender_id], references: [id], onDelete: Cascade)
+  type            String
+  title           String
+  description     String?
+  metadata        Json?
+  actor           String?
+  created_at      DateTime  @default(now())
+
+  @@index([tender_id, created_at])
+  @@map("tender_timeline")
 }
