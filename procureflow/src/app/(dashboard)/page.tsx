@@ -4,13 +4,7 @@ import { Suspense } from 'react'
 import { PageTransition } from '@/components/shared/page-transition'
 import { StatsRow } from '@/components/dashboard/stats-row'
 import { StatsRowSkeleton } from '@/components/dashboard/stat-card-skeleton'
-import { RecentRequestsList } from '@/components/dashboard/recent-requests-list'
-import { QuickActions } from '@/components/dashboard/quick-actions'
-import { DeliveryTimeline } from '@/components/dashboard/delivery-timeline'
-import { SpendByVendorChart } from '@/components/dashboard/spend-by-vendor-chart'
-import { RequestsTrendChart } from '@/components/dashboard/requests-trend-chart'
-import { StatusDistributionChart } from '@/components/dashboard/status-distribution-chart'
-import { MonthlySpendTrendChart } from '@/components/dashboard/monthly-spend-trend-chart'
+import { DashboardTabs } from '@/components/dashboard/dashboard-tabs'
 import {
   getDashboardStats,
   getRecentRequests,
@@ -19,17 +13,76 @@ import {
   getRequestsTrend,
   getStatusDistribution,
   getMonthlySpendTrend,
+  getInvoiceStats,
+  getInvoiceMatchDistribution,
+  getInvoiceAgingBuckets,
+  getOrderedVsInvoiced,
+  getBudgetDashboardStats,
+  getTenderDashboardStats,
 } from '@/server/services/dashboard.service'
+import { getEnabledModules } from '@/server/services/module.service'
+
+const DEFAULT_INVOICE_STATS = {
+  totalInvoices: 0,
+  unmatchedInvoices: 0,
+  pendingReconciliation: 0,
+  disputedInvoices: 0,
+  totalInvoicedAmount: 0,
+  totalApprovedAmount: 0,
+  discrepanzeAperte: 0,
+  totaleFatturatoMese: 0,
+  totaleDaPagare: 0,
+}
+
+const DEFAULT_TENDER_STATS = {
+  activeTenders: 0,
+  pipelineValue: 0,
+  upcomingDeadlines: 0,
+  winRate: 0,
+  winRatePrevious: 0,
+  byStatus: [],
+  recentResults: [],
+  nearDeadlines: [],
+}
+
+const DEFAULT_BUDGET_STATS = {
+  totalAllocated: 0,
+  totalSpent: 0,
+  totalCommitted: 0,
+  totalAvailable: 0,
+  centricostoInWarning: 0,
+  centricostoSforati: 0,
+  budgets: [] as never[],
+}
 
 async function DashboardContent() {
+  const modules = await getEnabledModules()
+  const hasInvoicing = modules.includes('invoicing')
+  const hasBudgets = modules.includes('budgets')
+  const hasAnalytics = modules.includes('analytics')
+  const hasTenders = modules.includes('tenders')
+
   // Sequential queries to avoid exhausting connection pool on Supabase free tier
+  // Skip queries for disabled modules
   const stats = await getDashboardStats()
   const recentRequests = await getRecentRequests(10)
   const deliveries = await getUpcomingDeliveries(5)
-  const spendByVendor = await getSpendByVendor()
-  const trend = await getRequestsTrend()
+  const spendByVendor = hasAnalytics ? await getSpendByVendor() : []
+  const trend = hasAnalytics ? await getRequestsTrend() : []
   const statusDist = await getStatusDistribution()
   const monthlySpend = await getMonthlySpendTrend()
+  const invoiceStats = hasInvoicing
+    ? await getInvoiceStats()
+    : DEFAULT_INVOICE_STATS
+  const matchDist = hasInvoicing ? await getInvoiceMatchDistribution() : []
+  const invoiceAging = hasInvoicing ? await getInvoiceAgingBuckets() : []
+  const orderedVsInvoiced = hasInvoicing ? await getOrderedVsInvoiced() : []
+  const budgetStats = hasBudgets
+    ? await getBudgetDashboardStats().catch(() => DEFAULT_BUDGET_STATS)
+    : DEFAULT_BUDGET_STATS
+  const tenderStats = hasTenders
+    ? await getTenderDashboardStats().catch(() => DEFAULT_TENDER_STATS)
+    : DEFAULT_TENDER_STATS
 
   return (
     <PageTransition>
@@ -44,29 +97,24 @@ async function DashboardContent() {
           </p>
         </div>
 
-        {/* Stats Row */}
+        {/* Stats Row — always visible */}
         <StatsRow stats={stats} />
 
-        {/* Main content: Recent Requests + Quick Actions */}
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <RecentRequestsList requests={recentRequests} />
-          <div className="space-y-6">
-            <QuickActions />
-            <DeliveryTimeline deliveries={deliveries} />
-          </div>
-        </div>
-
-        {/* Charts Row 1 */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <MonthlySpendTrendChart data={monthlySpend} />
-          <StatusDistributionChart data={statusDist} />
-        </div>
-
-        {/* Charts Row 2 */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <SpendByVendorChart data={spendByVendor} />
-          <RequestsTrendChart data={trend} />
-        </div>
+        {/* Tabbed Content */}
+        <DashboardTabs
+          recentRequests={recentRequests}
+          deliveries={deliveries}
+          monthlySpend={monthlySpend}
+          statusDist={statusDist}
+          invoiceStats={invoiceStats}
+          matchDist={matchDist}
+          invoiceAging={invoiceAging}
+          orderedVsInvoiced={orderedVsInvoiced}
+          budgetStats={budgetStats}
+          tenderStats={tenderStats}
+          spendByVendor={spendByVendor}
+          trend={trend}
+        />
       </div>
     </PageTransition>
   )
@@ -88,20 +136,18 @@ function DashboardSkeleton() {
         <div className="skeleton-shimmer mt-2 h-4 w-64 rounded" />
       </div>
       <StatsRowSkeleton />
+      {/* Tab bar skeleton */}
+      <div className="flex gap-1 rounded-lg border border-pf-border bg-pf-bg-secondary p-1">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="skeleton-shimmer h-9 w-28 rounded-md" />
+        ))}
+      </div>
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="skeleton-shimmer h-96 rounded-card" />
         <div className="space-y-6">
           <div className="skeleton-shimmer h-48 rounded-card" />
           <div className="skeleton-shimmer h-64 rounded-card" />
         </div>
-      </div>
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="skeleton-shimmer h-80 rounded-card" />
-        <div className="skeleton-shimmer h-80 rounded-card" />
-      </div>
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="skeleton-shimmer h-80 rounded-card" />
-        <div className="skeleton-shimmer h-80 rounded-card" />
       </div>
     </div>
   )

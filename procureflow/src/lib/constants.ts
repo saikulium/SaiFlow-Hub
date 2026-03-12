@@ -18,6 +18,9 @@ import {
   Receipt,
   CheckCheck,
   Lock,
+  Users,
+  PiggyBank,
+  Gavel,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -238,7 +241,10 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Receipt,
     badge: 'invoices',
   },
+  { label: 'Budget', href: '/budgets', icon: PiggyBank },
+  { label: 'Gare', href: '/tenders', icon: Gavel },
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { label: 'Utenti', href: '/users', icon: Users },
   { label: 'Impostazioni', href: '/settings', icon: Settings },
 ]
 

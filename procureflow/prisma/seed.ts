@@ -8,6 +8,7 @@ import {
   VendorPortalType,
   ApprovalStatus,
 } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
 const Decimal = Prisma.Decimal
 
@@ -28,6 +29,9 @@ function daysFromNow(days: number): Date {
 async function main() {
   // Clean existing data
   await prisma.$transaction([
+    prisma.tenderTimeline.deleteMany(),
+    prisma.tenderDocument.deleteMany(),
+    prisma.tender.deleteMany(),
     prisma.notification.deleteMany(),
     prisma.comment.deleteMany(),
     prisma.attachment.deleteMany(),
@@ -37,6 +41,8 @@ async function main() {
     prisma.purchaseRequest.deleteMany(),
     prisma.vendorContact.deleteMany(),
     prisma.vendor.deleteMany(),
+    prisma.budget.deleteMany(),
+    prisma.deployConfig.deleteMany(),
     prisma.session.deleteMany(),
     prisma.account.deleteMany(),
     prisma.verificationToken.deleteMany(),
@@ -44,6 +50,9 @@ async function main() {
   ])
 
   // --- Users ---
+  const defaultPassword = await bcrypt.hash('password123', 12)
+  const adminPassword = await bcrypt.hash('admin123', 12)
+
   const users = await Promise.all([
     prisma.user.create({
       data: {
@@ -52,6 +61,7 @@ async function main() {
         name: 'Marco Rossi',
         role: UserRole.ADMIN,
         department: 'Direzione',
+        password_hash: adminPassword,
       },
     }),
     prisma.user.create({
@@ -61,6 +71,7 @@ async function main() {
         name: 'Laura Bianchi',
         role: UserRole.MANAGER,
         department: 'Acquisti',
+        password_hash: defaultPassword,
       },
     }),
     prisma.user.create({
@@ -70,6 +81,7 @@ async function main() {
         name: 'Giuseppe Verde',
         role: UserRole.REQUESTER,
         department: 'Produzione',
+        password_hash: defaultPassword,
       },
     }),
     prisma.user.create({
@@ -79,6 +91,7 @@ async function main() {
         name: 'Francesca Neri',
         role: UserRole.REQUESTER,
         department: 'IT',
+        password_hash: defaultPassword,
       },
     }),
     prisma.user.create({
@@ -88,6 +101,7 @@ async function main() {
         name: 'Alessio Conti',
         role: UserRole.VIEWER,
         department: 'Contabilità',
+        password_hash: defaultPassword,
       },
     }),
   ])
@@ -908,6 +922,256 @@ async function main() {
       },
     })
   }
+
+  // --- Budget seed ---
+  const budgetData = [
+    {
+      cost_center: 'CC-PRD',
+      department: 'Produzione',
+      period_type: 'QUARTERLY' as const,
+      period_start: new Date(2026, 0, 1),
+      period_end: new Date(2026, 2, 31),
+      allocated_amount: 50000,
+      alert_threshold_percent: 80,
+      enforcement_mode: 'SOFT' as const,
+    },
+    {
+      cost_center: 'CC-IT',
+      department: 'IT',
+      period_type: 'QUARTERLY' as const,
+      period_start: new Date(2026, 0, 1),
+      period_end: new Date(2026, 2, 31),
+      allocated_amount: 30000,
+      alert_threshold_percent: 75,
+      enforcement_mode: 'HARD' as const,
+    },
+    {
+      cost_center: 'CC-ACQ',
+      department: 'Acquisti',
+      period_type: 'ANNUAL' as const,
+      period_start: new Date(2026, 0, 1),
+      period_end: new Date(2026, 11, 31),
+      allocated_amount: 200000,
+      alert_threshold_percent: 85,
+      enforcement_mode: 'SOFT' as const,
+    },
+  ]
+
+  for (const b of budgetData) {
+    await prisma.budget.create({
+      data: {
+        ...b,
+        created_by: marco!.id,
+      },
+    })
+  }
+  console.log(`  ✓ ${budgetData.length} budget creati`)
+
+  // --- Tender seed ---
+  const tendersData = [
+    {
+      code: 'GARA-2026-00001',
+      title: 'Fornitura cavi in fibra ottica - Lotto 1',
+      description:
+        'Fornitura e posa di cavi in fibra ottica per infrastruttura rete aziendale',
+      status: 'PREPARING' as const,
+      tender_type: 'OPEN' as const,
+      cig: '1234567890',
+      base_amount: 250000,
+      our_offer_amount: 228000,
+      submission_deadline: daysFromNow(34),
+      publication_date: daysAgo(30),
+      question_deadline: daysFromNow(20),
+      go_no_go: 'GO' as const,
+      go_no_go_score: 72,
+      go_no_go_notes: 'Margine buono, esperienza nel settore',
+      category: 'Infrastruttura',
+      department: 'IT',
+      contracting_authority_id: 'vendor-techparts',
+    },
+    {
+      code: 'GARA-2026-00002',
+      title: 'Servizio di manutenzione impianti elettrici',
+      description:
+        'Manutenzione ordinaria e straordinaria degli impianti elettrici aziendali',
+      status: 'DISCOVERED' as const,
+      tender_type: 'NEGOTIATED' as const,
+      cig: '2345678901',
+      base_amount: 180000,
+      submission_deadline: daysFromNow(45),
+      publication_date: daysAgo(5),
+      go_no_go: 'PENDING' as const,
+      category: 'Manutenzione',
+      department: 'Produzione',
+      contracting_authority_id: 'vendor-elettronica',
+    },
+    {
+      code: 'GARA-2026-00003',
+      title: 'Fornitura DPI per stabilimento produttivo',
+      description:
+        'Fornitura biennale di dispositivi di protezione individuale',
+      status: 'EVALUATING' as const,
+      tender_type: 'RESTRICTED' as const,
+      cig: '3456789012',
+      base_amount: 95000,
+      submission_deadline: daysFromNow(12),
+      publication_date: daysAgo(20),
+      question_deadline: daysFromNow(5),
+      go_no_go: 'PENDING' as const,
+      go_no_go_score: 58,
+      category: 'DPI',
+      department: 'Produzione',
+      contracting_authority_id: 'vendor-safety',
+    },
+    {
+      code: 'GARA-2026-00004',
+      title: 'Acquisto materiale di cancelleria - Accordo Quadro',
+      description: 'Accordo quadro triennale per fornitura cancelleria uffici',
+      status: 'SUBMITTED' as const,
+      tender_type: 'FRAMEWORK' as const,
+      cig: '4567890123',
+      base_amount: 45000,
+      our_offer_amount: 42500,
+      submission_deadline: daysAgo(5),
+      publication_date: daysAgo(60),
+      opening_date: daysFromNow(7),
+      go_no_go: 'GO' as const,
+      go_no_go_score: 81,
+      go_no_go_notes: 'Basso rischio, buon margine',
+      category: 'Cancelleria',
+      department: 'Acquisti',
+      contracting_authority_id: 'vendor-cartaria',
+    },
+    {
+      code: 'GARA-2026-00005',
+      title: 'Fornitura prodotti chimici industriali',
+      description:
+        'Fornitura annuale di detergenti e lubrificanti per stabilimento',
+      status: 'WON' as const,
+      tender_type: 'OPEN' as const,
+      cig: '5678901234',
+      base_amount: 120000,
+      our_offer_amount: 108000,
+      awarded_amount: 108000,
+      submission_deadline: daysAgo(45),
+      publication_date: daysAgo(90),
+      award_date: daysAgo(10),
+      go_no_go: 'GO' as const,
+      go_no_go_score: 85,
+      our_technical_score: 78.5,
+      our_economic_score: 92.0,
+      our_total_score: 83.9,
+      winner_name: 'SaiFlow Srl',
+      winner_amount: 108000,
+      participants_count: 4,
+      category: 'Chimica',
+      department: 'Produzione',
+      contracting_authority_id: 'vendor-chemsupply',
+    },
+    {
+      code: 'GARA-2026-00006',
+      title: 'Servizio packaging e imballaggi speciali',
+      description:
+        'Servizio di confezionamento e imballaggio per spedizioni internazionali',
+      status: 'LOST' as const,
+      tender_type: 'MEPA' as const,
+      cig: '6789012345',
+      base_amount: 75000,
+      our_offer_amount: 71000,
+      submission_deadline: daysAgo(30),
+      publication_date: daysAgo(75),
+      award_date: daysAgo(5),
+      go_no_go: 'GO' as const,
+      go_no_go_score: 65,
+      our_technical_score: 68.0,
+      our_economic_score: 85.0,
+      our_total_score: 74.8,
+      winner_name: 'PackExpert SpA',
+      winner_amount: 67500,
+      participants_count: 6,
+      category: 'Packaging',
+      department: 'Produzione',
+      contracting_authority_id: 'vendor-packaging',
+    },
+  ]
+
+  for (const t of tendersData) {
+    const tender = await prisma.tender.create({
+      data: {
+        code: t.code,
+        title: t.title,
+        description: t.description ?? null,
+        status: t.status,
+        tender_type: t.tender_type,
+        cig: t.cig ?? null,
+        base_amount: t.base_amount ? new Decimal(t.base_amount) : null,
+        our_offer_amount: t.our_offer_amount
+          ? new Decimal(t.our_offer_amount)
+          : null,
+        awarded_amount: t.awarded_amount ? new Decimal(t.awarded_amount) : null,
+        submission_deadline: t.submission_deadline ?? null,
+        publication_date: t.publication_date ?? null,
+        question_deadline: t.question_deadline ?? null,
+        opening_date: t.opening_date ?? null,
+        award_date: t.award_date ?? null,
+        go_no_go: t.go_no_go,
+        go_no_go_score: t.go_no_go_score ?? null,
+        go_no_go_notes: t.go_no_go_notes ?? null,
+        our_technical_score: t.our_technical_score
+          ? new Decimal(t.our_technical_score)
+          : null,
+        our_economic_score: t.our_economic_score
+          ? new Decimal(t.our_economic_score)
+          : null,
+        our_total_score: t.our_total_score
+          ? new Decimal(t.our_total_score)
+          : null,
+        winner_name: t.winner_name ?? null,
+        winner_amount: t.winner_amount ? new Decimal(t.winner_amount) : null,
+        participants_count: t.participants_count ?? null,
+        category: t.category ?? null,
+        department: t.department ?? null,
+        contracting_authority_id: t.contracting_authority_id ?? null,
+        created_by_id: marco!.id,
+      },
+    })
+
+    // Create timeline events
+    await prisma.tenderTimeline.create({
+      data: {
+        tender_id: tender.id,
+        type: 'created',
+        title: 'Gara creata',
+        description: `${marco!.name} ha inserito la gara nel sistema`,
+        actor: marco!.name,
+        created_at: t.publication_date ?? daysAgo(10),
+      },
+    })
+
+    if (t.status !== 'DISCOVERED') {
+      await prisma.tenderTimeline.create({
+        data: {
+          tender_id: tender.id,
+          type: 'status_change',
+          title: 'Stato aggiornato',
+          description: `Stato cambiato a ${t.status}`,
+          actor: marco!.name,
+          created_at: daysAgo(2),
+        },
+      })
+    }
+  }
+  console.log(`  ✓ ${tendersData.length} gare create`)
+
+  // --- Deploy Config ---
+  await prisma.deployConfig.create({
+    data: {
+      id: 'default',
+      deploy_name: 'ProcureFlow',
+      enabled_modules: ['core', 'invoicing', 'budgets', 'analytics', 'tenders'],
+    },
+  })
+  console.log('  ✓ deploy config creata')
 
   console.log('✅ Seed completato con successo!')
   console.log(`   👤 ${users.length} utenti`)
