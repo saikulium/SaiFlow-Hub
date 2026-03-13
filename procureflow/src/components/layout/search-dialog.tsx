@@ -2,12 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { Command } from 'cmdk'
-import { Search, FileText, Building2, Plus, BarChart3, Settings } from 'lucide-react'
+import { Search, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { NAV_ITEMS } from '@/lib/constants'
+import { useModules } from '@/hooks/use-modules'
+import { filterNavItems } from '@/lib/modules/helpers'
 
 export function SearchDialog() {
   const [open, setOpen] = useState(false)
   const router = useRouter()
+  const { enabledModules } = useModules()
+  const visibleNavItems = filterNavItems(enabledModules, NAV_ITEMS)
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -53,7 +58,10 @@ export function SearchDialog() {
               Nessun risultato trovato.
             </Command.Empty>
 
-            <Command.Group heading="Azioni Rapide" className="px-2 py-1.5 text-xs font-semibold text-pf-text-muted">
+            <Command.Group
+              heading="Azioni Rapide"
+              className="px-2 py-1.5 text-xs font-semibold text-pf-text-muted"
+            >
               <Command.Item
                 onSelect={() => navigate('/requests/new')}
                 className="flex cursor-pointer items-center gap-3 rounded-button px-3 py-2.5 text-sm text-pf-text-secondary transition-colors data-[selected=true]:bg-pf-bg-hover data-[selected=true]:text-pf-text-primary"
@@ -63,35 +71,23 @@ export function SearchDialog() {
               </Command.Item>
             </Command.Group>
 
-            <Command.Group heading="Navigazione" className="px-2 py-1.5 text-xs font-semibold text-pf-text-muted">
-              <Command.Item
-                onSelect={() => navigate('/')}
-                className="flex cursor-pointer items-center gap-3 rounded-button px-3 py-2.5 text-sm text-pf-text-secondary transition-colors data-[selected=true]:bg-pf-bg-hover data-[selected=true]:text-pf-text-primary"
-              >
-                <BarChart3 className="h-4 w-4" />
-                Dashboard
-              </Command.Item>
-              <Command.Item
-                onSelect={() => navigate('/requests')}
-                className="flex cursor-pointer items-center gap-3 rounded-button px-3 py-2.5 text-sm text-pf-text-secondary transition-colors data-[selected=true]:bg-pf-bg-hover data-[selected=true]:text-pf-text-primary"
-              >
-                <FileText className="h-4 w-4" />
-                Richieste
-              </Command.Item>
-              <Command.Item
-                onSelect={() => navigate('/vendors')}
-                className="flex cursor-pointer items-center gap-3 rounded-button px-3 py-2.5 text-sm text-pf-text-secondary transition-colors data-[selected=true]:bg-pf-bg-hover data-[selected=true]:text-pf-text-primary"
-              >
-                <Building2 className="h-4 w-4" />
-                Fornitori
-              </Command.Item>
-              <Command.Item
-                onSelect={() => navigate('/settings')}
-                className="flex cursor-pointer items-center gap-3 rounded-button px-3 py-2.5 text-sm text-pf-text-secondary transition-colors data-[selected=true]:bg-pf-bg-hover data-[selected=true]:text-pf-text-primary"
-              >
-                <Settings className="h-4 w-4" />
-                Impostazioni
-              </Command.Item>
+            <Command.Group
+              heading="Navigazione"
+              className="px-2 py-1.5 text-xs font-semibold text-pf-text-muted"
+            >
+              {visibleNavItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <Command.Item
+                    key={item.href}
+                    onSelect={() => navigate(item.href)}
+                    className="flex cursor-pointer items-center gap-3 rounded-button px-3 py-2.5 text-sm text-pf-text-secondary transition-colors data-[selected=true]:bg-pf-bg-hover data-[selected=true]:text-pf-text-primary"
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </Command.Item>
+                )
+              })}
             </Command.Group>
           </Command.List>
 

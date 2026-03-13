@@ -154,6 +154,40 @@ function DettagliTab({ request }: { request: RequestDetail }) {
         </dl>
       </div>
 
+      {/* Compliance */}
+      {(request.cig || request.cup || request.is_mepa) && (
+        <div className="rounded-card border border-pf-border bg-pf-bg-secondary p-6">
+          <h3 className="mb-4 text-sm font-semibold text-pf-text-primary">
+            Compliance
+          </h3>
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <InfoField
+              label="CIG"
+              value={
+                request.cig ? (
+                  <span className="font-mono">{request.cig}</span>
+                ) : null
+              }
+            />
+            <InfoField
+              label="CUP"
+              value={
+                request.cup ? (
+                  <span className="font-mono">{request.cup}</span>
+                ) : null
+              }
+            />
+            <InfoField label="MEPA" value={request.is_mepa ? 'Si' : 'No'} />
+            {request.is_mepa && (
+              <InfoField
+                label="Numero ODA MEPA"
+                value={request.mepa_oda_number}
+              />
+            )}
+          </dl>
+        </div>
+      )}
+
       {/* Description */}
       {request.description && (
         <div className="rounded-card border border-pf-border bg-pf-bg-secondary p-6">

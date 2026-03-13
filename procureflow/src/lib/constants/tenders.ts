@@ -121,8 +121,8 @@ export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
 
 /** Transizioni di stato valide per la macchina a stati delle gare */
 export const VALID_TRANSITIONS: Record<string, readonly string[]> = {
-  DISCOVERED: ['EVALUATING', 'CANCELLED'],
-  EVALUATING: ['GO', 'NO_GO', 'CANCELLED'],
+  DISCOVERED: ['EVALUATING', 'CANCELLED', 'WITHDRAWN'],
+  EVALUATING: ['GO', 'NO_GO', 'CANCELLED', 'WITHDRAWN'],
   GO: ['PREPARING', 'CANCELLED', 'WITHDRAWN'],
   NO_GO: [],
   PREPARING: ['SUBMITTED', 'CANCELLED', 'WITHDRAWN'],
@@ -165,7 +165,8 @@ export const GO_NO_GO_CRITERIA = [
     id: 'workload',
     label: 'Carico di Lavoro',
     maxScore: 10,
-    description: 'Capacità di assorbire il carico senza impattare altri progetti',
+    description:
+      'Capacità di assorbire il carico senza impattare altri progetti',
   },
   {
     id: 'strategic',

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'sonner'
 import { satoshi, inter } from '@/lib/fonts'
+import { SessionProvider } from '@/components/providers/session-provider'
 import { QueryProvider } from '@/components/providers/query-provider'
 import './globals.css'
 
@@ -29,16 +30,18 @@ export default function RootLayout({
           defaultTheme="dark"
           enableSystem={false}
         >
-          <QueryProvider>
-            {children}
-            <Toaster
-              position="bottom-right"
-              toastOptions={{
-                className:
-                  'bg-pf-bg-secondary border-pf-border text-pf-text-primary',
-              }}
-            />
-          </QueryProvider>
+          <SessionProvider>
+            <QueryProvider>
+              {children}
+              <Toaster
+                position="bottom-right"
+                toastOptions={{
+                  className:
+                    'bg-pf-bg-secondary border-pf-border text-pf-text-primary',
+                }}
+              />
+            </QueryProvider>
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

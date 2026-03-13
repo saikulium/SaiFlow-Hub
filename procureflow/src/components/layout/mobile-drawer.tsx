@@ -7,9 +7,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useSidebar } from './sidebar-context'
 import { SidebarNavItem } from './sidebar-nav-item'
 import { NAV_ITEMS } from '@/lib/constants'
+import { useModules } from '@/hooks/use-modules'
+import { filterNavItems } from '@/lib/modules/helpers'
 
 export function MobileDrawer() {
   const { isMobileOpen, setMobileOpen } = useSidebar()
+  const { enabledModules } = useModules()
+  const visibleItems = filterNavItems(enabledModules, NAV_ITEMS)
   const pathname = usePathname()
 
   // Close on navigation
@@ -73,7 +77,7 @@ export function MobileDrawer() {
 
             {/* Nav */}
             <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-4">
-              {NAV_ITEMS.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarNavItem
                   key={item.href}
                   item={item}

@@ -13,6 +13,9 @@ export const NOTIFICATION_TYPES = {
   INVOICE_MATCH_FAILED: 'invoice_match_failed',
   INVOICE_DISCREPANCY: 'invoice_discrepancy',
   INVOICE_RECONCILED: 'invoice_reconciled',
+  BUDGET_WARNING: 'budget_warning',
+  BUDGET_EXCEEDED: 'budget_exceeded',
+  BUDGET_FORECAST_ALERT: 'budget_forecast_alert',
 } as const
 
 export type NotificationType =

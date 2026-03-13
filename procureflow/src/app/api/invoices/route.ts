@@ -1,12 +1,15 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { successResponse, errorResponse } from '@/lib/api-response'
+import { requireModule } from '@/lib/modules/require-module'
 
 // ---------------------------------------------------------------------------
 // GET /api/invoices — Lista fatture paginata con filtri
 // ---------------------------------------------------------------------------
 
 export async function GET(req: NextRequest) {
+  const blocked = await requireModule('/api/invoices')
+  if (blocked) return blocked
   try {
     const url = req.nextUrl
     const page = Math.max(1, Number(url.searchParams.get('page') ?? 1))

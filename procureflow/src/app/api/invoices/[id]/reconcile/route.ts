@@ -12,6 +12,7 @@ import {
   NOTIFICATION_TYPES,
 } from '@/server/services/notification.service'
 import type { RequestStatus } from '@prisma/client'
+import { requireModule } from '@/lib/modules/require-module'
 
 // ---------------------------------------------------------------------------
 // POST /api/invoices/[id]/reconcile — Riconciliazione manuale
@@ -23,6 +24,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const blocked = await requireModule('/api/invoices')
+  if (blocked) return blocked
   try {
     const body = await req.json()
     const { action, notes } = body as {

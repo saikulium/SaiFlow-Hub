@@ -77,6 +77,10 @@ export interface RequestDetail {
   department: string | null
   cost_center: string | null
   budget_code: string | null
+  cig: string | null
+  cup: string | null
+  is_mepa: boolean
+  mepa_oda_number: string | null
   tracking_number: string | null
   external_ref: string | null
   external_url: string | null

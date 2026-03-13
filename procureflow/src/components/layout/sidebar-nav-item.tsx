@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { useInvoiceBadgeCount } from '@/hooks/use-invoice-stats'
 import type { NavItem } from '@/lib/constants'
 
 interface SidebarNavItemProps {
@@ -11,10 +12,33 @@ interface SidebarNavItemProps {
   isCollapsed: boolean
 }
 
+function useBadgeValue(badge: NavItem['badge']): number | null {
+  const { data: invoiceData } = useInvoiceBadgeCount()
+
+  if (!badge) return null
+
+  switch (badge) {
+    case 'invoices': {
+      const count =
+        (invoiceData?.unmatched ?? 0) +
+        (invoiceData?.pendingReconciliation ?? 0)
+      return count > 0 ? count : null
+    }
+    case 'approvals':
+      return 4 // TODO: dynamic
+    case 'requests':
+      return 3 // TODO: dynamic
+    default:
+      return null
+  }
+}
+
 export function SidebarNavItem({ item, isCollapsed }: SidebarNavItemProps) {
   const pathname = usePathname()
-  const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
+  const isActive =
+    item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
   const Icon = item.icon
+  const badgeValue = useBadgeValue(item.badge)
 
   return (
     <Link
@@ -57,13 +81,13 @@ export function SidebarNavItem({ item, isCollapsed }: SidebarNavItemProps) {
       </motion.span>
 
       {/* Badge */}
-      {item.badge && !isCollapsed && (
+      {badgeValue !== null && !isCollapsed && (
         <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-pf-accent px-1.5 text-[11px] font-semibold text-white">
-          {item.badge === 'approvals' ? '4' : '3'}
+          {badgeValue}
         </span>
       )}
 
-      {item.badge && isCollapsed && (
+      {badgeValue !== null && isCollapsed && (
         <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-pf-accent" />
       )}
     </Link>

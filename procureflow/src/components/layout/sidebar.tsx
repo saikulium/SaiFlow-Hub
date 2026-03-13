@@ -5,10 +5,14 @@ import { ChevronLeft, Boxes } from 'lucide-react'
 import { useSidebar } from './sidebar-context'
 import { SidebarNavItem } from './sidebar-nav-item'
 import { NAV_ITEMS } from '@/lib/constants'
+import { useModules } from '@/hooks/use-modules'
+import { filterNavItems } from '@/lib/modules/helpers'
 import { cn } from '@/lib/utils'
 
 export function Sidebar() {
   const { isCollapsed, toggle } = useSidebar()
+  const { enabledModules } = useModules()
+  const visibleItems = filterNavItems(enabledModules, NAV_ITEMS)
 
   return (
     <aside
@@ -25,7 +29,10 @@ export function Sidebar() {
           </div>
           <motion.span
             initial={false}
-            animate={{ opacity: isCollapsed ? 0 : 1, width: isCollapsed ? 0 : 'auto' }}
+            animate={{
+              opacity: isCollapsed ? 0 : 1,
+              width: isCollapsed ? 0 : 'auto',
+            }}
             transition={{ duration: 0.2 }}
             className="overflow-hidden whitespace-nowrap font-display text-lg font-bold text-pf-text-primary"
           >
@@ -47,7 +54,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-4">
-        {NAV_ITEMS.map((item) => (
+        {visibleItems.map((item) => (
           <SidebarNavItem
             key={item.href}
             item={item}

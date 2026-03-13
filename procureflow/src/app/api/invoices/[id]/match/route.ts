@@ -9,6 +9,7 @@ import {
 import { performThreeWayMatch } from '@/server/services/three-way-matching.service'
 import { canTransition } from '@/lib/state-machine'
 import type { RequestStatus } from '@prisma/client'
+import { requireModule } from '@/lib/modules/require-module'
 
 // ---------------------------------------------------------------------------
 // POST /api/invoices/[id]/match — Associazione manuale fattura ↔ ordine
@@ -18,6 +19,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const blocked = await requireModule('/api/invoices')
+  if (blocked) return blocked
   try {
     const body = await req.json()
     const { purchase_request_id } = body as { purchase_request_id: string }

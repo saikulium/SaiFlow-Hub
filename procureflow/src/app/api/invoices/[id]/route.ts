@@ -5,6 +5,7 @@ import {
   errorResponse,
   notFoundResponse,
 } from '@/lib/api-response'
+import { requireModule } from '@/lib/modules/require-module'
 
 // ---------------------------------------------------------------------------
 // GET /api/invoices/[id] — Dettaglio fattura
@@ -15,6 +16,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const blocked = await requireModule('/api/invoices')
+  if (blocked) return blocked
   try {
     const invoice = await prisma.invoice.findUnique({
       where: { id: params.id },
@@ -55,6 +58,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const blocked = await requireModule('/api/invoices')
+  if (blocked) return blocked
   try {
     const body = await req.json()
 

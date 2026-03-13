@@ -21,6 +21,20 @@ export const createRequestSchema = z.object({
   department: z.string().optional(),
   cost_center: z.string().optional(),
   budget_code: z.string().optional(),
+  cig: z
+    .string()
+    .regex(/^[A-Za-z0-9]{10}$/, 'CIG deve essere di 10 caratteri alfanumerici')
+    .transform((v) => v.toUpperCase())
+    .optional()
+    .or(z.literal('')),
+  cup: z
+    .string()
+    .regex(/^[A-Za-z0-9]{15}$/, 'CUP deve essere di 15 caratteri alfanumerici')
+    .transform((v) => v.toUpperCase())
+    .optional()
+    .or(z.literal('')),
+  is_mepa: z.boolean().default(false),
+  mepa_oda_number: z.string().optional(),
   tags: z.array(z.string()).default([]),
   items: z.array(requestItemSchema).default([]),
 })
@@ -38,12 +52,17 @@ export const updateRequestSchema = createRequestSchema.partial().extend({
       'DELIVERED',
       'CANCELLED',
       'ON_HOLD',
+      'INVOICED',
+      'RECONCILED',
+      'CLOSED',
     ])
     .optional(),
   actual_amount: z.number().min(0).optional(),
   tracking_number: z.string().optional(),
   external_ref: z.string().optional(),
   external_url: z.string().url().optional().or(z.literal('')),
+  is_mepa: z.boolean().optional(),
+  mepa_oda_number: z.string().optional(),
 })
 
 export const requestQuerySchema = z.object({

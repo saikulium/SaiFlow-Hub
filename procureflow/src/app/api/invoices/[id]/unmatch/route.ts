@@ -8,6 +8,7 @@ import {
 } from '@/lib/api-response'
 import { canTransition } from '@/lib/state-machine'
 import type { RequestStatus } from '@prisma/client'
+import { requireModule } from '@/lib/modules/require-module'
 
 // ---------------------------------------------------------------------------
 // POST /api/invoices/[id]/unmatch — Scollega fattura da ordine
@@ -17,6 +18,8 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const blocked = await requireModule('/api/invoices')
+  if (blocked) return blocked
   try {
     const invoice = await prisma.invoice.findUnique({
       where: { id: params.id },

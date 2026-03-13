@@ -23,6 +23,7 @@ type CreateRequestFormValues = z.input<typeof createRequestSchema>
 import { PRIORITY_CONFIG, type PriorityKey } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useCreateRequest, useVendors } from '@/hooks/use-request'
+import { BudgetCapacityBanner } from '@/components/requests/budget-capacity-banner'
 
 // --- Constants ---
 
@@ -263,6 +264,10 @@ export function RequestForm() {
       department: '',
       cost_center: '',
       budget_code: '',
+      cig: '',
+      cup: '',
+      is_mepa: false,
+      mepa_oda_number: '',
       tags: [],
       items: [],
     },
@@ -274,8 +279,10 @@ export function RequestForm() {
   })
 
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [complianceOpen, setComplianceOpen] = useState(false)
 
   const vendorId = watch('vendor_id')
+  const isMepa = watch('is_mepa')
 
   const onSubmit: SubmitHandler<CreateRequestFormValues> = async (data) => {
     setSubmitError(null)
@@ -495,6 +502,13 @@ export function RequestForm() {
             <FieldError message={errors.cost_center?.message} />
           </div>
 
+          <div className="sm:col-span-2 lg:col-span-3">
+            <BudgetCapacityBanner
+              costCenter={watch('cost_center')}
+              amount={watch('estimated_amount')}
+            />
+          </div>
+
           <div>
             <FormLabel htmlFor="budget_code">Codice Budget</FormLabel>
             <input
@@ -507,6 +521,89 @@ export function RequestForm() {
             <FieldError message={errors.budget_code?.message} />
           </div>
         </div>
+      </div>
+
+      {/* Compliance */}
+      <div className="rounded-card border border-pf-border bg-pf-bg-secondary">
+        <button
+          type="button"
+          onClick={() => setComplianceOpen((prev) => !prev)}
+          className="flex w-full items-center justify-between p-6 text-left"
+        >
+          <h2 className="text-sm font-semibold text-pf-text-primary">
+            Compliance
+          </h2>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 text-pf-text-secondary transition-transform duration-200',
+              complianceOpen && 'rotate-180',
+            )}
+          />
+        </button>
+
+        {complianceOpen && (
+          <div className="space-y-4 border-t border-pf-border px-6 pb-6 pt-4">
+            {/* MEPA checkbox */}
+            <div className="flex items-center gap-3">
+              <input
+                id="is_mepa"
+                type="checkbox"
+                {...register('is_mepa')}
+                className="h-4 w-4 rounded border-pf-border bg-pf-bg-primary text-pf-accent accent-pf-accent focus:ring-2 focus:ring-pf-accent"
+              />
+              <label htmlFor="is_mepa" className="text-sm text-pf-text-primary">
+                Acquisto MEPA/Consip
+              </label>
+            </div>
+
+            {/* MEPA ODA number — visible only when is_mepa is true */}
+            {isMepa && (
+              <div>
+                <FormLabel htmlFor="mepa_oda_number" required>
+                  Numero ODA MEPA
+                </FormLabel>
+                <input
+                  id="mepa_oda_number"
+                  type="text"
+                  {...register('mepa_oda_number')}
+                  placeholder="Inserisci numero ODA"
+                  className="placeholder:text-pf-text-secondary/50 h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent"
+                />
+                <FieldError message={errors.mepa_oda_number?.message} />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* CIG */}
+              <div>
+                <FormLabel htmlFor="cig">
+                  CIG — Codice Identificativo Gara
+                </FormLabel>
+                <input
+                  id="cig"
+                  type="text"
+                  {...register('cig')}
+                  placeholder="es. A1B2C3D4E5"
+                  className="placeholder:text-pf-text-secondary/50 h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 font-mono text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent"
+                />
+                <FieldError message={errors.cig?.message} />
+              </div>
+
+              {/* CUP */}
+              <div>
+                <FormLabel htmlFor="cup">CUP — Codice Unico Progetto</FormLabel>
+                <input
+                  id="cup"
+                  type="text"
+                  {...register('cup')}
+                  placeholder="es. A1B2C3D4E5F6G7H"
+                  className="placeholder:text-pf-text-secondary/50 h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 font-mono text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent"
+                />
+                <FieldError message={errors.cup?.message} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Items */}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Menu, Search } from 'lucide-react'
+import { useSession, signOut } from 'next-auth/react'
 import { useSidebar } from './sidebar-context'
 import { Breadcrumbs } from './breadcrumbs'
 import { ThemeToggle } from './theme-toggle'
@@ -13,8 +14,8 @@ export function Header() {
   const { setMobileOpen } = useSidebar()
   const [searchOpen, setSearchOpen] = useState(false)
 
-  // Demo user
-  const user = { name: 'Marco Rossi', role: 'Admin' }
+  const { data: session } = useSession()
+  const user = session?.user
 
   return (
     <>
@@ -51,9 +52,15 @@ export function Header() {
           <ThemeToggle />
 
           {/* User avatar */}
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-pf-accent text-xs font-bold text-white">
-            {getInitials(user.name)}
-          </div>
+          {user && (
+            <button
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              title="Esci"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-pf-accent text-xs font-bold text-white transition-opacity hover:opacity-80"
+            >
+              {getInitials(user.name ?? '')}
+            </button>
+          )}
         </div>
       </header>
 
