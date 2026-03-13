@@ -305,3 +305,135 @@ export interface GoNoGoScoreInput {
   workload: number
   strategic: number
 }
+
+// --- Inventory Types ---
+
+export interface MaterialListItem {
+  id: string
+  code: string
+  name: string
+  category: string | null
+  unitPrimary: string
+  unitSecondary: string | null
+  unitCost: number
+  stockPhysical: number
+  stockAvailable: number
+  stockReserved: number
+  minStockLevel: number | null
+  stockStatus: 'OK' | 'LOW' | 'OUT'
+  isActive: boolean
+  preferredVendor: string | null
+}
+
+export interface MaterialDetail extends MaterialListItem {
+  description: string | null
+  subcategory: string | null
+  conversionFactor: number | null
+  maxStockLevel: number | null
+  barcode: string | null
+  qrCode: string | null
+  tags: string[]
+  notes: string | null
+  createdAt: string
+  stockByWarehouse: StockByWarehouse[]
+  activeLots: LotSummary[]
+  activeReservations: ReservationSummary[]
+}
+
+export interface StockByWarehouse {
+  warehouseId: string
+  warehouseName: string
+  physical: number
+  available: number
+  reserved: number
+  zones: Array<{
+    zoneId: string
+    zoneName: string
+    physical: number
+  }>
+}
+
+export interface LotSummary {
+  id: string
+  lotNumber: string
+  warehouseName: string
+  zoneName: string | null
+  currentQuantity: number
+  currentQuantitySecondary: number | null
+  unitCost: number
+  expiryDate: string | null
+  status: string
+  prCode: string | null
+}
+
+export interface ReservationSummary {
+  id: string
+  reservedQuantity: number
+  tenderCode: string | null
+  prCode: string | null
+  status: string
+  reservedAt: string
+  expiresAt: string | null
+}
+
+export interface MovementListItem {
+  id: string
+  code: string
+  materialCode: string
+  materialName: string
+  lotNumber: string | null
+  warehouseName: string
+  zoneName: string | null
+  movementType: string
+  reason: string
+  quantity: number
+  quantitySecondary: number | null
+  unitCost: number | null
+  referenceCode: string | null
+  prCode: string | null
+  tenderCode: string | null
+  actor: string | null
+  createdAt: string
+}
+
+export interface WarehouseListItem {
+  id: string
+  code: string
+  name: string
+  address: string | null
+  isActive: boolean
+  zonesCount: number
+  zones: Array<{ id: string; code: string; name: string }>
+}
+
+export interface InventoryListItem {
+  id: string
+  code: string
+  warehouseName: string
+  status: string
+  linesCount: number
+  varianceCount: number
+  createdBy: string
+  startedAt: string | null
+  completedAt: string | null
+  createdAt: string
+}
+
+export interface InventoryDashboardStats {
+  totalMaterials: number
+  totalWarehouseValue: number
+  lowStockCount: number
+  lowStockCountPrevious: number
+  recentMovements: number
+  valueByCategory: Array<{ category: string; value: number }>
+  movementTrend: Array<{ period: string; inbound: number; outbound: number }>
+  lowStockAlerts: Array<{
+    id: string
+    code: string
+    name: string
+    currentStock: number
+    minLevel: number
+    unit: string
+    deficit: number
+  }>
+}
