@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
@@ -16,6 +17,7 @@ import {
   Building2,
 } from 'lucide-react'
 import { useVendor } from '@/hooks/use-vendors'
+import { VendorEditDialog } from '@/components/vendors/vendor-edit-dialog'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { PriorityBadge } from '@/components/shared/priority-badge'
 import { VENDOR_STATUS_CONFIG } from '@/lib/constants'
@@ -120,6 +122,7 @@ function DetailSkeleton() {
 
 export function VendorDetailContent({ vendorId }: VendorDetailContentProps) {
   const { data: vendor, isLoading, error } = useVendor(vendorId)
+  const [editOpen, setEditOpen] = useState(false)
 
   if (isLoading) {
     return <DetailSkeleton />
@@ -202,6 +205,7 @@ export function VendorDetailContent({ vendorId }: VendorDetailContentProps) {
           </div>
           <button
             type="button"
+            onClick={() => setEditOpen(true)}
             className="inline-flex items-center gap-2 rounded-button border border-pf-border bg-pf-bg-secondary px-4 py-2 text-sm font-medium text-pf-text-secondary transition-colors hover:border-pf-border-hover hover:text-pf-text-primary"
           >
             <Pencil className="h-4 w-4" />
@@ -424,6 +428,13 @@ export function VendorDetailContent({ vendorId }: VendorDetailContentProps) {
           </div>
         )}
       </motion.div>
+
+      {/* Edit Dialog */}
+      <VendorEditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        vendor={vendor}
+      />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { UpdateVendorInput } from '@/lib/validations/vendor'
 
 interface VendorListParams {
   search?: string
@@ -125,6 +126,41 @@ export function useVendor(id: string) {
     queryKey: ['vendor', id],
     queryFn: () => fetchVendor(id),
     enabled: Boolean(id),
+  })
+}
+
+async function updateVendor({
+  id,
+  data,
+}: {
+  id: string
+  data: UpdateVendorInput
+}): Promise<ApiResponse<VendorDetail>> {
+  const response = await fetch(`/api/vendors/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(
+      body?.error?.message ?? "Errore nell'aggiornamento del fornitore",
+    )
+  }
+
+  return response.json()
+}
+
+export function useUpdateVendor(id: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: UpdateVendorInput) => updateVendor({ id, data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendor', id] })
+      queryClient.invalidateQueries({ queryKey: ['vendors'] })
+    },
   })
 }
 

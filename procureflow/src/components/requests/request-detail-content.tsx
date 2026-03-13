@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { PriorityBadge } from '@/components/shared/priority-badge'
+import { RequestEditDialog } from '@/components/requests/request-edit-dialog'
 import { StatusStepper } from '@/components/requests/status-stepper'
 import { ApprovalActions } from '@/components/requests/approval-actions'
 import { CommentForm } from '@/components/requests/comment-form'
@@ -641,6 +642,7 @@ function SubmitButton({ requestId }: { requestId: string }) {
 export function RequestDetailContent({ requestId }: RequestDetailContentProps) {
   const { data, isLoading, error } = useRequest(requestId)
   const [activeTab, setActiveTab] = useState<TabKey>('dettagli')
+  const [editOpen, setEditOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -697,13 +699,14 @@ export function RequestDetailContent({ requestId }: RequestDetailContentProps) {
           {request.status === 'DRAFT' && (
             <SubmitButton requestId={request.id} />
           )}
-          <Link
-            href={`/requests/${request.id}/edit`}
+          <button
+            type="button"
+            onClick={() => setEditOpen(true)}
             className="bg-pf-bg-elevated inline-flex h-10 items-center gap-2 rounded-button border border-pf-border px-4 text-sm font-medium text-pf-text-primary transition-colors hover:bg-pf-bg-secondary"
           >
             <Edit className="h-4 w-4" />
             Modifica
-          </Link>
+          </button>
           <button
             type="button"
             className="bg-pf-bg-elevated flex h-10 w-10 items-center justify-center rounded-button border border-pf-border text-pf-text-secondary transition-colors hover:bg-pf-bg-secondary hover:text-pf-text-primary"
@@ -755,6 +758,13 @@ export function RequestDetailContent({ requestId }: RequestDetailContentProps) {
         {activeTab === 'allegati' && <AllegatiTab requestId={requestId} />}
         {activeTab === 'commenti' && <CommentiTab requestId={requestId} />}
       </div>
+
+      {/* Edit Dialog */}
+      <RequestEditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        request={request}
+      />
     </div>
   )
 }
