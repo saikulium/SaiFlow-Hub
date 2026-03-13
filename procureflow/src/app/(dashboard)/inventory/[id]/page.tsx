@@ -1,5 +1,3 @@
-export const dynamic = 'force-dynamic'
-
 import { MaterialDetailContent } from '@/components/inventory/material-detail-content'
 
 export default function MaterialDetailPage({

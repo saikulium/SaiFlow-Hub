@@ -4,6 +4,12 @@ import { prisma } from '@/lib/db'
 import { REQUEST_STATUS_CONFIG, type RequestStatusKey } from '@/lib/constants'
 import { INVOICE_MATCH_STATUS_CONFIG } from '@/lib/constants/sdi'
 import { getBudgetDashboardStats as computeBudgetDashboardStats } from '@/server/services/budget.service'
+
+const MONTH_NAMES = [
+  'Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu',
+  'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic',
+]
+
 import type {
   DashboardStats,
   RecentRequest,
@@ -24,96 +30,87 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
 
-  // Sequential queries to avoid exhausting Supabase free tier connection pool
-  const activeRequests = await prisma.purchaseRequest.count({
-    where: {
-      status: {
-        notIn: [
-          'DELIVERED',
-          'INVOICED',
-          'RECONCILED',
-          'CLOSED',
-          'CANCELLED',
-          'REJECTED',
-        ],
+  const closedStatuses = [
+    'DELIVERED', 'INVOICED', 'RECONCILED',
+    'CLOSED', 'CANCELLED', 'REJECTED',
+  ] as const
+
+  // $transaction batches all queries in a single DB round-trip on one connection
+  const [
+    activeRequests,
+    pendingApprovals,
+    monthlySpendResult,
+    overdueDeliveries,
+    prevActiveRequests,
+    prevPendingApprovals,
+    prevMonthlySpendResult,
+    prevOverdueDeliveries,
+    activeBudgets,
+  ] = await prisma.$transaction([
+    prisma.purchaseRequest.count({
+      where: { status: { notIn: [...closedStatuses] } },
+    }),
+    prisma.purchaseRequest.count({
+      where: { status: 'PENDING_APPROVAL' },
+    }),
+    prisma.purchaseRequest.aggregate({
+      _sum: { estimated_amount: true },
+      where: {
+        status: { in: ['ORDERED', 'SHIPPED', 'DELIVERED'] },
+        ordered_at: { gte: startOfMonth },
       },
-    },
-  })
-  const pendingApprovals = await prisma.purchaseRequest.count({
-    where: { status: 'PENDING_APPROVAL' },
-  })
-  const monthlySpendResult = await prisma.purchaseRequest.aggregate({
-    _sum: { estimated_amount: true },
-    where: {
-      status: { in: ['ORDERED', 'SHIPPED', 'DELIVERED'] },
-      ordered_at: { gte: startOfMonth },
-    },
-  })
-  const overdueDeliveries = await prisma.purchaseRequest.count({
-    where: {
-      status: { in: ['ORDERED', 'SHIPPED'] },
-      expected_delivery: { lt: now },
-    },
-  })
-  const prevActiveRequests = await prisma.purchaseRequest.count({
-    where: {
-      status: {
-        notIn: [
-          'DELIVERED',
-          'INVOICED',
-          'RECONCILED',
-          'CLOSED',
-          'CANCELLED',
-          'REJECTED',
-        ],
+    }),
+    prisma.purchaseRequest.count({
+      where: {
+        status: { in: ['ORDERED', 'SHIPPED'] },
+        expected_delivery: { lt: now },
       },
-      created_at: { lt: startOfMonth },
-    },
-  })
-  const prevPendingApprovals = await prisma.purchaseRequest.count({
-    where: {
-      status: 'PENDING_APPROVAL',
-      created_at: { lt: startOfMonth },
-    },
-  })
-  const prevMonthlySpendResult = await prisma.purchaseRequest.aggregate({
-    _sum: { estimated_amount: true },
-    where: {
-      status: { in: ['ORDERED', 'SHIPPED', 'DELIVERED'] },
-      ordered_at: { gte: startOfLastMonth, lt: endOfLastMonth },
-    },
-  })
-  const prevOverdueDeliveries = await prisma.purchaseRequest.count({
-    where: {
-      status: { in: ['ORDERED', 'SHIPPED'] },
-      expected_delivery: { lt: startOfMonth },
-    },
-  })
+    }),
+    prisma.purchaseRequest.count({
+      where: {
+        status: { notIn: [...closedStatuses] },
+        created_at: { lt: startOfMonth },
+      },
+    }),
+    prisma.purchaseRequest.count({
+      where: {
+        status: 'PENDING_APPROVAL',
+        created_at: { lt: startOfMonth },
+      },
+    }),
+    prisma.purchaseRequest.aggregate({
+      _sum: { estimated_amount: true },
+      where: {
+        status: { in: ['ORDERED', 'SHIPPED', 'DELIVERED'] },
+        ordered_at: { gte: startOfLastMonth, lt: endOfLastMonth },
+      },
+    }),
+    prisma.purchaseRequest.count({
+      where: {
+        status: { in: ['ORDERED', 'SHIPPED'] },
+        expected_delivery: { lt: startOfMonth },
+      },
+    }),
+    prisma.budget.findMany({
+      where: {
+        is_active: true,
+        period_start: { lte: now },
+        period_end: { gte: now },
+      },
+      select: { allocated_amount: true },
+    }),
+  ])
+
+  const monthlyBudget =
+    activeBudgets.length === 0
+      ? 50000
+      : activeBudgets.reduce((sum, b) => sum + Number(b.allocated_amount), 0)
 
   return {
     activeRequests,
     pendingApprovals,
     monthlySpend: Number(monthlySpendResult._sum.estimated_amount ?? 0),
-    monthlyBudget: await (async () => {
-      try {
-        const now = new Date()
-        const activeBudgets = await prisma.budget.findMany({
-          where: {
-            is_active: true,
-            period_start: { lte: now },
-            period_end: { gte: now },
-          },
-          select: { allocated_amount: true },
-        })
-        if (activeBudgets.length === 0) return 50000
-        return activeBudgets.reduce(
-          (sum, b) => sum + Number(b.allocated_amount),
-          0,
-        )
-      } catch {
-        return 50000
-      }
-    })(),
+    monthlyBudget,
     overdueDeliveries,
     previousActiveRequests: prevActiveRequests,
     previousPendingApprovals: prevPendingApprovals,
@@ -201,12 +198,8 @@ export async function getSpendByVendor(): Promise<SpendByVendor[]> {
     where: {
       status: {
         in: [
-          'ORDERED',
-          'SHIPPED',
-          'DELIVERED',
-          'INVOICED',
-          'RECONCILED',
-          'CLOSED',
+          'ORDERED', 'SHIPPED', 'DELIVERED',
+          'INVOICED', 'RECONCILED', 'CLOSED',
         ],
       },
       vendor_id: { not: null },
@@ -230,40 +223,27 @@ export async function getSpendByVendor(): Promise<SpendByVendor[]> {
 }
 
 export async function getRequestsTrend(): Promise<RequestTrend[]> {
-  const months: RequestTrend[] = []
   const now = new Date()
 
-  for (let i = 5; i >= 0; i--) {
+  const ranges = Array.from({ length: 6 }, (_, idx) => {
+    const i = 5 - idx
     const start = new Date(now.getFullYear(), now.getMonth() - i, 1)
     const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+    return { start, end }
+  })
 
-    const count = await prisma.purchaseRequest.count({
-      where: {
-        created_at: { gte: start, lte: end },
-      },
-    })
+  const counts = await prisma.$transaction(
+    ranges.map((r) =>
+      prisma.purchaseRequest.count({
+        where: { created_at: { gte: r.start, lte: r.end } },
+      }),
+    ),
+  )
 
-    const monthNames = [
-      'Gen',
-      'Feb',
-      'Mar',
-      'Apr',
-      'Mag',
-      'Giu',
-      'Lug',
-      'Ago',
-      'Set',
-      'Ott',
-      'Nov',
-      'Dic',
-    ]
-    months.push({
-      period: monthNames[start.getMonth()]!,
-      count,
-    })
-  }
-
-  return months
+  return ranges.map((r, idx) => ({
+    period: MONTH_NAMES[r.start.getMonth()]!,
+    count: counts[idx]!,
+  }))
 }
 
 export async function getStatusDistribution(): Promise<StatusDistribution[]> {
@@ -286,42 +266,30 @@ export async function getStatusDistribution(): Promise<StatusDistribution[]> {
 
 export async function getMonthlySpendTrend(): Promise<MonthlySpendTrend[]> {
   const now = new Date()
-  const months: MonthlySpendTrend[] = []
 
-  const monthNames = [
-    'Gen',
-    'Feb',
-    'Mar',
-    'Apr',
-    'Mag',
-    'Giu',
-    'Lug',
-    'Ago',
-    'Set',
-    'Ott',
-    'Nov',
-    'Dic',
-  ]
-
-  for (let i = 5; i >= 0; i--) {
+  const ranges = Array.from({ length: 6 }, (_, idx) => {
+    const i = 5 - idx
     const start = new Date(now.getFullYear(), now.getMonth() - i, 1)
     const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+    return { start, end }
+  })
 
-    const result = await prisma.purchaseRequest.aggregate({
-      _sum: { estimated_amount: true },
-      where: {
-        status: { in: ['ORDERED', 'SHIPPED', 'DELIVERED'] },
-        ordered_at: { gte: start, lte: end },
-      },
-    })
+  const results = await prisma.$transaction(
+    ranges.map((r) =>
+      prisma.purchaseRequest.aggregate({
+        _sum: { estimated_amount: true },
+        where: {
+          status: { in: ['ORDERED', 'SHIPPED', 'DELIVERED'] },
+          ordered_at: { gte: r.start, lte: r.end },
+        },
+      }),
+    ),
+  )
 
-    months.push({
-      period: monthNames[start.getMonth()]!,
-      amount: Number(result._sum.estimated_amount ?? 0),
-    })
-  }
-
-  return months
+  return ranges.map((r, idx) => ({
+    period: MONTH_NAMES[r.start.getMonth()]!,
+    amount: Number(results[idx]!._sum.estimated_amount ?? 0),
+  }))
 }
 
 export async function getTotalSpend(): Promise<number> {
@@ -349,7 +317,7 @@ export async function getInvoiceStats(): Promise<InvoiceStats> {
     discrepanzeAperte,
     totaleFatturatoMeseResult,
     totaleDaPagareResult,
-  ] = await Promise.all([
+  ] = await prisma.$transaction([
     prisma.invoice.count(),
     prisma.invoice.count({ where: { match_status: 'UNMATCHED' } }),
     prisma.invoice.count({
@@ -369,9 +337,7 @@ export async function getInvoiceStats(): Promise<InvoiceStats> {
     }),
     prisma.invoice.aggregate({
       _sum: { total_amount: true },
-      where: {
-        invoice_date: { gte: startOfMonth },
-      },
+      where: { invoice_date: { gte: startOfMonth } },
     }),
     prisma.invoice.aggregate({
       _sum: { total_amount: true },
@@ -415,22 +381,17 @@ export async function getInvoiceMatchDistribution(): Promise<
 
 export async function getInvoiceAgingBuckets(): Promise<InvoiceAgingBucket[]> {
   const now = new Date()
-  const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  const d60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
-  const d90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+  const d30 = new Date(now.getTime() - 30 * 86_400_000)
+  const d60 = new Date(now.getTime() - 60 * 86_400_000)
+  const d90 = new Date(now.getTime() - 90 * 86_400_000)
 
-  const bucket0_30 = await prisma.invoice.count({
-    where: { received_at: { gte: d30 } },
-  })
-  const bucket30_60 = await prisma.invoice.count({
-    where: { received_at: { gte: d60, lt: d30 } },
-  })
-  const bucket60_90 = await prisma.invoice.count({
-    where: { received_at: { gte: d90, lt: d60 } },
-  })
-  const bucket90plus = await prisma.invoice.count({
-    where: { received_at: { lt: d90 } },
-  })
+  const [bucket0_30, bucket30_60, bucket60_90, bucket90plus] =
+    await prisma.$transaction([
+      prisma.invoice.count({ where: { received_at: { gte: d30 } } }),
+      prisma.invoice.count({ where: { received_at: { gte: d60, lt: d30 } } }),
+      prisma.invoice.count({ where: { received_at: { gte: d90, lt: d60 } } }),
+      prisma.invoice.count({ where: { received_at: { lt: d90 } } }),
+    ])
 
   return [
     { bucket: '0-30 gg', count: bucket0_30 },
@@ -442,49 +403,41 @@ export async function getInvoiceAgingBuckets(): Promise<InvoiceAgingBucket[]> {
 
 export async function getOrderedVsInvoiced(): Promise<OrderedVsInvoiced[]> {
   const now = new Date()
-  const months: OrderedVsInvoiced[] = []
 
-  const monthNames = [
-    'Gen',
-    'Feb',
-    'Mar',
-    'Apr',
-    'Mag',
-    'Giu',
-    'Lug',
-    'Ago',
-    'Set',
-    'Ott',
-    'Nov',
-    'Dic',
-  ]
-
-  for (let i = 5; i >= 0; i--) {
+  const ranges = Array.from({ length: 6 }, (_, idx) => {
+    const i = 5 - idx
     const start = new Date(now.getFullYear(), now.getMonth() - i, 1)
     const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+    return { start, end }
+  })
 
-    const orderedResult = await prisma.purchaseRequest.aggregate({
-      _sum: { estimated_amount: true },
-      where: {
-        ordered_at: { gte: start, lte: end },
-      },
-    })
+  // Batch all 12 queries (6 ordered + 6 invoiced) in a single transaction
+  const allResults = await prisma.$transaction([
+    ...ranges.map((r) =>
+      prisma.purchaseRequest.aggregate({
+        _sum: { estimated_amount: true },
+        where: { ordered_at: { gte: r.start, lte: r.end } },
+      }),
+    ),
+    ...ranges.map((r) =>
+      prisma.invoice.aggregate({
+        _sum: { total_amount: true },
+        where: { invoice_date: { gte: r.start, lte: r.end } },
+      }),
+    ),
+  ])
 
-    const invoicedResult = await prisma.invoice.aggregate({
-      _sum: { total_amount: true },
-      where: {
-        invoice_date: { gte: start, lte: end },
-      },
-    })
-
-    months.push({
-      period: monthNames[start.getMonth()]!,
-      ordered: Number(orderedResult._sum.estimated_amount ?? 0),
-      invoiced: Number(invoicedResult._sum.total_amount ?? 0),
-    })
-  }
-
-  return months
+  return ranges.map((r, idx) => ({
+    period: MONTH_NAMES[r.start.getMonth()]!,
+    ordered: Number(
+      (allResults[idx] as { _sum: { estimated_amount: unknown } })._sum
+        .estimated_amount ?? 0,
+    ),
+    invoiced: Number(
+      (allResults[idx + 6] as { _sum: { total_amount: unknown } })._sum
+        .total_amount ?? 0,
+    ),
+  }))
 }
 
 export async function getBudgetDashboardStats() {

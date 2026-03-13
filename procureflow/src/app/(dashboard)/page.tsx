@@ -75,15 +75,15 @@ async function DashboardContent() {
   const hasTenders = modules.includes('tenders')
   const hasInventory = modules.includes('inventory')
 
-  // Sequential queries to avoid exhausting connection pool on Supabase free tier
-  // Skip queries for disabled modules
+  // Each service function uses $transaction internally for batched queries.
+  // Sequential at page level to stay within connection_limit=1.
   const stats = await getDashboardStats()
   const recentRequests = await getRecentRequests(10)
   const deliveries = await getUpcomingDeliveries(5)
-  const spendByVendor = hasAnalytics ? await getSpendByVendor() : []
-  const trend = hasAnalytics ? await getRequestsTrend() : []
   const statusDist = await getStatusDistribution()
   const monthlySpend = await getMonthlySpendTrend()
+  const spendByVendor = hasAnalytics ? await getSpendByVendor() : []
+  const trend = hasAnalytics ? await getRequestsTrend() : []
   const invoiceStats = hasInvoicing
     ? await getInvoiceStats()
     : DEFAULT_INVOICE_STATS
