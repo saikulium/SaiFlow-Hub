@@ -1,4 +1,5 @@
 export { getTenderDashboardStats } from '@/server/services/tenders.service'
+export { getInventoryDashboardStats } from '@/server/services/inventory-db.service'
 import { prisma } from '@/lib/db'
 import { REQUEST_STATUS_CONFIG, type RequestStatusKey } from '@/lib/constants'
 import { INVOICE_MATCH_STATUS_CONFIG } from '@/lib/constants/sdi'

@@ -1163,12 +1163,543 @@ async function main() {
   }
   console.log(`  ✓ ${tendersData.length} gare create`)
 
+  // --- Inventory seed ---
+
+  // Clean inventory tables (in dependency order)
+  await prisma.stockInventoryLine.deleteMany()
+  await prisma.stockInventory.deleteMany()
+  await prisma.stockMovement.deleteMany()
+  await prisma.stockReservation.deleteMany()
+  await prisma.stockLot.deleteMany()
+  await prisma.warehouseZone.deleteMany()
+  await prisma.warehouse.deleteMany()
+  await prisma.material.deleteMany()
+
+  // Warehouses
+  const whPrin = await prisma.warehouse.create({
+    data: {
+      id: 'wh-prin',
+      code: 'MAG-PRIN',
+      name: 'Magazzino Principale',
+      address: 'Via Roma 1, Milano',
+    },
+  })
+  const whSec = await prisma.warehouse.create({
+    data: {
+      id: 'wh-sec',
+      code: 'MAG-SEC',
+      name: 'Magazzino Secondario',
+      address: 'Via Torino 5, Milano',
+    },
+  })
+
+  // Zones
+  const zonaA = await prisma.warehouseZone.create({
+    data: {
+      id: 'zone-a',
+      warehouse_id: whPrin.id,
+      code: 'ZONA-A',
+      name: 'Zona A - Cavi',
+    },
+  })
+  const zonaB = await prisma.warehouseZone.create({
+    data: {
+      id: 'zone-b',
+      warehouse_id: whPrin.id,
+      code: 'ZONA-B',
+      name: 'Zona B - Connettori',
+    },
+  })
+  const zonaC = await prisma.warehouseZone.create({
+    data: {
+      id: 'zone-c',
+      warehouse_id: whSec.id,
+      code: 'ZONA-C',
+      name: 'Zona C - Materie Prime',
+    },
+  })
+  const zonaD = await prisma.warehouseZone.create({
+    data: {
+      id: 'zone-d',
+      warehouse_id: whSec.id,
+      code: 'ZONA-D',
+      name: 'Zona D - Prodotti Finiti',
+    },
+  })
+
+  console.log('  ✓ 2 magazzini e 4 zone creati')
+
+  // Materials
+  const materialsData = [
+    {
+      id: 'mat-cav-1',
+      code: 'MAT-CAV-00001',
+      name: 'Cavo RG59 Coassiale',
+      category: 'Cavi',
+      unit_primary: 'm',
+      unit_secondary: 'kg',
+      conversion_factor: 0.035,
+      min_stock_level: 500,
+      unit_cost: 0.5,
+    },
+    {
+      id: 'mat-cav-2',
+      code: 'MAT-CAV-00002',
+      name: 'Cavo Cat6 UTP',
+      category: 'Cavi',
+      unit_primary: 'm',
+      unit_secondary: 'kg',
+      conversion_factor: 0.04,
+      min_stock_level: 1000,
+      unit_cost: 0.35,
+    },
+    {
+      id: 'mat-cav-3',
+      code: 'MAT-CAV-00003',
+      name: 'Cavo Fibra Ottica OS2',
+      category: 'Cavi',
+      unit_primary: 'm',
+      unit_secondary: 'kg',
+      conversion_factor: 0.02,
+      min_stock_level: 200,
+      unit_cost: 1.2,
+    },
+    {
+      id: 'mat-con-1',
+      code: 'MAT-CON-00001',
+      name: 'Connettore RJ45 Cat6',
+      category: 'Connettori',
+      unit_primary: 'pz',
+      unit_secondary: null,
+      conversion_factor: null,
+      min_stock_level: 500,
+      unit_cost: 0.15,
+    },
+    {
+      id: 'mat-con-2',
+      code: 'MAT-CON-00002',
+      name: 'Connettore BNC Maschio',
+      category: 'Connettori',
+      unit_primary: 'pz',
+      unit_secondary: null,
+      conversion_factor: null,
+      min_stock_level: 200,
+      unit_cost: 0.8,
+    },
+    {
+      id: 'mat-acc-1',
+      code: 'MAT-ACC-00001',
+      name: 'Guaina Termorestringente 6mm',
+      category: 'Accessori',
+      unit_primary: 'm',
+      unit_secondary: null,
+      conversion_factor: null,
+      min_stock_level: 100,
+      unit_cost: 0.25,
+    },
+    {
+      id: 'mat-mpr-1',
+      code: 'MAT-MPR-00001',
+      name: 'Rame Elettrolitico',
+      category: 'Materie Prime',
+      unit_primary: 'kg',
+      unit_secondary: null,
+      conversion_factor: null,
+      min_stock_level: 50,
+      unit_cost: 8.5,
+    },
+    {
+      id: 'mat-pf-1',
+      code: 'MAT-PF-00001',
+      name: 'Cablaggio Completo Quadro Elettrico',
+      category: 'Prodotti Finiti',
+      unit_primary: 'pz',
+      unit_secondary: null,
+      conversion_factor: null,
+      min_stock_level: 5,
+      unit_cost: 450.0,
+    },
+  ]
+
+  for (const m of materialsData) {
+    await prisma.material.create({
+      data: {
+        id: m.id,
+        code: m.code,
+        name: m.name,
+        category: m.category,
+        unit_primary: m.unit_primary,
+        unit_secondary: m.unit_secondary,
+        conversion_factor: m.conversion_factor,
+        min_stock_level: m.min_stock_level,
+        unit_cost: m.unit_cost,
+      },
+    })
+  }
+  console.log(`  ✓ ${materialsData.length} materiali creati`)
+
+  // Stock Lots
+  const lotsData = [
+    {
+      id: 'lot-01',
+      lot_number: 'LOT-2026-00001',
+      material_id: 'mat-cav-1',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      qty: 2000,
+      cost: 0.48,
+    },
+    {
+      id: 'lot-02',
+      lot_number: 'LOT-2026-00002',
+      material_id: 'mat-cav-1',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      qty: 1500,
+      cost: 0.52,
+    },
+    {
+      id: 'lot-03',
+      lot_number: 'LOT-2026-00003',
+      material_id: 'mat-cav-2',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      qty: 3000,
+      cost: 0.35,
+    },
+    {
+      id: 'lot-04',
+      lot_number: 'LOT-2026-00004',
+      material_id: 'mat-cav-3',
+      warehouse_id: whSec.id,
+      zone_id: zonaC.id,
+      qty: 100,
+      cost: 1.15,
+    }, // LOW stock
+    {
+      id: 'lot-05',
+      lot_number: 'LOT-2026-00005',
+      material_id: 'mat-con-1',
+      warehouse_id: whPrin.id,
+      zone_id: zonaB.id,
+      qty: 1000,
+      cost: 0.14,
+    },
+    {
+      id: 'lot-06',
+      lot_number: 'LOT-2026-00006',
+      material_id: 'mat-con-1',
+      warehouse_id: whSec.id,
+      zone_id: zonaD.id,
+      qty: 500,
+      cost: 0.16,
+    },
+    {
+      id: 'lot-07',
+      lot_number: 'LOT-2026-00007',
+      material_id: 'mat-con-2',
+      warehouse_id: whPrin.id,
+      zone_id: zonaB.id,
+      qty: 300,
+      cost: 0.78,
+    },
+    {
+      id: 'lot-08',
+      lot_number: 'LOT-2026-00008',
+      material_id: 'mat-acc-1',
+      warehouse_id: whPrin.id,
+      zone_id: zonaB.id,
+      qty: 50,
+      cost: 0.25,
+    }, // LOW stock
+    {
+      id: 'lot-09',
+      lot_number: 'LOT-2026-00009',
+      material_id: 'mat-mpr-1',
+      warehouse_id: whSec.id,
+      zone_id: zonaC.id,
+      qty: 200,
+      cost: 8.3,
+    },
+    {
+      id: 'lot-10',
+      lot_number: 'LOT-2026-00010',
+      material_id: 'mat-pf-1',
+      warehouse_id: whSec.id,
+      zone_id: zonaD.id,
+      qty: 3,
+      cost: 440.0,
+    }, // LOW stock
+    {
+      id: 'lot-11',
+      lot_number: 'LOT-2026-00011',
+      material_id: 'mat-cav-2',
+      warehouse_id: whSec.id,
+      zone_id: zonaC.id,
+      qty: 500,
+      cost: 0.38,
+    },
+    {
+      id: 'lot-12',
+      lot_number: 'LOT-2026-00012',
+      material_id: 'mat-con-2',
+      warehouse_id: whSec.id,
+      zone_id: zonaD.id,
+      qty: 150,
+      cost: 0.82,
+    },
+  ]
+
+  for (const lot of lotsData) {
+    await prisma.stockLot.create({
+      data: {
+        id: lot.id,
+        lot_number: lot.lot_number,
+        material_id: lot.material_id,
+        warehouse_id: lot.warehouse_id,
+        zone_id: lot.zone_id,
+        initial_quantity: lot.qty,
+        current_quantity: lot.qty,
+        unit_cost: lot.cost,
+        status: 'AVAILABLE',
+      },
+    })
+  }
+  console.log(`  ✓ ${lotsData.length} lotti creati`)
+
+  // Stock Movements
+  const movementsData = [
+    // INBOUNDs corresponding to lots
+    {
+      code: 'MOV-2026-00001',
+      material_id: 'mat-cav-1',
+      lot_id: 'lot-01',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      type: 'INBOUND' as const,
+      reason: 'ACQUISTO' as const,
+      qty: 2000,
+      cost: 0.48,
+      actor: 'Marco Rossi',
+      days_ago: 30,
+    },
+    {
+      code: 'MOV-2026-00002',
+      material_id: 'mat-cav-1',
+      lot_id: 'lot-02',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      type: 'INBOUND' as const,
+      reason: 'ACQUISTO' as const,
+      qty: 1500,
+      cost: 0.52,
+      actor: 'Marco Rossi',
+      days_ago: 25,
+    },
+    {
+      code: 'MOV-2026-00003',
+      material_id: 'mat-cav-2',
+      lot_id: 'lot-03',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      type: 'INBOUND' as const,
+      reason: 'ACQUISTO' as const,
+      qty: 3000,
+      cost: 0.35,
+      actor: 'Giuseppe Verde',
+      days_ago: 20,
+    },
+    {
+      code: 'MOV-2026-00004',
+      material_id: 'mat-cav-3',
+      lot_id: 'lot-04',
+      warehouse_id: whSec.id,
+      zone_id: zonaC.id,
+      type: 'INBOUND' as const,
+      reason: 'ACQUISTO' as const,
+      qty: 100,
+      cost: 1.15,
+      actor: 'Giuseppe Verde',
+      days_ago: 15,
+    },
+    {
+      code: 'MOV-2026-00005',
+      material_id: 'mat-con-1',
+      lot_id: 'lot-05',
+      warehouse_id: whPrin.id,
+      zone_id: zonaB.id,
+      type: 'INBOUND' as const,
+      reason: 'ACQUISTO' as const,
+      qty: 1000,
+      cost: 0.14,
+      actor: 'Laura Bianchi',
+      days_ago: 18,
+    },
+    {
+      code: 'MOV-2026-00006',
+      material_id: 'mat-con-1',
+      lot_id: 'lot-06',
+      warehouse_id: whSec.id,
+      zone_id: zonaD.id,
+      type: 'INBOUND' as const,
+      reason: 'ACQUISTO' as const,
+      qty: 500,
+      cost: 0.16,
+      actor: 'Laura Bianchi',
+      days_ago: 12,
+    },
+    {
+      code: 'MOV-2026-00007',
+      material_id: 'mat-con-2',
+      lot_id: 'lot-07',
+      warehouse_id: whPrin.id,
+      zone_id: zonaB.id,
+      type: 'INBOUND' as const,
+      reason: 'ACQUISTO' as const,
+      qty: 300,
+      cost: 0.78,
+      actor: 'Giuseppe Verde',
+      days_ago: 14,
+    },
+    {
+      code: 'MOV-2026-00008',
+      material_id: 'mat-acc-1',
+      lot_id: 'lot-08',
+      warehouse_id: whPrin.id,
+      zone_id: zonaB.id,
+      type: 'INBOUND' as const,
+      reason: 'ACQUISTO' as const,
+      qty: 50,
+      cost: 0.25,
+      actor: 'Marco Rossi',
+      days_ago: 10,
+    },
+    {
+      code: 'MOV-2026-00009',
+      material_id: 'mat-mpr-1',
+      lot_id: 'lot-09',
+      warehouse_id: whSec.id,
+      zone_id: zonaC.id,
+      type: 'INBOUND' as const,
+      reason: 'ACQUISTO' as const,
+      qty: 200,
+      cost: 8.3,
+      actor: 'Giuseppe Verde',
+      days_ago: 8,
+    },
+    {
+      code: 'MOV-2026-00010',
+      material_id: 'mat-pf-1',
+      lot_id: 'lot-10',
+      warehouse_id: whSec.id,
+      zone_id: zonaD.id,
+      type: 'INBOUND' as const,
+      reason: 'PRODUZIONE' as const,
+      qty: 3,
+      cost: 440.0,
+      actor: 'Giuseppe Verde',
+      days_ago: 5,
+    },
+    {
+      code: 'MOV-2026-00011',
+      material_id: 'mat-cav-2',
+      lot_id: 'lot-11',
+      warehouse_id: whSec.id,
+      zone_id: zonaC.id,
+      type: 'INBOUND' as const,
+      reason: 'ACQUISTO' as const,
+      qty: 500,
+      cost: 0.38,
+      actor: 'Laura Bianchi',
+      days_ago: 7,
+    },
+    {
+      code: 'MOV-2026-00012',
+      material_id: 'mat-con-2',
+      lot_id: 'lot-12',
+      warehouse_id: whSec.id,
+      zone_id: zonaD.id,
+      type: 'INBOUND' as const,
+      reason: 'ACQUISTO' as const,
+      qty: 150,
+      cost: 0.82,
+      actor: 'Laura Bianchi',
+      days_ago: 3,
+    },
+    // OUTBOUNDs
+    {
+      code: 'MOV-2026-00013',
+      material_id: 'mat-cav-1',
+      lot_id: 'lot-01',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      type: 'OUTBOUND' as const,
+      reason: 'VENDITA' as const,
+      qty: -200,
+      cost: null,
+      actor: 'Giuseppe Verde',
+      days_ago: 4,
+    },
+    {
+      code: 'MOV-2026-00014',
+      material_id: 'mat-con-1',
+      lot_id: 'lot-05',
+      warehouse_id: whPrin.id,
+      zone_id: zonaB.id,
+      type: 'OUTBOUND' as const,
+      reason: 'VENDITA' as const,
+      qty: -100,
+      cost: null,
+      actor: 'Giuseppe Verde',
+      days_ago: 2,
+    },
+    {
+      code: 'MOV-2026-00015',
+      material_id: 'mat-mpr-1',
+      lot_id: 'lot-09',
+      warehouse_id: whSec.id,
+      zone_id: zonaC.id,
+      type: 'OUTBOUND' as const,
+      reason: 'PRODUZIONE' as const,
+      qty: -30,
+      cost: null,
+      actor: 'Giuseppe Verde',
+      days_ago: 1,
+    },
+  ]
+
+  for (const m of movementsData) {
+    await prisma.stockMovement.create({
+      data: {
+        code: m.code,
+        material_id: m.material_id,
+        lot_id: m.lot_id,
+        warehouse_id: m.warehouse_id,
+        zone_id: m.zone_id,
+        movement_type: m.type,
+        reason: m.reason,
+        quantity: m.qty,
+        unit_cost: m.cost,
+        actor: m.actor,
+        created_at: daysAgo(m.days_ago),
+      },
+    })
+  }
+  console.log(`  ✓ ${movementsData.length} movimenti creati`)
+
   // --- Deploy Config ---
   await prisma.deployConfig.create({
     data: {
       id: 'default',
       deploy_name: 'ProcureFlow',
-      enabled_modules: ['core', 'invoicing', 'budgets', 'analytics', 'tenders'],
+      enabled_modules: [
+        'core',
+        'invoicing',
+        'budgets',
+        'analytics',
+        'tenders',
+        'inventory',
+      ],
     },
   })
   console.log('  ✓ deploy config creata')

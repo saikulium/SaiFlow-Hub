@@ -6,6 +6,7 @@ import {
   Receipt,
   PiggyBank,
   Gavel,
+  Package,
   BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -22,6 +23,7 @@ import { InvoiceAgingChart } from './invoice-aging-chart'
 import { OrderedVsInvoicedChart } from './ordered-vs-invoiced-chart'
 import { BudgetOverview } from './budget-overview'
 import { TenderPipelineChart } from './tender-pipeline-chart'
+import { InventoryOverviewChart } from './inventory-overview-chart'
 import { SpendByVendorChart } from './spend-by-vendor-chart'
 import { RequestsTrendChart } from './requests-trend-chart'
 import type {
@@ -35,11 +37,18 @@ import type {
   OrderedVsInvoiced,
   BudgetDashboardStats,
   TenderDashboardStats,
+  InventoryDashboardStats,
   SpendByVendor,
   RequestTrend,
 } from '@/types'
 
-type TabId = 'panoramica' | 'fatture' | 'budget' | 'gare' | 'analisi'
+type TabId =
+  | 'panoramica'
+  | 'fatture'
+  | 'budget'
+  | 'gare'
+  | 'magazzino'
+  | 'analisi'
 
 interface Tab {
   readonly id: TabId
@@ -58,6 +67,7 @@ interface DashboardTabsProps {
   readonly orderedVsInvoiced: OrderedVsInvoiced[]
   readonly budgetStats: BudgetDashboardStats
   readonly tenderStats: TenderDashboardStats
+  readonly inventoryStats: InventoryDashboardStats
   readonly spendByVendor: SpendByVendor[]
   readonly trend: RequestTrend[]
 }
@@ -67,6 +77,7 @@ const BASE_TABS: readonly Tab[] = [
   { id: 'fatture', label: 'Fatture', icon: Receipt },
   { id: 'budget', label: 'Budget', icon: PiggyBank },
   { id: 'gare', label: 'Gare', icon: Gavel },
+  { id: 'magazzino', label: 'Magazzino', icon: Package },
   { id: 'analisi', label: 'Analisi', icon: BarChart3 },
 ] as const
 
@@ -128,6 +139,9 @@ export function DashboardTabs(props: DashboardTabsProps) {
         )}
         {activeTab === 'gare' && (
           <TenderPipelineChart stats={props.tenderStats} />
+        )}
+        {activeTab === 'magazzino' && (
+          <InventoryOverviewChart stats={props.inventoryStats} />
         )}
         {activeTab === 'analisi' && (
           <AnalisiTab spendByVendor={props.spendByVendor} trend={props.trend} />

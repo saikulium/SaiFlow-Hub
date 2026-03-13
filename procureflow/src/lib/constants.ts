@@ -21,6 +21,7 @@ import {
   Users,
   PiggyBank,
   Gavel,
+  Package,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -243,6 +244,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { label: 'Budget', href: '/budgets', icon: PiggyBank },
   { label: 'Gare', href: '/tenders', icon: Gavel },
+  { label: 'Magazzino', href: '/inventory', icon: Package },
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Utenti', href: '/users', icon: Users },
   { label: 'Impostazioni', href: '/settings', icon: Settings },

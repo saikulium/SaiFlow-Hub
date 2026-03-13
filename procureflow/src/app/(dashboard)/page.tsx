@@ -19,6 +19,7 @@ import {
   getOrderedVsInvoiced,
   getBudgetDashboardStats,
   getTenderDashboardStats,
+  getInventoryDashboardStats,
 } from '@/server/services/dashboard.service'
 import { getEnabledModules } from '@/server/services/module.service'
 
@@ -45,6 +46,17 @@ const DEFAULT_TENDER_STATS = {
   nearDeadlines: [],
 }
 
+const DEFAULT_INVENTORY_STATS = {
+  totalMaterials: 0,
+  totalWarehouseValue: 0,
+  lowStockCount: 0,
+  lowStockCountPrevious: 0,
+  recentMovements: 0,
+  valueByCategory: [] as never[],
+  movementTrend: [] as never[],
+  lowStockAlerts: [] as never[],
+}
+
 const DEFAULT_BUDGET_STATS = {
   totalAllocated: 0,
   totalSpent: 0,
@@ -61,6 +73,7 @@ async function DashboardContent() {
   const hasBudgets = modules.includes('budgets')
   const hasAnalytics = modules.includes('analytics')
   const hasTenders = modules.includes('tenders')
+  const hasInventory = modules.includes('inventory')
 
   // Sequential queries to avoid exhausting connection pool on Supabase free tier
   // Skip queries for disabled modules
@@ -83,6 +96,9 @@ async function DashboardContent() {
   const tenderStats = hasTenders
     ? await getTenderDashboardStats().catch(() => DEFAULT_TENDER_STATS)
     : DEFAULT_TENDER_STATS
+  const inventoryStats = hasInventory
+    ? await getInventoryDashboardStats().catch(() => DEFAULT_INVENTORY_STATS)
+    : DEFAULT_INVENTORY_STATS
 
   return (
     <PageTransition>
@@ -112,6 +128,7 @@ async function DashboardContent() {
           orderedVsInvoiced={orderedVsInvoiced}
           budgetStats={budgetStats}
           tenderStats={tenderStats}
+          inventoryStats={inventoryStats}
           spendByVendor={spendByVendor}
           trend={trend}
         />
