@@ -49,6 +49,20 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+model RefreshToken {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  expires_at DateTime
+  revoked    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@index([user_id, revoked])
+  @@index([expires_at])
+  @@map("refresh_tokens")
+}
+
 // --- Core Models ---
 
 model User {
@@ -62,9 +76,27 @@ model User {
   password_hash String?
   created_at    DateTime  @default(now())
 
-  accounts      Account[]
-  sessions      Session[]
-  requests      PurchaseRequest[]
+  // Security: lockout
+  failed_login_attempts Int       @default(0)
+  locked_until          DateTime?
+  last_login_at         DateTime?
+
+  // Security: token rotation
+  token_version    Int    @default(0)
+
+  // Security: TOTP MFA
+  totp_secret     String?
+  totp_enabled    Boolean  @default(false)
+  recovery_codes  String[] // Hashed with bcrypt
+
+  // Onboarding
+  onboarding_completed Boolean  @default(false)
+  onboarding_data      Json?
+
+  accounts         Account[]
+  sessions         Session[]
+  refresh_tokens   RefreshToken[]
+  requests         PurchaseRequest[]
   approvals     Approval[]
   comments      Comment[]
   notifications Notification[]
@@ -108,6 +140,7 @@ model Vendor {
   tenders_as_authority  Tender[]  @relation("TenderAuthority")
 
   materials_as_preferred  Material[]  @relation("MaterialPreferredVendor")
+  material_alerts         MaterialAlert[]  @relation("MaterialAlertVendor")
 
   @@map("vendors")
 }
@@ -534,7 +567,10 @@ model DeployConfig {
   id              String   @id @default("default")
   deploy_name     String   @default("ProcureFlow")
   enabled_modules String[] // ["core", "invoicing", "budgets", ...]
-  created_at      DateTime @default(now())
+  company_logo_url String?
+  categories       String[]
+  approval_rules   Json?
+  created_at       DateTime @default(now())
   updated_at      DateTime @updatedAt
 
   @@map("deploy_config")
@@ -768,6 +804,7 @@ model Material {
   movements             StockMovement[]
   reservations          StockReservation[]
   inventory_lines       StockInventoryLine[]
+  alerts                MaterialAlert[]
 
   @@index([category, is_active])
   @@index([code])
@@ -939,4 +976,76 @@ model StockInventoryLine {
 
   @@index([inventory_id])
   @@map("stock_inventory_lines")
+}
+
+// --- AI Insights & Material Alerts ---
+
+enum InsightType {
+  SPEND_ANOMALY
+  VENDOR_RISK
+  SAVINGS
+  BOTTLENECK
+  BUDGET_ALERT
+}
+
+enum InsightSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertType {
+  REORDER_SUGGESTED
+  LOW_STOCK
+  OUT_OF_STOCK
+}
+
+model AiInsight {
+  id           String          @id @default(cuid())
+  type         InsightType
+  severity     InsightSeverity
+  title        String
+  description  String
+  action_label String?
+  action_url   String?
+  metadata     Json?
+  dismissed    Boolean         @default(false)
+  expires_at   DateTime
+  created_at   DateTime        @default(now())
+
+  @@index([dismissed, expires_at])
+  @@index([type, severity])
+  @@map("ai_insights")
+}
+
+model MaterialAlert {
+  id                  String    @id @default(cuid())
+  material_id         String
+  material            Material  @relation(fields: [material_id], references: [id])
+  type                AlertType
+  suggested_qty       Int?
+  suggested_vendor_id String?
+  suggested_vendor    Vendor?   @relation("MaterialAlertVendor", fields: [suggested_vendor_id], references: [id])
+  days_remaining      Float?
+  dismissed           Boolean   @default(false)
+  resolved_by         String?
+  created_at          DateTime  @default(now())
+
+  @@index([material_id, dismissed])
+  @@map("material_alerts")
+}
+
+// --- Webhook Idempotency ---
+
+model ProcessedWebhook {
+  id          String   @id @default(cuid())
+  webhook_id  String   @unique
+  endpoint    String
+  status_code Int
+  response    Json?
+  created_at  DateTime @default(now())
+
+  @@index([created_at])
+  @@map("processed_webhooks")
 }
