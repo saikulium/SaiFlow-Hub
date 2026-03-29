@@ -419,6 +419,86 @@ export interface InventoryListItem {
   createdAt: string
 }
 
+// --- ROI Metrics Types ---
+
+export type RoiPeriod = '30d' | '90d' | '6m' | '12m' | 'all'
+
+export interface TrendPoint {
+  readonly period: string
+  readonly value: number
+}
+
+export interface TimeSavingsMetrics {
+  readonly avgCycleTimeDays: number
+  readonly avgApprovalTimeHours: number
+  readonly cycleTimeTrend: readonly TrendPoint[]
+  readonly approvalTimeTrend: readonly TrendPoint[]
+  readonly cycleTimeChangePercent: number
+  readonly approvalTimeChangePercent: number
+}
+
+export interface CostSavingsMetrics {
+  readonly totalEstimated: number
+  readonly totalActual: number
+  readonly negotiationSavings: number
+  readonly discrepanciesCaught: number
+  readonly discrepanciesCaughtCount: number
+  readonly budgetComplianceRate: number
+  readonly costSavingsTrend: readonly TrendPoint[]
+}
+
+export interface OperationalEfficiencyMetrics {
+  readonly requestsPerMonth: number
+  readonly requestsTrend: readonly TrendPoint[]
+  readonly autoMatchRate: number
+  readonly onTimeDeliveryRate: number
+  readonly totalRequests: number
+  readonly totalDelivered: number
+  readonly totalInvoices: number
+  readonly autoMatchedInvoices: number
+}
+
+export interface AutomationMetrics {
+  readonly emailsIngested: number
+  readonly emailTimeSavedHours: number
+  readonly emailsTrend: readonly TrendPoint[]
+  readonly invoicesProcessed: number
+  readonly invoicesSdi: number
+  readonly invoicesOcr: number
+  readonly avgInvoiceProcessingHours: number
+  readonly invoiceTimeSavedHours: number
+  readonly invoicesTrend: readonly TrendPoint[]
+  readonly reconciled: number
+  readonly reconciledAuto: number
+  readonly autoReconciliationRate: number
+  readonly reconciliationTimeSavedHours: number
+  readonly autoApprovedCount: number
+  readonly autoApprovalRate: number
+  readonly autoApprovalTimeSavedHours: number
+  readonly activeBudgets: number
+}
+
+export interface RoiSummary {
+  readonly estimatedHoursSaved: number
+  readonly hoursSavedValue: number
+  readonly moneySaved: number
+  readonly projectedAnnualSavings: number
+  readonly projectedAnnualHoursSaved: number
+  readonly totalTimeSavedHours: number
+  readonly automationTimeSavedHours: number
+}
+
+export interface RoiMetrics {
+  readonly period: RoiPeriod
+  readonly periodStart: string
+  readonly periodEnd: string
+  readonly timeSavings: TimeSavingsMetrics
+  readonly costSavings: CostSavingsMetrics
+  readonly efficiency: OperationalEfficiencyMetrics
+  readonly automation: AutomationMetrics
+  readonly summary: RoiSummary
+}
+
 export interface InventoryDashboardStats {
   totalMaterials: number
   totalWarehouseValue: number
@@ -437,3 +517,5 @@ export interface InventoryDashboardStats {
     deficit: number
   }>
 }
+
+export * from './ai'
