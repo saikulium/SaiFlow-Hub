@@ -393,7 +393,7 @@ async function writeCreateRequest(
 
 async function writeUpdateRequest(
   params: ToolInput,
-  userId: string,
+  _userId: string,
 ): Promise<unknown> {
   const data: Record<string, unknown> = {}
   if (params.title !== undefined) data.title = String(params.title)
