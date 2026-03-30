@@ -59,7 +59,7 @@ export async function importVendors(csvText: string): Promise<ImportResult> {
   const errors: string[] = []
 
   for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]
+    const row = rows[i] as Record<string, string>
     const lineNum = i + 2 // header is line 1
 
     const codice = row.codice?.trim()
@@ -71,7 +71,10 @@ export async function importVendors(csvText: string): Promise<ImportResult> {
     }
 
     const categories = row.categorie
-      ? row.categorie.split(';').map((c) => c.trim()).filter(Boolean)
+      ? row.categorie
+          .split(';')
+          .map((c) => c.trim())
+          .filter(Boolean)
       : []
 
     try {
@@ -130,7 +133,7 @@ export async function importMaterials(csvText: string): Promise<ImportResult> {
   const errors: string[] = []
 
   for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]
+    const row = rows[i] as Record<string, string>
     const lineNum = i + 2
 
     const codice = row.codice?.trim()

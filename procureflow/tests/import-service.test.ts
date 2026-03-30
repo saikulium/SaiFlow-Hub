@@ -24,15 +24,16 @@ describe('detectSeparator', () => {
 
 describe('parseCsvRows', () => {
   it('parses comma-separated CSV', () => {
-    const csv = 'codice,nome,email\nV001,Acme,acme@test.com\nV002,Beta,beta@test.com'
+    const csv =
+      'codice,nome,email\nV001,Acme,acme@test.com\nV002,Beta,beta@test.com'
     const rows = parseCsvRows(csv)
     expect(rows).toHaveLength(2)
-    expect(rows[0]).toEqual({
+    expect(rows[0]!).toEqual({
       codice: 'V001',
       nome: 'Acme',
       email: 'acme@test.com',
     })
-    expect(rows[1]).toEqual({
+    expect(rows[1]!).toEqual({
       codice: 'V002',
       nome: 'Beta',
       email: 'beta@test.com',
@@ -43,7 +44,7 @@ describe('parseCsvRows', () => {
     const csv = 'codice;nome;email\nV001;Acme;acme@test.com'
     const rows = parseCsvRows(csv)
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toEqual({
+    expect(rows[0]!).toEqual({
       codice: 'V001',
       nome: 'Acme',
       email: 'acme@test.com',
@@ -54,13 +55,13 @@ describe('parseCsvRows', () => {
     const csv = '\uFEFFcodice,nome\nV001,Acme'
     const rows = parseCsvRows(csv)
     expect(rows).toHaveLength(1)
-    expect(rows[0].codice).toBe('V001')
+    expect(rows[0]!.codice).toBe('V001')
   })
 
   it('trims whitespace from values', () => {
     const csv = 'codice , nome \n V001 , Acme Corp '
     const rows = parseCsvRows(csv)
-    expect(rows[0]).toEqual({
+    expect(rows[0]!).toEqual({
       codice: 'V001',
       nome: 'Acme Corp',
     })

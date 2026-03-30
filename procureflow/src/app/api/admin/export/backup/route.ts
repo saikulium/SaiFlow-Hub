@@ -52,7 +52,7 @@ export async function GET() {
   const now = new Date().toISOString().slice(0, 10)
   const filename = `procureflow_backup_${now}.zip`
 
-  return new NextResponse(zipBuffer, {
+  return new NextResponse(new Uint8Array(zipBuffer), {
     status: 200,
     headers: {
       'Content-Type': 'application/zip',

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { requireRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { updateConfigSchema } from '@/lib/validations/admin'
@@ -74,7 +75,7 @@ export async function PATCH(request: Request) {
       categories: parsed.data.categories ?? [],
       departments: parsed.data.departments ?? [],
       cost_centers: parsed.data.cost_centers ?? [],
-      approval_rules: parsed.data.approval_rules ?? null,
+      approval_rules: parsed.data.approval_rules ?? Prisma.JsonNull,
       company_logo_url: parsed.data.company_logo_url ?? null,
     },
   })
