@@ -4,10 +4,15 @@ import { prisma } from '@/lib/db'
 const MAX_ROWS = 10_000
 const BOM = '\uFEFF'
 
+interface ImportError {
+  readonly row: number
+  readonly message: string
+}
+
 interface ImportResult {
   readonly created: number
   readonly updated: number
-  readonly errors: readonly string[]
+  readonly errors: readonly ImportError[]
 }
 
 /**
@@ -56,7 +61,7 @@ export async function importVendors(csvText: string): Promise<ImportResult> {
   const rows = parseCsvRows(csvText)
   let created = 0
   let updated = 0
-  const errors: string[] = []
+  const errors: ImportError[] = []
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] as Record<string, string>
@@ -66,13 +71,16 @@ export async function importVendors(csvText: string): Promise<ImportResult> {
     const nome = row.nome?.trim()
 
     if (!codice || !nome) {
-      errors.push(`Riga ${lineNum}: campi obbligatori mancanti (codice, nome)`)
+      errors.push({
+        row: lineNum,
+        message: 'Campi obbligatori mancanti (codice, nome)',
+      })
       continue
     }
 
     const categories = row.categorie
       ? row.categorie
-          .split(';')
+          .split(',')
           .map((c) => c.trim())
           .filter(Boolean)
       : []
@@ -112,8 +120,8 @@ export async function importVendors(csvText: string): Promise<ImportResult> {
         created++
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      errors.push(`Riga ${lineNum}: errore DB — ${message}`)
+      const msg = err instanceof Error ? err.message : String(err)
+      errors.push({ row: lineNum, message: `Errore DB — ${msg}` })
     }
   }
 
@@ -130,7 +138,7 @@ export async function importMaterials(csvText: string): Promise<ImportResult> {
   const rows = parseCsvRows(csvText)
   let created = 0
   let updated = 0
-  const errors: string[] = []
+  const errors: ImportError[] = []
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] as Record<string, string>
@@ -140,7 +148,10 @@ export async function importMaterials(csvText: string): Promise<ImportResult> {
     const nome = row.nome?.trim()
 
     if (!codice || !nome) {
-      errors.push(`Riga ${lineNum}: campi obbligatori mancanti (codice, nome)`)
+      errors.push({
+        row: lineNum,
+        message: 'Campi obbligatori mancanti (codice, nome)',
+      })
       continue
     }
 
@@ -152,9 +163,10 @@ export async function importMaterials(csvText: string): Promise<ImportResult> {
         select: { id: true },
       })
       if (!vendor) {
-        errors.push(
-          `Riga ${lineNum}: fornitore con codice "${vendorCode}" non trovato`,
-        )
+        errors.push({
+          row: lineNum,
+          message: `Fornitore con codice "${vendorCode}" non trovato`,
+        })
         continue
       }
       preferredVendorId = vendor.id
@@ -201,8 +213,8 @@ export async function importMaterials(csvText: string): Promise<ImportResult> {
         created++
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      errors.push(`Riga ${lineNum}: errore DB — ${message}`)
+      const msg = err instanceof Error ? err.message : String(err)
+      errors.push({ row: lineNum, message: `Errore DB — ${msg}` })
     }
   }
 

@@ -30,7 +30,12 @@ interface VendorApiConfig {
   readonly custom_headers?: Readonly<Record<string, string>>
 }
 
-function testImapConnection(config: ImapConfig): Promise<boolean> {
+interface TestResult {
+  readonly success: boolean
+  readonly message: string
+}
+
+function testImapConnection(config: ImapConfig): Promise<TestResult> {
   return new Promise((resolve) => {
     const socket = new net.Socket()
     const timeout = 5_000
@@ -39,38 +44,58 @@ function testImapConnection(config: ImapConfig): Promise<boolean> {
 
     socket.on('connect', () => {
       socket.destroy()
-      resolve(true)
+      resolve({
+        success: true,
+        message: `Connessione IMAP a ${config.host}:${config.port} riuscita`,
+      })
     })
 
-    socket.on('error', () => {
+    socket.on('error', (err) => {
       socket.destroy()
-      resolve(false)
+      resolve({
+        success: false,
+        message: `Errore connessione IMAP: ${err.message}`,
+      })
     })
 
     socket.on('timeout', () => {
       socket.destroy()
-      resolve(false)
+      resolve({
+        success: false,
+        message: `Timeout connessione IMAP a ${config.host}:${config.port}`,
+      })
     })
 
     socket.connect(config.port, config.host)
   })
 }
 
-async function testSdiConnection(config: SdiConfig): Promise<boolean> {
+async function testSdiConnection(config: SdiConfig): Promise<TestResult> {
   try {
     const response = await fetch(config.endpoint_url, {
       method: 'GET',
       signal: AbortSignal.timeout(10_000),
     })
-    return response.ok || response.status === 401 || response.status === 403
-  } catch {
-    return false
+    const reachable =
+      response.ok || response.status === 401 || response.status === 403
+    return reachable
+      ? {
+          success: true,
+          message: `Endpoint SDI raggiungibile (HTTP ${response.status})`,
+        }
+      : {
+          success: false,
+          message: `Endpoint SDI ha risposto con HTTP ${response.status}`,
+        }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { success: false, message: `Errore connessione SDI: ${msg}` }
   }
 }
 
 async function testVendorApiConnection(
   config: VendorApiConfig,
-): Promise<boolean> {
+): Promise<TestResult> {
   try {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${config.api_key}`,
@@ -81,9 +106,20 @@ async function testVendorApiConnection(
       headers,
       signal: AbortSignal.timeout(10_000),
     })
-    return response.ok || response.status === 401 || response.status === 403
-  } catch {
-    return false
+    const reachable =
+      response.ok || response.status === 401 || response.status === 403
+    return reachable
+      ? {
+          success: true,
+          message: `API vendor "${config.vendor_name}" raggiungibile (HTTP ${response.status})`,
+        }
+      : {
+          success: false,
+          message: `API vendor ha risposto con HTTP ${response.status}`,
+        }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { success: false, message: `Errore connessione API vendor: ${msg}` }
   }
 }
 
@@ -140,26 +176,26 @@ export async function POST(_request: Request, { params }: RouteParams) {
     )
   }
 
-  let connected = false
+  const start = Date.now()
+  let testResult: TestResult
 
   switch (typeParsed.data) {
     case 'imap':
-      connected = await testImapConnection(config as unknown as ImapConfig)
+      testResult = await testImapConnection(config as unknown as ImapConfig)
       break
     case 'sdi':
-      connected = await testSdiConnection(config as unknown as SdiConfig)
+      testResult = await testSdiConnection(config as unknown as SdiConfig)
       break
     case 'vendor_api':
-      connected = await testVendorApiConnection(
+      testResult = await testVendorApiConnection(
         config as unknown as VendorApiConfig,
       )
       break
   }
 
-  const newStatus = connected ? 'connected' : 'error'
-  const lastError = connected
-    ? null
-    : `Test connessione fallito per ${typeParsed.data}`
+  const latencyMs = Date.now() - start
+  const newStatus = testResult.success ? 'connected' : 'error'
+  const lastError = testResult.success ? null : testResult.message
 
   await prisma.integrationConfig.update({
     where: { type: typeParsed.data },
@@ -172,10 +208,9 @@ export async function POST(_request: Request, { params }: RouteParams) {
   return NextResponse.json({
     success: true,
     data: Object.freeze({
-      type: typeParsed.data,
-      connected,
-      status: newStatus,
-      last_error: lastError,
+      success: testResult.success,
+      message: testResult.message,
+      latency_ms: latencyMs,
     }),
   })
 }

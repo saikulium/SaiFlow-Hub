@@ -24,6 +24,25 @@ export async function POST(request: Request) {
     )
   }
 
+  const ALLOWED_TYPES = new Set([
+    'text/csv',
+    'text/plain',
+    'application/csv',
+    'application/vnd.ms-excel',
+  ])
+  if (file.type && !ALLOWED_TYPES.has(file.type)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'INVALID_FILE_TYPE',
+          message: 'Sono accettati solo file CSV',
+        },
+      },
+      { status: 400 },
+    )
+  }
+
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json(
       {
