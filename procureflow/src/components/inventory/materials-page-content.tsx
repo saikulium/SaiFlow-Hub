@@ -2,7 +2,14 @@
 
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronLeft, ChevronRight, Package } from 'lucide-react'
+import {
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Package,
+  AlertTriangle,
+  X,
+} from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
 import {
   InventoryFiltersBar,
@@ -11,6 +18,7 @@ import {
 import { StockLevelBadge } from '@/components/inventory/stock-level-badge'
 import { MaterialFormDialog } from '@/components/inventory/material-form-dialog'
 import { useMaterials } from '@/hooks/use-materials'
+import { useMaterialAlerts } from '@/hooks/use-forecast'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { StockStatusKey } from '@/lib/constants/inventory'
 
@@ -37,6 +45,7 @@ export function MaterialsPageContent() {
   const [filters, setFilters] = useState<InventoryFilters>({})
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
+  const { alerts, dismiss: dismissAlert } = useMaterialAlerts()
 
   const { data: response, isLoading } = useMaterials({
     page,
@@ -100,11 +109,66 @@ export function MaterialsPageContent() {
         </div>
 
         {/* Filters */}
-        <InventoryFiltersBar filters={filters} onFiltersChange={handleFiltersChange} />
+        <InventoryFiltersBar
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+        />
+
+        {/* Reorder Alert Banners */}
+        {alerts.length > 0 && (
+          <div className="space-y-2">
+            {alerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="flex items-center gap-3 rounded-card border border-yellow-500/20 bg-yellow-500/5 px-4 py-3"
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400" />
+                <div className="flex-1 text-sm">
+                  <span className="font-medium text-pf-text-primary">
+                    {alert.materialName}
+                  </span>
+                  <span className="text-pf-text-secondary">
+                    {' '}
+                    —{' '}
+                    {alert.type === 'OUT_OF_STOCK'
+                      ? 'esaurito'
+                      : `${alert.daysRemaining ?? '?'} giorni rimanenti`}
+                    {alert.suggestedQty != null && (
+                      <> · Quantità suggerita: {alert.suggestedQty}</>
+                    )}
+                  </span>
+                </div>
+                <a
+                  href={`/requests/new?material=${alert.materialId}${alert.suggestedVendorId ? `&vendor=${alert.suggestedVendorId}` : ''}${alert.suggestedQty != null ? `&qty=${alert.suggestedQty}` : ''}`}
+                  className="shrink-0 rounded-button bg-pf-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-pf-accent-hover"
+                >
+                  Crea richiesta &rarr;
+                </a>
+                <button
+                  onClick={() => dismissAlert(alert.id)}
+                  className="shrink-0 rounded-button p-1 text-pf-text-muted transition-colors hover:text-pf-text-secondary"
+                  title="Ignora"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Table */}
-        <div className="overflow-x-auto rounded-card border border-pf-border bg-pf-bg-secondary/60 backdrop-blur-xl">
-          <table className="w-full">
+        <div className="bg-pf-bg-secondary/60 overflow-x-auto rounded-card border border-pf-border backdrop-blur-xl">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[120px]" />
+              <col />
+              <col className="hidden w-[120px] md:table-column" />
+              <col className="hidden w-[50px] sm:table-column" />
+              <col className="w-[110px]" />
+              <col className="hidden w-[100px] lg:table-column" />
+              <col className="hidden w-[100px] lg:table-column" />
+              <col className="w-[110px]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-pf-border">
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-pf-text-secondary">
@@ -135,7 +199,9 @@ export function MaterialsPageContent() {
             </thead>
             <tbody>
               {isLoading &&
-                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
+                Array.from({ length: 5 }).map((_, i) => (
+                  <SkeletonRow key={i} />
+                ))}
 
               {!isLoading && materials.length === 0 && (
                 <tr>
@@ -163,8 +229,8 @@ export function MaterialsPageContent() {
                         {mat.code}
                       </span>
                     </td>
-                    <td className="max-w-[200px] px-4 py-3">
-                      <span className="truncate text-sm font-medium text-pf-text-primary">
+                    <td className="overflow-hidden px-4 py-3">
+                      <span className="block truncate text-sm font-medium text-pf-text-primary">
                         {mat.name}
                       </span>
                     </td>
@@ -184,7 +250,9 @@ export function MaterialsPageContent() {
                       {formatCurrency(mat.unitCost)}
                     </td>
                     <td className="px-4 py-3">
-                      <StockLevelBadge status={mat.stockStatus as StockStatusKey} />
+                      <StockLevelBadge
+                        status={mat.stockStatus as StockStatusKey}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -194,15 +262,17 @@ export function MaterialsPageContent() {
 
         {/* Pagination */}
         {!isLoading && total > 0 && (
-          <div className="flex items-center justify-between rounded-card border border-pf-border bg-pf-bg-secondary/60 px-4 py-3 backdrop-blur-xl">
+          <div className="bg-pf-bg-secondary/60 flex items-center justify-between rounded-card border border-pf-border px-4 py-3 backdrop-blur-xl">
             <p className="text-sm text-pf-text-secondary">
               Pagina{' '}
-              <span className="font-medium text-pf-text-primary">{page}</span>
-              {' '}di{' '}
-              <span className="font-medium text-pf-text-primary">{totalPages}</span>
-              {' '}&middot;{' '}
-              <span className="font-medium text-pf-text-primary">{total}</span>
-              {' '}risultati
+              <span className="font-medium text-pf-text-primary">{page}</span>{' '}
+              di{' '}
+              <span className="font-medium text-pf-text-primary">
+                {totalPages}
+              </span>{' '}
+              &middot;{' '}
+              <span className="font-medium text-pf-text-primary">{total}</span>{' '}
+              risultati
             </p>
 
             <div className="flex items-center gap-2">
@@ -212,8 +282,8 @@ export function MaterialsPageContent() {
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                   page <= 1
-                    ? 'cursor-not-allowed text-pf-text-secondary/40'
-                    : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
                 )}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -225,8 +295,8 @@ export function MaterialsPageContent() {
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                   page >= totalPages
-                    ? 'cursor-not-allowed text-pf-text-secondary/40'
-                    : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
                 )}
               >
                 Successiva
