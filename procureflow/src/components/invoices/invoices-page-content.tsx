@@ -3,11 +3,38 @@
 import { useCallback, useRef, useState } from 'react'
 import { Upload, ChevronLeft, ChevronRight } from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
-import { InvoiceFiltersBar, type InvoiceFilters } from '@/components/invoices/invoice-filters'
+import {
+  InvoiceFiltersBar,
+  type InvoiceFilters,
+} from '@/components/invoices/invoice-filters'
 import { InvoicesTable } from '@/components/invoices/invoices-table'
 import { useInvoices, type InvoicesParams } from '@/hooks/use-invoices'
 import { useUploadInvoice } from '@/hooks/use-invoice'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { cn } from '@/lib/utils'
+
+const INVOICE_CSV_COLUMNS = [
+  {
+    header: 'Numero',
+    accessor: (i: Record<string, unknown>) => i.invoice_number as string,
+  },
+  {
+    header: 'Fornitore',
+    accessor: (i: Record<string, unknown>) => i.vendor_name as string,
+  },
+  {
+    header: 'Importo',
+    accessor: (i: Record<string, unknown>) => i.total_amount as number,
+  },
+  {
+    header: 'Valuta',
+    accessor: (i: Record<string, unknown>) => i.currency as string,
+  },
+  {
+    header: 'Stato',
+    accessor: (i: Record<string, unknown>) => i.reconciliation_status as string,
+  },
+] as const
 
 const DEFAULT_PAGE_SIZE = 20
 
@@ -42,11 +69,14 @@ export function InvoicesPageContent() {
     setPage(1)
   }, [])
 
-  const handleSortChange = useCallback((newSort: string, newOrder: 'asc' | 'desc') => {
-    setSort(newSort)
-    setOrder(newOrder)
-    setPage(1)
-  }, [])
+  const handleSortChange = useCallback(
+    (newSort: string, newOrder: 'asc' | 'desc') => {
+      setSort(newSort)
+      setOrder(newOrder)
+      setPage(1)
+    },
+    [],
+  )
 
   const handlePrevPage = useCallback(() => {
     setPage((prev) => Math.max(1, prev - 1))
@@ -89,10 +119,15 @@ export function InvoicesPageContent() {
           </div>
 
           <div className="flex items-center gap-3">
+            <ExportCsvButton
+              data={invoices}
+              columns={INVOICE_CSV_COLUMNS}
+              filename="fatture"
+            />
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xml,.p7m,.pdf"
+              accept=".xml,.p7m,.pdf,.jpg,.jpeg,.png,.webp"
               onChange={handleFileChange}
               className="hidden"
             />
@@ -100,7 +135,7 @@ export function InvoicesPageContent() {
               onClick={handleUploadClick}
               disabled={uploadMutation.isPending}
               className={cn(
-                'inline-flex items-center gap-2 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pf-accent/90',
+                'hover:bg-pf-accent/90 inline-flex items-center gap-2 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors',
                 uploadMutation.isPending && 'cursor-not-allowed opacity-60',
               )}
             >
@@ -111,7 +146,10 @@ export function InvoicesPageContent() {
         </div>
 
         {/* Filters */}
-        <InvoiceFiltersBar filters={filters} onFiltersChange={handleFiltersChange} />
+        <InvoiceFiltersBar
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+        />
 
         {/* Table */}
         <InvoicesTable
@@ -124,15 +162,17 @@ export function InvoicesPageContent() {
 
         {/* Pagination */}
         {!isLoading && total > 0 && (
-          <div className="flex items-center justify-between rounded-card border border-pf-border bg-pf-bg-secondary/60 px-4 py-3 backdrop-blur-xl">
+          <div className="bg-pf-bg-secondary/60 flex items-center justify-between rounded-card border border-pf-border px-4 py-3 backdrop-blur-xl">
             <p className="text-sm text-pf-text-secondary">
               Pagina{' '}
-              <span className="font-medium text-pf-text-primary">{page}</span>
-              {' '}di{' '}
-              <span className="font-medium text-pf-text-primary">{totalPages}</span>
-              {' '}&middot;{' '}
-              <span className="font-medium text-pf-text-primary">{total}</span>
-              {' '}risultati
+              <span className="font-medium text-pf-text-primary">{page}</span>{' '}
+              di{' '}
+              <span className="font-medium text-pf-text-primary">
+                {totalPages}
+              </span>{' '}
+              &middot;{' '}
+              <span className="font-medium text-pf-text-primary">{total}</span>{' '}
+              risultati
             </p>
 
             <div className="flex items-center gap-2">
@@ -142,8 +182,8 @@ export function InvoicesPageContent() {
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                   page <= 1
-                    ? 'cursor-not-allowed text-pf-text-secondary/40'
-                    : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
                 )}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -155,8 +195,8 @@ export function InvoicesPageContent() {
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                   page >= totalPages
-                    ? 'cursor-not-allowed text-pf-text-secondary/40'
-                    : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
                 )}
               >
                 Successiva

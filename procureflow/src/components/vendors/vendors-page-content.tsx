@@ -7,7 +7,17 @@ import { useVendors } from '@/hooks/use-vendors'
 import { VendorCard } from '@/components/vendors/vendor-card'
 import { VENDOR_STATUS_CONFIG } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import { VendorCreateDialog } from '@/components/vendors/vendor-create-dialog'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { useDebounce } from '@/hooks/use-debounce'
+
+const VENDOR_CSV_COLUMNS = [
+  { header: 'Codice', accessor: (v: { code: string }) => v.code },
+  { header: 'Nome', accessor: (v: { name: string }) => v.name },
+  { header: 'Email', accessor: (v: { email?: string | null }) => v.email },
+  { header: 'Telefono', accessor: (v: { phone?: string | null }) => v.phone },
+  { header: 'Stato', accessor: (v: { status: string }) => v.status },
+] as const
 
 const STATUS_FILTERS = [
   { key: 'ALL', label: 'Tutti' },
@@ -34,7 +44,10 @@ function VendorCardSkeleton({ index }: { index: number }) {
       </div>
       <div className="mt-3 flex gap-0.5">
         {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className="h-3.5 w-3.5 animate-pulse rounded bg-pf-border" />
+          <div
+            key={i}
+            className="h-3.5 w-3.5 animate-pulse rounded bg-pf-border"
+          />
         ))}
       </div>
       <div className="mt-3 space-y-1.5">
@@ -54,6 +67,7 @@ function VendorCardSkeleton({ index }: { index: number }) {
 export function VendorsPageContent() {
   const [searchInput, setSearchInput] = useState('')
   const [activeStatus, setActiveStatus] = useState('ALL')
+  const [createOpen, setCreateOpen] = useState(false)
 
   const debouncedSearch = useDebounce(searchInput, 300)
 
@@ -87,13 +101,21 @@ export function VendorsPageContent() {
             Gestisci i tuoi fornitori e le loro informazioni
           </p>
         </div>
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pf-accent-hover"
-        >
-          <Plus className="h-4 w-4" />
-          Nuovo Fornitore
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportCsvButton
+            data={vendors ?? []}
+            columns={VENDOR_CSV_COLUMNS}
+            filename="fornitori"
+          />
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-2 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pf-accent-hover"
+          >
+            <Plus className="h-4 w-4" />
+            Nuovo Fornitore
+          </button>
+        </div>
       </div>
 
       {/* Search + Filters */}
@@ -106,7 +128,7 @@ export function VendorsPageContent() {
             placeholder="Cerca fornitori per nome, codice o email..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full rounded-button border border-pf-border bg-pf-bg-secondary py-2.5 pl-10 pr-4 text-sm text-pf-text-primary placeholder:text-pf-text-muted transition-colors focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
+            className="w-full rounded-button border border-pf-border bg-pf-bg-secondary py-2.5 pl-10 pr-4 text-sm text-pf-text-primary transition-colors placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
           />
         </div>
 
@@ -175,7 +197,7 @@ export function VendorsPageContent() {
           transition={{ duration: 0.4 }}
           className="flex min-h-[40vh] flex-col items-center justify-center rounded-card border border-pf-border bg-pf-bg-secondary p-8"
         >
-          <div className="flex h-14 w-14 items-center justify-center rounded-card bg-pf-accent/10">
+          <div className="bg-pf-accent/10 flex h-14 w-14 items-center justify-center rounded-card">
             <Building2 className="h-7 w-7 text-pf-accent" />
           </div>
           <h3 className="mt-4 font-display text-lg font-semibold text-pf-text-primary">
@@ -188,6 +210,9 @@ export function VendorsPageContent() {
           </p>
         </motion.div>
       )}
+
+      {/* Create dialog */}
+      <VendorCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   )
 }

@@ -19,8 +19,19 @@ import { StockLevelBadge } from '@/components/inventory/stock-level-badge'
 import { MaterialFormDialog } from '@/components/inventory/material-form-dialog'
 import { useMaterials } from '@/hooks/use-materials'
 import { useMaterialAlerts } from '@/hooks/use-forecast'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { StockStatusKey } from '@/lib/constants/inventory'
+
+const MATERIAL_CSV_COLUMNS = [
+  { header: 'Codice', accessor: (m: { code: string }) => m.code },
+  { header: 'Nome', accessor: (m: { name: string }) => m.name },
+  {
+    header: 'Categoria',
+    accessor: (m: { category?: string | null }) => m.category,
+  },
+  { header: 'Unita', accessor: (m: { unitPrimary: string }) => m.unitPrimary },
+] as const
 
 const DEFAULT_PAGE_SIZE = 20
 
@@ -99,13 +110,20 @@ export function MaterialsPageContent() {
             </p>
           </div>
 
-          <button
-            onClick={() => setFormOpen(true)}
-            className="inline-flex items-center gap-2 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pf-accent-hover"
-          >
-            <Plus className="h-4 w-4" />
-            Nuovo Materiale
-          </button>
+          <div className="flex items-center gap-2">
+            <ExportCsvButton
+              data={materials}
+              columns={MATERIAL_CSV_COLUMNS}
+              filename="materiali"
+            />
+            <button
+              onClick={() => setFormOpen(true)}
+              className="inline-flex items-center gap-2 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pf-accent-hover"
+            >
+              <Plus className="h-4 w-4" />
+              Nuovo Materiale
+            </button>
+          </div>
         </div>
 
         {/* Filters */}

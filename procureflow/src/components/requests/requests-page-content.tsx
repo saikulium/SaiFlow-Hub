@@ -2,13 +2,50 @@
 
 import { useCallback, useState } from 'react'
 import Link from 'next/link'
-import { LayoutList, Kanban, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  LayoutList,
+  Kanban,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
-import { RequestFiltersBar, type RequestFilters } from '@/components/requests/request-filters'
+import {
+  RequestFiltersBar,
+  type RequestFilters,
+} from '@/components/requests/request-filters'
 import { RequestsTable } from '@/components/requests/requests-table'
 import { RequestsKanban } from '@/components/requests/requests-kanban'
 import { useRequests, type RequestsParams } from '@/hooks/use-requests'
+import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { cn } from '@/lib/utils'
+
+const REQUEST_CSV_COLUMNS = [
+  {
+    header: 'Codice',
+    accessor: (r: Record<string, unknown>) => r.code as string,
+  },
+  {
+    header: 'Titolo',
+    accessor: (r: Record<string, unknown>) => r.title as string,
+  },
+  {
+    header: 'Stato',
+    accessor: (r: Record<string, unknown>) => r.status as string,
+  },
+  {
+    header: 'Priorita',
+    accessor: (r: Record<string, unknown>) => r.priority as string,
+  },
+  {
+    header: 'Importo',
+    accessor: (r: Record<string, unknown>) => r.estimated_amount as number,
+  },
+  {
+    header: 'Valuta',
+    accessor: (r: Record<string, unknown>) => r.currency as string,
+  },
+] as const
 
 type ViewMode = 'table' | 'kanban'
 
@@ -43,11 +80,14 @@ export function RequestsPageContent() {
     setPage(1)
   }, [])
 
-  const handleSortChange = useCallback((newSort: string, newOrder: 'asc' | 'desc') => {
-    setSort(newSort)
-    setOrder(newOrder)
-    setPage(1)
-  }, [])
+  const handleSortChange = useCallback(
+    (newSort: string, newOrder: 'asc' | 'desc') => {
+      setSort(newSort)
+      setOrder(newOrder)
+      setPage(1)
+    },
+    [],
+  )
 
   const handlePrevPage = useCallback(() => {
     setPage((prev) => Math.max(1, prev - 1))
@@ -73,7 +113,7 @@ export function RequestsPageContent() {
 
           <div className="flex items-center gap-3">
             {/* View toggle */}
-            <div className="flex rounded-button border border-pf-border bg-pf-bg-primary/60 p-0.5">
+            <div className="bg-pf-bg-primary/60 flex rounded-button border border-pf-border p-0.5">
               <button
                 onClick={() => setView('table')}
                 className={cn(
@@ -100,10 +140,17 @@ export function RequestsPageContent() {
               </button>
             </div>
 
+            {/* Export CSV */}
+            <ExportCsvButton
+              data={requests}
+              columns={REQUEST_CSV_COLUMNS}
+              filename="richieste"
+            />
+
             {/* New request button */}
             <Link
               href="/requests/new"
-              className="inline-flex items-center gap-2 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pf-accent/90"
+              className="hover:bg-pf-accent/90 inline-flex items-center gap-2 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors"
             >
               <Plus className="h-4 w-4" />
               Nuova Richiesta
@@ -112,7 +159,10 @@ export function RequestsPageContent() {
         </div>
 
         {/* Filters */}
-        <RequestFiltersBar filters={filters} onFiltersChange={handleFiltersChange} />
+        <RequestFiltersBar
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+        />
 
         {/* Content */}
         {view === 'table' ? (
@@ -129,15 +179,17 @@ export function RequestsPageContent() {
 
         {/* Pagination */}
         {!isLoading && total > 0 && (
-          <div className="flex items-center justify-between rounded-card border border-pf-border bg-pf-bg-secondary/60 px-4 py-3 backdrop-blur-xl">
+          <div className="bg-pf-bg-secondary/60 flex items-center justify-between rounded-card border border-pf-border px-4 py-3 backdrop-blur-xl">
             <p className="text-sm text-pf-text-secondary">
               Pagina{' '}
-              <span className="font-medium text-pf-text-primary">{page}</span>
-              {' '}di{' '}
-              <span className="font-medium text-pf-text-primary">{totalPages}</span>
-              {' '}&middot;{' '}
-              <span className="font-medium text-pf-text-primary">{total}</span>
-              {' '}risultati
+              <span className="font-medium text-pf-text-primary">{page}</span>{' '}
+              di{' '}
+              <span className="font-medium text-pf-text-primary">
+                {totalPages}
+              </span>{' '}
+              &middot;{' '}
+              <span className="font-medium text-pf-text-primary">{total}</span>{' '}
+              risultati
             </p>
 
             <div className="flex items-center gap-2">
@@ -147,8 +199,8 @@ export function RequestsPageContent() {
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                   page <= 1
-                    ? 'cursor-not-allowed text-pf-text-secondary/40'
-                    : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
                 )}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -160,8 +212,8 @@ export function RequestsPageContent() {
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                   page >= totalPages
-                    ? 'cursor-not-allowed text-pf-text-secondary/40'
-                    : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
                 )}
               >
                 Successiva
