@@ -26,6 +26,8 @@ import { TenderPipelineChart } from './tender-pipeline-chart'
 import { InventoryOverviewChart } from './inventory-overview-chart'
 import { SpendByVendorChart } from './spend-by-vendor-chart'
 import { RequestsTrendChart } from './requests-trend-chart'
+import { RoiSummaryMini } from '@/components/analytics/roi-summary-cards'
+import { InsightCards } from './insight-cards'
 import type {
   RecentRequest,
   DeliveryItem,
@@ -40,6 +42,7 @@ import type {
   InventoryDashboardStats,
   SpendByVendor,
   RequestTrend,
+  RoiSummary,
 } from '@/types'
 
 type TabId =
@@ -70,6 +73,7 @@ interface DashboardTabsProps {
   readonly inventoryStats: InventoryDashboardStats
   readonly spendByVendor: SpendByVendor[]
   readonly trend: RequestTrend[]
+  readonly roiSummary?: RoiSummary | null
 }
 
 const BASE_TABS: readonly Tab[] = [
@@ -144,7 +148,11 @@ export function DashboardTabs(props: DashboardTabsProps) {
           <InventoryOverviewChart stats={props.inventoryStats} />
         )}
         {activeTab === 'analisi' && (
-          <AnalisiTab spendByVendor={props.spendByVendor} trend={props.trend} />
+          <AnalisiTab
+            spendByVendor={props.spendByVendor}
+            trend={props.trend}
+            roiSummary={props.roiSummary ?? null}
+          />
         )}
       </div>
     </div>
@@ -164,6 +172,7 @@ function PanoramicaTab({
 }) {
   return (
     <div className="space-y-6">
+      <InsightCards />
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <RecentRequestsList requests={recentRequests} />
         <div className="space-y-6">
@@ -205,14 +214,34 @@ function FattureTab({
 function AnalisiTab({
   spendByVendor,
   trend,
+  roiSummary,
 }: {
   readonly spendByVendor: SpendByVendor[]
   readonly trend: RequestTrend[]
+  readonly roiSummary: RoiSummary | null
 }) {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <SpendByVendorChart data={spendByVendor} />
-      <RequestsTrendChart data={trend} />
+    <div className="space-y-6">
+      {roiSummary && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-pf-text-secondary">
+              ROI & Impatto (ultimi 90 giorni)
+            </h3>
+            <a
+              href="/analytics"
+              className="text-xs font-medium text-pf-accent hover:text-pf-accent-hover"
+            >
+              Dettagli &rarr;
+            </a>
+          </div>
+          <RoiSummaryMini summary={roiSummary} />
+        </div>
+      )}
+      <div className="grid gap-6 md:grid-cols-2">
+        <SpendByVendorChart data={spendByVendor} />
+        <RequestsTrendChart data={trend} />
+      </div>
     </div>
   )
 }
