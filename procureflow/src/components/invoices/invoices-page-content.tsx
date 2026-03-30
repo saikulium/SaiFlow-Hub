@@ -8,33 +8,25 @@ import {
   type InvoiceFilters,
 } from '@/components/invoices/invoice-filters'
 import { InvoicesTable } from '@/components/invoices/invoices-table'
-import { useInvoices, type InvoicesParams } from '@/hooks/use-invoices'
+import {
+  useInvoices,
+  type InvoicesParams,
+  type InvoiceListItem,
+} from '@/hooks/use-invoices'
 import { useUploadInvoice } from '@/hooks/use-invoice'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { cn } from '@/lib/utils'
 
 const INVOICE_CSV_COLUMNS = [
-  {
-    header: 'Numero',
-    accessor: (i: Record<string, unknown>) => i.invoice_number as string,
-  },
-  {
-    header: 'Fornitore',
-    accessor: (i: Record<string, unknown>) => i.vendor_name as string,
-  },
-  {
-    header: 'Importo',
-    accessor: (i: Record<string, unknown>) => i.total_amount as number,
-  },
-  {
-    header: 'Valuta',
-    accessor: (i: Record<string, unknown>) => i.currency as string,
-  },
+  { header: 'Numero', accessor: (i: InvoiceListItem) => i.invoice_number },
+  { header: 'Fornitore', accessor: (i: InvoiceListItem) => i.supplier_name },
+  { header: 'Importo', accessor: (i: InvoiceListItem) => i.total_amount },
+  { header: 'Valuta', accessor: (i: InvoiceListItem) => i.currency },
   {
     header: 'Stato',
-    accessor: (i: Record<string, unknown>) => i.reconciliation_status as string,
+    accessor: (i: InvoiceListItem) => i.reconciliation_status,
   },
-] as const
+]
 
 const DEFAULT_PAGE_SIZE = 20
 

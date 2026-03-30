@@ -16,36 +16,21 @@ import {
 } from '@/components/requests/request-filters'
 import { RequestsTable } from '@/components/requests/requests-table'
 import { RequestsKanban } from '@/components/requests/requests-kanban'
-import { useRequests, type RequestsParams } from '@/hooks/use-requests'
+import {
+  useRequests,
+  type RequestsParams,
+  type RequestListItem,
+} from '@/hooks/use-requests'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { cn } from '@/lib/utils'
 
 const REQUEST_CSV_COLUMNS = [
-  {
-    header: 'Codice',
-    accessor: (r: Record<string, unknown>) => r.code as string,
-  },
-  {
-    header: 'Titolo',
-    accessor: (r: Record<string, unknown>) => r.title as string,
-  },
-  {
-    header: 'Stato',
-    accessor: (r: Record<string, unknown>) => r.status as string,
-  },
-  {
-    header: 'Priorita',
-    accessor: (r: Record<string, unknown>) => r.priority as string,
-  },
-  {
-    header: 'Importo',
-    accessor: (r: Record<string, unknown>) => r.estimated_amount as number,
-  },
-  {
-    header: 'Valuta',
-    accessor: (r: Record<string, unknown>) => r.currency as string,
-  },
-] as const
+  { header: 'Codice', accessor: (r: RequestListItem) => r.code },
+  { header: 'Titolo', accessor: (r: RequestListItem) => r.title },
+  { header: 'Stato', accessor: (r: RequestListItem) => r.status },
+  { header: 'Priorita', accessor: (r: RequestListItem) => r.priority },
+  { header: 'Importo', accessor: (r: RequestListItem) => r.estimated_amount },
+]
 
 type ViewMode = 'table' | 'kanban'
 
