@@ -569,6 +569,8 @@ model DeployConfig {
   enabled_modules String[] // ["core", "invoicing", "budgets", ...]
   company_logo_url String?
   categories       String[]
+  departments      String[]
+  cost_centers     String[]
   approval_rules   Json?
   created_at       DateTime @default(now())
   updated_at      DateTime @updatedAt
@@ -1048,4 +1050,21 @@ model ProcessedWebhook {
 
   @@index([created_at])
   @@map("processed_webhooks")
+}
+
+// --- Integration Configurations ---
+
+model IntegrationConfig {
+  id           String    @id @default(cuid())
+  type         String    @unique // "imap", "sdi", "vendor_api"
+  label        String
+  enabled      Boolean   @default(false)
+  config       String    // AES-256-GCM encrypted JSON
+  status       String    @default("disconnected") // "connected", "disconnected", "error"
+  last_sync_at DateTime?
+  last_error   String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  @@map("integration_configs")
 }
