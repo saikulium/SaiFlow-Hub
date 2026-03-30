@@ -22,6 +22,7 @@ import {
   PiggyBank,
   Gavel,
   Package,
+  Shield,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -219,6 +220,7 @@ export interface NavItem {
   href: string
   icon: LucideIcon
   badge?: 'requests' | 'approvals' | 'invoices'
+  adminOnly?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -247,6 +249,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Magazzino', href: '/inventory', icon: Package },
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Utenti', href: '/users', icon: Users },
+  { label: 'Admin', href: '/admin/config', icon: Shield, adminOnly: true },
   { label: 'Impostazioni', href: '/settings', icon: Settings },
 ]
 
