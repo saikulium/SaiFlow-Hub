@@ -87,7 +87,7 @@ function ImportZone({
   return (
     <div className="rounded-card border border-pf-border bg-pf-bg-secondary p-6">
       <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-button bg-pf-accent/10 text-pf-accent">
+        <div className="bg-pf-accent/10 flex h-10 w-10 items-center justify-center rounded-button text-pf-accent">
           <Icon className="h-5 w-5" />
         </div>
         <div>
@@ -197,7 +197,7 @@ function ExportButton({
       await downloadBlob(endpoint, filename)
       toast.success(`${label} esportati`)
     } catch {
-      toast.error('Errore durante l\'esportazione')
+      toast.error("Errore durante l'esportazione")
     } finally {
       setLoading(false)
     }
@@ -331,6 +331,11 @@ export function ImportExportTab() {
                 label="Utenti"
                 endpoint="/api/admin/export/users"
                 filename="utenti.csv"
+              />
+              <ExportButton
+                label="Budget"
+                endpoint="/api/admin/export/budgets"
+                filename="budget.csv"
               />
             </div>
           </div>

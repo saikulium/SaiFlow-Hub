@@ -27,8 +27,9 @@ interface IntegrationConfig {
   readonly label: string
   readonly enabled: boolean
   readonly config: Record<string, unknown>
-  readonly last_health_check: string | null
-  readonly health_status: 'ok' | 'error' | null
+  readonly status: 'connected' | 'disconnected' | 'error'
+  readonly last_sync_at: string | null
+  readonly last_error: string | null
 }
 
 interface IntegrationField {
@@ -54,7 +55,8 @@ const INTEGRATION_META: Record<
   sdi: {
     label: 'SDI (Fatturazione Elettronica)',
     icon: FileText,
-    description: 'Collegamento al Sistema di Interscambio per fatture elettroniche',
+    description:
+      'Collegamento al Sistema di Interscambio per fatture elettroniche',
   },
   vendor_api: {
     label: 'API Fornitore',
@@ -65,23 +67,99 @@ const INTEGRATION_META: Record<
 
 const INTEGRATION_FIELDS: Record<string, readonly IntegrationField[]> = {
   imap: [
-    { key: 'host', label: 'Host', type: 'text', placeholder: 'imap.example.com', required: true },
-    { key: 'port', label: 'Porta', type: 'number', placeholder: '993', required: true },
-    { key: 'protocol', label: 'Protocollo', type: 'select', options: ['imap', 'imaps'], required: true },
-    { key: 'email', label: 'Email', type: 'email', placeholder: 'inbox@example.com', required: true },
-    { key: 'password', label: 'Password', type: 'password', placeholder: 'password', required: true },
+    {
+      key: 'host',
+      label: 'Host',
+      type: 'text',
+      placeholder: 'imap.example.com',
+      required: true,
+    },
+    {
+      key: 'port',
+      label: 'Porta',
+      type: 'number',
+      placeholder: '993',
+      required: true,
+    },
+    {
+      key: 'protocol',
+      label: 'Protocollo',
+      type: 'select',
+      options: ['imap', 'imaps'],
+      required: true,
+    },
+    {
+      key: 'email',
+      label: 'Email',
+      type: 'email',
+      placeholder: 'inbox@example.com',
+      required: true,
+    },
+    {
+      key: 'password',
+      label: 'Password',
+      type: 'password',
+      placeholder: 'password',
+      required: true,
+    },
     { key: 'folder', label: 'Cartella', type: 'text', placeholder: 'INBOX' },
   ],
   sdi: [
-    { key: 'endpoint_url', label: 'URL Endpoint', type: 'text', placeholder: 'https://sdi.example.com', required: true },
-    { key: 'codice_destinatario', label: 'Codice Destinatario', type: 'text', placeholder: 'ABC1234', required: true },
-    { key: 'certificate_base64', label: 'Certificato (Base64)', type: 'text', placeholder: 'Base64 del certificato...' },
-    { key: 'certificate_password', label: 'Password Certificato', type: 'password', placeholder: 'password certificato' },
+    {
+      key: 'endpoint_url',
+      label: 'URL Endpoint',
+      type: 'text',
+      placeholder: 'https://sdi.example.com',
+      required: true,
+    },
+    {
+      key: 'codice_destinatario',
+      label: 'Codice Destinatario',
+      type: 'text',
+      placeholder: 'ABC1234',
+      required: true,
+    },
+    {
+      key: 'certificate_base64',
+      label: 'Certificato (Base64)',
+      type: 'text',
+      placeholder: 'Base64 del certificato...',
+    },
+    {
+      key: 'certificate_password',
+      label: 'Password Certificato',
+      type: 'password',
+      placeholder: 'password certificato',
+    },
   ],
   vendor_api: [
-    { key: 'vendor_name', label: 'Nome Fornitore', type: 'text', placeholder: 'Nome portale', required: true },
-    { key: 'base_url', label: 'URL Base', type: 'text', placeholder: 'https://api.fornitore.com', required: true },
-    { key: 'api_key', label: 'API Key', type: 'password', placeholder: 'Chiave API', required: true },
+    {
+      key: 'vendor_name',
+      label: 'Nome Fornitore',
+      type: 'text',
+      placeholder: 'Nome portale',
+      required: true,
+    },
+    {
+      key: 'base_url',
+      label: 'URL Base',
+      type: 'text',
+      placeholder: 'https://api.fornitore.com',
+      required: true,
+    },
+    {
+      key: 'api_key',
+      label: 'API Key',
+      type: 'password',
+      placeholder: 'Chiave API',
+      required: true,
+    },
+    {
+      key: 'custom_headers',
+      label: 'Headers Personalizzati',
+      type: 'text',
+      placeholder: '{"Authorization": "Bearer ..."}',
+    },
   ],
 }
 
@@ -104,9 +182,9 @@ async function fetchIntegrations(): Promise<IntegrationConfig[]> {
 function StatusBadge({
   status,
 }: {
-  readonly status: 'ok' | 'error' | null
+  readonly status: 'connected' | 'disconnected' | 'error'
 }) {
-  if (status === 'ok') {
+  if (status === 'connected') {
     return (
       <span className="inline-flex items-center gap-1 rounded-badge bg-green-400/10 px-2 py-0.5 text-xs font-medium text-green-400">
         <Wifi className="h-3 w-3" />
@@ -125,7 +203,7 @@ function StatusBadge({
   return (
     <span className="inline-flex items-center gap-1 rounded-badge bg-zinc-400/10 px-2 py-0.5 text-xs font-medium text-pf-text-muted">
       <CircleDashed className="h-3 w-3" />
-      Non testato
+      Disconnesso
     </span>
   )
 }
@@ -177,7 +255,8 @@ function IntegrationCard({
       queryClient.invalidateQueries({ queryKey: ['admin-integrations'] })
       toast.success(`${meta?.label ?? type} salvata`)
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Errore'),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Errore'),
   })
 
   const testMutation = useMutation({
@@ -196,7 +275,8 @@ function IntegrationCard({
       queryClient.invalidateQueries({ queryKey: ['admin-integrations'] })
       toast.success('Connessione riuscita')
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Errore test'),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Errore test'),
   })
 
   return (
@@ -211,7 +291,9 @@ function IntegrationCard({
           <div
             className={cn(
               'flex h-10 w-10 items-center justify-center rounded-button',
-              enabled ? 'bg-pf-accent/10 text-pf-accent' : 'bg-pf-bg-primary text-pf-text-muted',
+              enabled
+                ? 'bg-pf-accent/10 text-pf-accent'
+                : 'bg-pf-bg-primary text-pf-text-muted',
             )}
           >
             <Icon className="h-5 w-5" />
@@ -223,10 +305,21 @@ function IntegrationCard({
             <p className="text-xs text-pf-text-secondary">
               {meta?.description ?? ''}
             </p>
+            {integration?.last_sync_at && (
+              <p className="mt-0.5 text-xs text-pf-text-muted">
+                Ultimo sync:{' '}
+                {new Date(integration.last_sync_at).toLocaleString('it-IT')}
+              </p>
+            )}
+            {integration?.last_error && (
+              <p className="mt-0.5 text-xs text-red-400">
+                {integration.last_error}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <StatusBadge status={integration?.health_status ?? null} />
+          <StatusBadge status={integration?.status ?? 'disconnected'} />
           <ChevronDown
             className={cn(
               'h-4 w-4 text-pf-text-secondary transition-transform duration-200',
@@ -290,8 +383,8 @@ function IntegrationCard({
                         type={field.type}
                         value={
                           field.type === 'number'
-                            ? (configValues[field.key] as number) ?? ''
-                            : (configValues[field.key] as string) ?? ''
+                            ? ((configValues[field.key] as number) ?? '')
+                            : ((configValues[field.key] as string) ?? '')
                         }
                         onChange={(e) =>
                           handleFieldChange(
@@ -302,7 +395,7 @@ function IntegrationCard({
                           )
                         }
                         placeholder={field.placeholder}
-                        className="h-9 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary placeholder:text-pf-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-pf-accent"
+                        className="placeholder:text-pf-text-secondary/50 h-9 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent"
                       />
                     )}
                   </div>
@@ -393,11 +486,7 @@ export function IntegrationsTab() {
       {INTEGRATION_TYPES.map((type) => {
         const integration = integrations?.find((i) => i.type === type)
         return (
-          <IntegrationCard
-            key={type}
-            type={type}
-            integration={integration}
-          />
+          <IntegrationCard key={type} type={type} integration={integration} />
         )
       })}
     </div>
