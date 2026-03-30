@@ -23,7 +23,11 @@ type CreateRequestFormValues = z.input<typeof createRequestSchema>
 import { PRIORITY_CONFIG, type PriorityKey } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useCreateRequest, useVendors } from '@/hooks/use-request'
+import { useAdminConfig } from '@/hooks/use-admin-config'
+import { useRequestSuggestions } from '@/hooks/use-request-suggestions'
 import { BudgetCapacityBanner } from '@/components/requests/budget-capacity-banner'
+import { SuggestionPanel } from '@/components/requests/suggestion-panel'
+import type { RequestSuggestion } from '@/server/services/suggest.service'
 
 // --- Constants ---
 
@@ -243,6 +247,7 @@ function VendorSelect({
 export function RequestForm() {
   const router = useRouter()
   const createRequest = useCreateRequest()
+  const { data: adminConfig } = useAdminConfig()
 
   const {
     register,
@@ -273,16 +278,88 @@ export function RequestForm() {
     },
   })
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: 'items',
   })
 
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [complianceOpen, setComplianceOpen] = useState(false)
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false)
 
   const vendorId = watch('vendor_id')
   const isMepa = watch('is_mepa')
+  const titleValue = watch('title')
+
+  // SmartFill suggestions
+  const { data: suggestionsData, isLoading: suggestionsLoading } =
+    useRequestSuggestions(titleValue)
+  const suggestion = suggestionsData?.data ?? null
+
+  // Reset dismissed state when a new suggestion arrives
+  const prevSuggestionRef = useRef<RequestSuggestion | null>(null)
+  useEffect(() => {
+    if (suggestion && suggestion !== prevSuggestionRef.current) {
+      setSuggestionsDismissed(false)
+      prevSuggestionRef.current = suggestion
+    }
+  }, [suggestion])
+
+  const handleAcceptField = useCallback(
+    (field: string, value: unknown) => {
+      if (field === 'items' && Array.isArray(value)) {
+        replace(
+          value.map((item) => ({
+            name: item.name ?? '',
+            quantity: item.quantity ?? 1,
+            unit: item.unit,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            sku: item.sku,
+          })),
+        )
+      } else {
+        setValue(field as keyof CreateRequestFormValues, value as never, {
+          shouldValidate: true,
+        })
+      }
+    },
+    [setValue, replace],
+  )
+
+  const handleAcceptAll = useCallback(() => {
+    if (!suggestion) return
+
+    const fieldMap: Record<string, unknown> = {
+      vendor_id: suggestion.vendor_id,
+      category: suggestion.category,
+      priority: suggestion.priority,
+      department: suggestion.department,
+      cost_center: suggestion.cost_center,
+      estimated_amount: suggestion.estimated_amount,
+    }
+
+    for (const [key, val] of Object.entries(fieldMap)) {
+      if (val != null) {
+        setValue(key as keyof CreateRequestFormValues, val as never, {
+          shouldValidate: true,
+        })
+      }
+    }
+
+    if (suggestion.items && suggestion.items.length > 0) {
+      replace(
+        suggestion.items.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          sku: item.sku,
+        })),
+      )
+    }
+  }, [suggestion, setValue, replace])
 
   const onSubmit: SubmitHandler<CreateRequestFormValues> = async (data) => {
     setSubmitError(null)
@@ -352,6 +429,17 @@ export function RequestForm() {
         </motion.div>
       )}
 
+      {/* SmartFill Suggestions */}
+      {!suggestionsDismissed && (suggestion || suggestionsLoading) && (
+        <SuggestionPanel
+          suggestion={suggestion}
+          isLoading={suggestionsLoading}
+          onAcceptField={handleAcceptField}
+          onAcceptAll={handleAcceptAll}
+          onDismiss={() => setSuggestionsDismissed(true)}
+        />
+      )}
+
       {/* Basic Info */}
       <div className="rounded-card border border-pf-border bg-pf-bg-secondary p-6">
         <h2 className="mb-4 text-sm font-semibold text-pf-text-primary">
@@ -412,7 +500,7 @@ export function RequestForm() {
                 className="h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent"
               >
                 <option value="">Seleziona categoria</option>
-                {CATEGORY_OPTIONS.map((cat) => (
+                {(adminConfig?.categories ?? CATEGORY_OPTIONS).map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>
@@ -480,25 +568,35 @@ export function RequestForm() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <FormLabel htmlFor="department">Dipartimento</FormLabel>
-            <input
+            <select
               id="department"
-              type="text"
               {...register('department')}
-              placeholder="es. IT"
-              className="placeholder:text-pf-text-secondary/50 h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent"
-            />
+              className="h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent"
+            >
+              <option value="">Seleziona dipartimento</option>
+              {(adminConfig?.departments ?? []).map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
             <FieldError message={errors.department?.message} />
           </div>
 
           <div>
             <FormLabel htmlFor="cost_center">Centro Costo</FormLabel>
-            <input
+            <select
               id="cost_center"
-              type="text"
               {...register('cost_center')}
-              placeholder="es. CC-001"
-              className="placeholder:text-pf-text-secondary/50 h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent"
-            />
+              className="h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent"
+            >
+              <option value="">Seleziona centro costo</option>
+              {(adminConfig?.cost_centers ?? []).map((cc) => (
+                <option key={cc} value={cc}>
+                  {cc}
+                </option>
+              ))}
+            </select>
             <FieldError message={errors.cost_center?.message} />
           </div>
 
