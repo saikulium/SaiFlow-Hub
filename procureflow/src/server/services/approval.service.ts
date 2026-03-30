@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import type { UserRole } from '@prisma/client'
 import {
+  APPROVAL_THRESHOLDS,
   canAutoApproveByRole,
   getApprovalTier,
 } from '@/lib/constants/approval-thresholds'
@@ -287,4 +288,61 @@ async function finalizeRequestStatus(
       ),
     )
   }
+}
+
+// --- DB-backed approval thresholds ---
+
+interface ApprovalThresholds {
+  readonly autoApproveMax: number
+  readonly managerApproveMax: number
+}
+
+/**
+ * Legge le soglie di approvazione dal DeployConfig in DB.
+ * Se non configurate, usa le costanti di default da approval-thresholds.
+ */
+export async function getApprovalThresholds(): Promise<ApprovalThresholds> {
+  const config = await prisma.deployConfig.findUnique({
+    where: { id: 'default' },
+    select: { approval_rules: true },
+  })
+
+  if (
+    config?.approval_rules &&
+    typeof config.approval_rules === 'object' &&
+    config.approval_rules !== null
+  ) {
+    const rules = config.approval_rules as Record<string, unknown>
+    const autoMax =
+      typeof rules.autoApproveMax === 'number'
+        ? rules.autoApproveMax
+        : APPROVAL_THRESHOLDS.AUTO_APPROVE_MAX
+    const managerMax =
+      typeof rules.managerApproveMax === 'number'
+        ? rules.managerApproveMax
+        : APPROVAL_THRESHOLDS.MANAGER_APPROVE_MAX
+
+    return Object.freeze({
+      autoApproveMax: autoMax,
+      managerApproveMax: managerMax,
+    })
+  }
+
+  return Object.freeze({
+    autoApproveMax: APPROVAL_THRESHOLDS.AUTO_APPROVE_MAX,
+    managerApproveMax: APPROVAL_THRESHOLDS.MANAGER_APPROVE_MAX,
+  })
+}
+
+/**
+ * Determina la fascia di approvazione usando le soglie dal DB.
+ * Versione asincrona di getApprovalTier per futuri callers.
+ */
+export async function getApprovalTierFromDb(
+  amount: number,
+): Promise<'auto' | 'manager' | 'director'> {
+  const thresholds = await getApprovalThresholds()
+  if (amount < thresholds.autoApproveMax) return 'auto'
+  if (amount < thresholds.managerApproveMax) return 'manager'
+  return 'director'
 }
