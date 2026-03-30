@@ -57,11 +57,14 @@ function isValidRawInsight(
   )
 }
 
-function computeExpiresAt(type: InsightType): Date {
+function computeExpiresAt(type: InsightType, now: Date): Date {
   const ttlHours = INSIGHT_TTL_HOURS[type]
-  const expiresAt = new Date()
-  expiresAt.setHours(expiresAt.getHours() + ttlHours)
-  return expiresAt
+  return new Date(now.getTime() + ttlHours * 60 * 60 * 1000)
+}
+
+function sanitizeActionUrl(url: string | undefined): string | null {
+  if (!url) return null
+  return url.startsWith('/') && !url.startsWith('//') ? url : null
 }
 
 function sortBySeverity<T extends { severity: string }>(
@@ -74,14 +77,31 @@ function sortBySeverity<T extends { severity: string }>(
   })
 }
 
+interface ValidatedInsight {
+  readonly type: InsightType
+  readonly severity: SeverityKey
+  readonly title: string
+  readonly description: string
+  readonly action_label?: string
+  readonly action_url?: string
+  readonly metadata?: Record<string, unknown>
+}
+
 function parseClaudeInsights(
   responseText: string,
-): readonly RawInsightFromClaude[] {
+): readonly ValidatedInsight[] {
   try {
     const parsed: unknown = JSON.parse(responseText)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter(isValidRawInsight)
+    if (!Array.isArray(parsed)) {
+      console.warn('[insight-service] Claude response is not an array')
+      return []
+    }
+    return parsed.filter(isValidRawInsight) as ValidatedInsight[]
   } catch {
+    console.warn(
+      '[insight-service] Failed to parse Claude response:',
+      responseText.slice(0, 200),
+    )
     return []
   }
 }
@@ -129,9 +149,11 @@ export async function dismissInsight(id: string): Promise<void> {
 }
 
 export async function generateInsights(): Promise<GenerateInsightsResult> {
+  const now = new Date()
+
   // 1. Clean up expired insights
   const cleanupResult = await prisma.aiInsight.deleteMany({
-    where: { expires_at: { lt: new Date() } },
+    where: { expires_at: { lt: now } },
   })
   const expiredCleaned = cleanupResult.count
 
@@ -156,6 +178,7 @@ export async function generateInsights(): Promise<GenerateInsightsResult> {
           select: { code: true, title: true, estimated_amount: true },
         },
       },
+      take: 50,
     }),
     prisma.invoice.groupBy({
       by: ['match_status'],
@@ -175,6 +198,7 @@ export async function generateInsights(): Promise<GenerateInsightsResult> {
           take: 1,
         },
       },
+      take: 30,
     }),
     prisma.purchaseRequest.findMany({
       where: {
@@ -182,12 +206,13 @@ export async function generateInsights(): Promise<GenerateInsightsResult> {
         updated_at: { lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
       },
       select: { code: true, title: true, status: true, updated_at: true },
+      take: 30,
     }),
   ])
 
   // 3. Get existing active insights to deduplicate
   const existingInsights = await prisma.aiInsight.findMany({
-    where: { dismissed: false, expires_at: { gt: new Date() } },
+    where: { dismissed: false, expires_at: { gt: now } },
     select: { type: true, title: true },
   })
   const existingKeys = new Set(
@@ -203,7 +228,7 @@ export async function generateInsights(): Promise<GenerateInsightsResult> {
     bottleneckRequests,
   )
 
-  let rawInsights: readonly RawInsightFromClaude[]
+  let rawInsights: readonly ValidatedInsight[]
   try {
     const response = await callClaude({
       system: INSIGHT_SYSTEM_PROMPT,
@@ -226,15 +251,15 @@ export async function generateInsights(): Promise<GenerateInsightsResult> {
   const newInsights = rawInsights
     .filter((insight) => !existingKeys.has(`${insight.type}::${insight.title}`))
     .map((insight) => ({
-      type: insight.type as InsightType,
-      severity: insight.severity as SeverityKey,
-      title: insight.title!,
-      description: insight.description!,
+      type: insight.type,
+      severity: insight.severity,
+      title: insight.title,
+      description: insight.description,
       action_label: insight.action_label ?? null,
-      action_url: insight.action_url ?? null,
+      action_url: sanitizeActionUrl(insight.action_url),
       metadata: (insight.metadata ?? Prisma.DbNull) as Prisma.InputJsonValue,
       dismissed: false,
-      expires_at: computeExpiresAt(insight.type as InsightType),
+      expires_at: computeExpiresAt(insight.type, now),
     }))
 
   // 6. Save new insights
