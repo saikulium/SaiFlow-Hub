@@ -24,6 +24,7 @@ import { PRIORITY_CONFIG, type PriorityKey } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useCreateRequest, useVendors } from '@/hooks/use-request'
 import { useAdminConfig } from '@/hooks/use-admin-config'
+import { useCommesse } from '@/hooks/use-commesse'
 import { useRequestSuggestions } from '@/hooks/use-request-suggestions'
 import { BudgetCapacityBanner } from '@/components/requests/budget-capacity-banner'
 import { SuggestionPanel } from '@/components/requests/suggestion-panel'
@@ -248,6 +249,9 @@ export function RequestForm() {
   const router = useRouter()
   const createRequest = useCreateRequest()
   const { data: adminConfig } = useAdminConfig()
+  const { data: commesse, isLoading: commesseLoading } = useCommesse({
+    status: 'PLANNING,ACTIVE',
+  })
 
   const {
     register,
@@ -271,6 +275,7 @@ export function RequestForm() {
       budget_code: '',
       cig: '',
       cup: '',
+      commessa_id: undefined,
       is_mepa: false,
       mepa_oda_number: '',
       tags: [],
@@ -566,6 +571,24 @@ export function RequestForm() {
           Informazioni Organizzative
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Commessa select */}
+          <div className="sm:col-span-2 lg:col-span-3">
+            <FormLabel htmlFor="commessa_id">Commessa</FormLabel>
+            <select
+              id="commessa_id"
+              {...register('commessa_id')}
+              disabled={commesseLoading}
+              className="h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent disabled:opacity-50"
+            >
+              <option value="">Nessuna commessa</option>
+              {(commesse ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <FormLabel htmlFor="department">Dipartimento</FormLabel>
             <select
