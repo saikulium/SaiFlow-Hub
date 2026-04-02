@@ -6,6 +6,7 @@ export type ModuleId =
   | 'analytics'
   | 'tenders'
   | 'inventory'
+  | 'commesse'
 
 export interface ModuleDefinition {
   readonly id: ModuleId
@@ -102,6 +103,18 @@ export const MODULE_REGISTRY: ReadonlyMap<ModuleId, ModuleDefinition> = new Map(
         navPaths: ['/inventory'],
         dashboardTabs: ['magazzino'],
         apiPrefixes: ['/api/inventory'],
+      },
+    ],
+    [
+      'commesse',
+      {
+        id: 'commesse',
+        label: 'Commesse',
+        description:
+          'Gestione commesse cliente, tracciamento margine, suggerimenti AI',
+        navPaths: ['/commesse', '/clients'],
+        dashboardTabs: ['commesse'],
+        apiPrefixes: ['/api/commesse', '/api/clients'],
       },
     ],
   ],
