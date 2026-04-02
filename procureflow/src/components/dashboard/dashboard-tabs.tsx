@@ -8,6 +8,7 @@ import {
   Gavel,
   Package,
   BarChart3,
+  Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useModules } from '@/hooks/use-modules'
@@ -28,6 +29,7 @@ import { SpendByVendorChart } from './spend-by-vendor-chart'
 import { RequestsTrendChart } from './requests-trend-chart'
 import { RoiSummaryMini } from '@/components/analytics/roi-summary-cards'
 import { InsightCards } from './insight-cards'
+import { CommesseTab } from './commesse-tab'
 import type {
   RecentRequest,
   DeliveryItem,
@@ -52,6 +54,7 @@ type TabId =
   | 'gare'
   | 'magazzino'
   | 'analisi'
+  | 'commesse'
 
 interface Tab {
   readonly id: TabId
@@ -83,6 +86,7 @@ const BASE_TABS: readonly Tab[] = [
   { id: 'gare', label: 'Gare', icon: Gavel },
   { id: 'magazzino', label: 'Magazzino', icon: Package },
   { id: 'analisi', label: 'Analisi', icon: BarChart3 },
+  { id: 'commesse', label: 'Commesse', icon: Briefcase },
 ] as const
 
 export function DashboardTabs(props: DashboardTabsProps) {
@@ -154,6 +158,7 @@ export function DashboardTabs(props: DashboardTabsProps) {
             roiSummary={props.roiSummary ?? null}
           />
         )}
+        {activeTab === 'commesse' && <CommesseTab />}
       </div>
     </div>
   )
