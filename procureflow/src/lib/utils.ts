@@ -32,6 +32,14 @@ export function generateRequestCode(year: number, sequence: number): string {
   return `PR-${year}-${String(sequence).padStart(5, '0')}`
 }
 
+export function generateCode(
+  prefix: string,
+  year: number,
+  sequence: number,
+): string {
+  return `${prefix}-${year}-${String(sequence).padStart(5, '0')}`
+}
+
 export function getInitials(name: string): string {
   return name
     .split(' ')
