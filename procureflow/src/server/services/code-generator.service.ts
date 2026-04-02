@@ -9,14 +9,20 @@ import type { Prisma } from '@prisma/client'
 // client esterno (per quando il chiamante è già in una $transaction).
 // ---------------------------------------------------------------------------
 
+const ALLOWED_TABLES = ['purchase_requests', 'commesse', 'clients'] as const
+type AllowedTable = (typeof ALLOWED_TABLES)[number]
 type TxClient = Prisma.TransactionClient
 
 export async function generateNextCodeAtomic(
   prefix = 'PR',
-  table = 'purchase_requests',
+  table: AllowedTable = 'purchase_requests',
   externalTx?: TxClient,
   noYear = false,
 ): Promise<string> {
+  if (!ALLOWED_TABLES.includes(table)) {
+    throw new Error(`Invalid table name: ${table}`)
+  }
+
   const year = new Date().getFullYear()
   const fullPrefix = noYear ? `${prefix}-` : `${prefix}-${year}-`
   const padLen = noYear ? 3 : 5
@@ -36,6 +42,10 @@ export async function generateNextCodeAtomic(
       ? parseInt(lastCode.split('-').pop() ?? '0', 10)
       : 0
 
+    if (Number.isNaN(lastNum)) {
+      throw new Error(`Corrupted code found in ${table}: "${lastCode}"`)
+    }
+
     return `${fullPrefix}${String(lastNum + 1).padStart(padLen, '0')}`
   }
 
@@ -44,8 +54,5 @@ export async function generateNextCodeAtomic(
     return generate(externalTx)
   }
 
-  return prisma.$transaction(
-    async (tx) => generate(tx),
-    { timeout: 5000 },
-  )
+  return prisma.$transaction(async (tx) => generate(tx), { timeout: 5000 })
 }
