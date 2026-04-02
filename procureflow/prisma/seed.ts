@@ -7,6 +7,8 @@ import {
   VendorStatus,
   VendorPortalType,
   ApprovalStatus,
+  ClientStatus,
+  CommessaStatus,
 } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
@@ -39,6 +41,9 @@ async function main() {
     prisma.approval.deleteMany(),
     prisma.requestItem.deleteMany(),
     prisma.purchaseRequest.deleteMany(),
+    prisma.commessaTimeline.deleteMany(),
+    prisma.commessa.deleteMany(),
+    prisma.client.deleteMany(),
     prisma.vendorContact.deleteMany(),
     prisma.vendor.deleteMany(),
     prisma.budget.deleteMany(),
@@ -1687,6 +1692,64 @@ async function main() {
   }
   console.log(`  ✓ ${movementsData.length} movimenti creati`)
 
+  // --- Clients ---
+  const clientsData = [
+    {
+      code: 'CLI-001',
+      name: 'Faleni S.r.l.',
+      tax_id: '12345678901',
+      email: 'ordini@faleni.it',
+      contact_person: 'Mario Faleni',
+      status: ClientStatus.ACTIVE,
+    },
+    {
+      code: 'CLI-002',
+      name: 'TechCorp Italia',
+      tax_id: '98765432109',
+      email: 'procurement@techcorp.it',
+      contact_person: 'Laura Bianchi',
+      status: ClientStatus.ACTIVE,
+    },
+    {
+      code: 'CLI-003',
+      name: 'Elettronica Rossi',
+      email: 'info@elettronicarossi.it',
+      status: ClientStatus.PENDING_REVIEW,
+    },
+  ]
+
+  const createdClients = await Promise.all(
+    clientsData.map((c) => prisma.client.create({ data: c })),
+  )
+  console.log(`  ✓ ${createdClients.length} clienti creati`)
+
+  // --- Commesse ---
+  const cli001 = createdClients.find((c) => c.code === 'CLI-001')!
+  const commesseData = [
+    {
+      code: 'COM-2026-00001',
+      title: 'Cavi potenza VBM Freccia',
+      status: CommessaStatus.ACTIVE,
+      client_id: cli001.id,
+      client_value: new Decimal(45000),
+      priority: Priority.HIGH,
+      deadline: daysFromNow(43),
+    },
+    {
+      code: 'COM-2026-00002',
+      title: 'Schede elettroniche SMT lotto 3',
+      status: CommessaStatus.PLANNING,
+      client_id: cli001.id,
+      client_value: new Decimal(22000),
+      priority: Priority.MEDIUM,
+    },
+  ]
+
+  const createdCommesse = await Promise.all(
+    commesseData.map((cm) => prisma.commessa.create({ data: cm })),
+  )
+  console.log(`  ✓ ${createdCommesse.length} commesse create`)
+
   // --- Deploy Config ---
   await prisma.deployConfig.create({
     data: {
@@ -1699,6 +1762,7 @@ async function main() {
         'analytics',
         'tenders',
         'inventory',
+        'commesse',
       ],
     },
   })
@@ -1709,6 +1773,8 @@ async function main() {
   console.log(`   🏢 ${vendors.length} fornitori`)
   console.log(`   📋 ${requestsData.length} richieste`)
   console.log(`   🔔 ${notificationsData.length} notifiche`)
+  console.log(`   🏭 ${createdClients.length} clienti`)
+  console.log(`   📁 ${createdCommesse.length} commesse`)
 }
 
 main()
