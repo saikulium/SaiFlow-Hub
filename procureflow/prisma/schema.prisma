@@ -101,6 +101,7 @@ model User {
   comments      Comment[]
   notifications Notification[]
 
+  commesse_assigned Commessa[] @relation("CommessaAssigned")
   tenders_assigned  Tender[]  @relation("TenderAssigned")
   tenders_created   Tender[]  @relation("TenderCreated")
 
@@ -196,6 +197,11 @@ model PurchaseRequest {
 
   email_message_id String?   @unique
 
+  // Commessa link
+  commessa_id     String?
+  commessa        Commessa?  @relation(fields: [commessa_id], references: [id])
+  is_ai_suggested Boolean    @default(false)
+
   external_ref    String?
   external_url    String?
   tracking_number String?
@@ -235,6 +241,7 @@ model PurchaseRequest {
   @@index([needed_by])
   @@index([department, cost_center])
   @@index([cost_center, status])
+  @@index([commessa_id])
   @@map("purchase_requests")
 }
 
@@ -259,6 +266,21 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_REVIEW
+}
+
+enum CommessaStatus {
+  DRAFT
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
 }
 
 model RequestItem {
@@ -373,6 +395,85 @@ model Notification {
 
   @@index([user_id, read])
   @@map("notifications")
+}
+
+// --- Commesse (Clienti & Commesse) ---
+
+model Client {
+  id              String        @id @default(cuid())
+  code            String        @unique
+  name            String
+  tax_id          String?
+  email           String?
+  phone           String?
+  address         String?
+  contact_person  String?
+  notes           String?
+  status          ClientStatus  @default(ACTIVE)
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  commesse        Commessa[]
+
+  @@index([status])
+  @@index([name])
+  @@map("clients")
+}
+
+model Commessa {
+  id               String          @id @default(cuid())
+  code             String          @unique
+  title            String
+  description      String?
+  status           CommessaStatus  @default(DRAFT)
+
+  client_id        String
+  client           Client          @relation(fields: [client_id], references: [id])
+
+  client_value     Decimal?        @db.Decimal(12, 2)
+  currency         String          @default("EUR")
+
+  received_at      DateTime?
+  deadline         DateTime?
+  completed_at     DateTime?
+
+  category         String?
+  department       String?
+  priority         Priority        @default(MEDIUM)
+  tags             String[]
+  assigned_to      String?
+  assigned_user    User?           @relation("CommessaAssigned", fields: [assigned_to], references: [id])
+
+  email_message_id String?         @unique
+
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+
+  requests         PurchaseRequest[]
+  timeline         CommessaTimeline[]
+
+  @@index([status, created_at])
+  @@index([client_id])
+  @@index([deadline])
+  @@map("commesse")
+}
+
+model CommessaTimeline {
+  id               String    @id @default(cuid())
+  commessa_id      String
+  commessa         Commessa  @relation(fields: [commessa_id], references: [id], onDelete: Cascade)
+
+  type             String
+  title            String
+  description      String?
+  metadata         Json?
+  actor            String?
+  email_message_id String?
+
+  created_at       DateTime  @default(now())
+
+  @@index([commessa_id, created_at])
+  @@map("commessa_timeline")
 }
 
 // --- Fatturazione Elettronica (SDI) ---
