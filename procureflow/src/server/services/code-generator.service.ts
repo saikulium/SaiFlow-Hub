@@ -9,7 +9,12 @@ import type { Prisma } from '@prisma/client'
 // client esterno (per quando il chiamante è già in una $transaction).
 // ---------------------------------------------------------------------------
 
-const ALLOWED_TABLES = ['purchase_requests', 'commesse', 'clients'] as const
+const ALLOWED_TABLES = [
+  'purchase_requests',
+  'commesse',
+  'clients',
+  'articles',
+] as const
 type AllowedTable = (typeof ALLOWED_TABLES)[number]
 type TxClient = Prisma.TransactionClient
 
