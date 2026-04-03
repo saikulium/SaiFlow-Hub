@@ -8,6 +8,19 @@ export async function GET() {
     return errorResponse('UNAUTHORIZED', 'Non autorizzato', 401)
   }
 
-  const alerts = await getActiveAlerts()
+  const raw = await getActiveAlerts()
+  const alerts = raw.map((a) => ({
+    id: a.id,
+    materialId: a.material_id,
+    materialName: a.material.name,
+    materialCode: a.material.code,
+    type: a.type,
+    suggestedQty: a.suggested_qty,
+    suggestedVendorId: a.suggested_vendor_id,
+    suggestedVendorName: a.suggested_vendor?.name ?? null,
+    daysRemaining: a.days_remaining,
+    dismissed: a.dismissed,
+    createdAt: a.created_at.toISOString(),
+  }))
   return successResponse(alerts)
 }

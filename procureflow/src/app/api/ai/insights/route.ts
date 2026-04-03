@@ -2,7 +2,10 @@ import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
-import { generateInsights, getActiveInsights } from '@/server/services/insight.service'
+import {
+  generateInsights,
+  getActiveInsights,
+} from '@/server/services/insight.service'
 
 export async function GET() {
   const session = await auth()
@@ -22,7 +25,6 @@ export async function POST(req: NextRequest) {
       req.headers.get('x-webhook-signature'),
       req.headers.get('authorization'),
       process.env.WEBHOOK_SECRET,
-      req.headers.get('x-webhook-timestamp'),
     )
 
     if (!isAuthed) {

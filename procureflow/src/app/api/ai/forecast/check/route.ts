@@ -11,7 +11,6 @@ export async function POST(req: NextRequest) {
       req.headers.get('x-webhook-signature'),
       req.headers.get('authorization'),
       process.env.WEBHOOK_SECRET,
-      req.headers.get('x-webhook-timestamp'),
     )
 
     if (!isAuthed) {
