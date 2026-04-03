@@ -134,9 +134,10 @@ model Vendor {
 
   vat_id   String?           @unique  // Partita IVA (per matching fatture)
 
-  requests PurchaseRequest[]
-  contacts VendorContact[]
-  invoices Invoice[]
+  requests       PurchaseRequest[]
+  contacts       VendorContact[]
+  article_prices ArticlePrice[]
+  invoices       Invoice[]
 
   tenders_as_authority  Tender[]  @relation("TenderAuthority")
 
@@ -283,6 +284,78 @@ enum CommessaStatus {
   CANCELLED
 }
 
+enum AliasType {
+  VENDOR
+  CLIENT
+  STANDARD
+}
+
+model Article {
+  id                String    @id @default(cuid())
+  code              String    @unique          // ART-2026-00001
+  name              String
+  description       String?
+  category          String?
+  unit_of_measure   String                     // pz, kg, m
+  manufacturer      String?
+  manufacturer_code String?
+  is_active         Boolean   @default(true)
+  notes             String?
+  tags              String[]
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  aliases           ArticleAlias[]
+  prices            ArticlePrice[]
+  materials         Material[]
+  request_items     RequestItem[]
+  invoice_items     InvoiceLineItem[]
+
+  @@index([name])
+  @@index([category])
+  @@index([manufacturer_code])
+  @@index([is_active])
+  @@map("articles")
+}
+
+model ArticleAlias {
+  id          String    @id @default(cuid())
+  article_id  String
+  article     Article   @relation(fields: [article_id], references: [id], onDelete: Cascade)
+  alias_type  AliasType
+  alias_code  String                        // Stored uppercase
+  alias_label String?
+  entity_id   String?                       // FK to Vendor.id or Client.id (null for STANDARD)
+  is_primary  Boolean   @default(false)
+  created_at  DateTime  @default(now())
+
+  @@unique([alias_type, alias_code, entity_id])
+  @@index([alias_code])
+  @@index([article_id])
+  @@index([entity_id])
+  @@map("article_aliases")
+}
+
+model ArticlePrice {
+  id           String    @id @default(cuid())
+  article_id   String
+  article      Article   @relation(fields: [article_id], references: [id], onDelete: Cascade)
+  vendor_id    String
+  vendor       Vendor    @relation(fields: [vendor_id], references: [id])
+  unit_price   Decimal   @db.Decimal(12, 2)
+  currency     String    @default("EUR")
+  min_quantity Int       @default(1)
+  valid_from   DateTime  @default(now())
+  valid_until  DateTime?
+  source       String    @default("manual")  // "manual" | "invoice" | "quote"
+  notes        String?
+  created_at   DateTime  @default(now())
+
+  @@index([article_id, vendor_id])
+  @@index([vendor_id])
+  @@map("article_prices")
+}
+
 model RequestItem {
   id          String          @id @default(cuid())
   request_id  String
@@ -294,7 +367,10 @@ model RequestItem {
   unit        String?
   unit_price  Decimal? @db.Decimal(12, 2)
   total_price Decimal? @db.Decimal(12, 2)
-  sku         String?
+  sku             String?
+  article_id      String?
+  article         Article?  @relation(fields: [article_id], references: [id])
+  unresolved_code String?
 
   // IVA per riga
   vat_rate          Decimal? @db.Decimal(5, 2) @default(22.00)
@@ -581,6 +657,9 @@ model InvoiceLineItem {
   // Matching con riga ordine
   matched_item_id String?
 
+  article_id      String?
+  article         Article?  @relation(fields: [article_id], references: [id])
+
   created_at      DateTime @default(now())
 
   @@map("invoice_line_items")
@@ -673,6 +752,7 @@ model DeployConfig {
   departments      String[]
   cost_centers     String[]
   approval_rules   Json?
+  article_config   Json?    // { "auto_match_threshold": 0 }
   created_at       DateTime @default(now())
   updated_at      DateTime @updatedAt
 
@@ -900,6 +980,8 @@ model Material {
   is_active             Boolean   @default(true)
   tags                  String[]
   notes                 String?   @db.Text
+  article_id            String?
+  article               Article?  @relation(fields: [article_id], references: [id])
   created_at            DateTime  @default(now())
   updated_at            DateTime  @updatedAt
 
