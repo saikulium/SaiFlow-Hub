@@ -4,7 +4,10 @@ import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, ChevronLeft, ChevronRight, FileSearch } from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
-import { TenderFiltersBar, type TenderFilters } from '@/components/tenders/tender-filters'
+import {
+  TenderFiltersBar,
+  type TenderFilters,
+} from '@/components/tenders/tender-filters'
 import { TenderStatusBadge } from '@/components/tenders/tender-status-badge'
 import { TenderFormDialog } from '@/components/tenders/tender-form-dialog'
 import { useTenders } from '@/hooks/use-tenders'
@@ -13,7 +16,13 @@ import { cn, formatCurrency, formatDate } from '@/lib/utils'
 
 const DEFAULT_PAGE_SIZE = 20
 
-function GoNoGoBadge({ decision, score }: { decision: string; score: number | null }) {
+function GoNoGoBadge({
+  decision,
+  score,
+}: {
+  decision: string
+  score: number | null
+}) {
   if (decision === 'PENDING') {
     return (
       <span className="inline-flex items-center rounded-badge bg-zinc-400/10 px-2 py-0.5 text-xs font-medium text-zinc-400">
@@ -110,10 +119,13 @@ export function TendersPageContent() {
         </div>
 
         {/* Filters */}
-        <TenderFiltersBar filters={filters} onFiltersChange={handleFiltersChange} />
+        <TenderFiltersBar
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+        />
 
         {/* Table */}
-        <div className="overflow-x-auto rounded-card border border-pf-border bg-pf-bg-secondary/60 backdrop-blur-xl">
+        <div className="bg-pf-bg-secondary/60 overflow-x-auto rounded-card border border-pf-border backdrop-blur-xl">
           <table className="w-full">
             <thead>
               <tr className="border-b border-pf-border">
@@ -148,7 +160,9 @@ export function TendersPageContent() {
             </thead>
             <tbody>
               {isLoading &&
-                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
+                Array.from({ length: 5 }).map((_, i) => (
+                  <SkeletonRow key={i} />
+                ))}
 
               {!isLoading && tenders.length === 0 && (
                 <tr>
@@ -176,8 +190,8 @@ export function TendersPageContent() {
                         {tender.code}
                       </span>
                     </td>
-                    <td className="max-w-[200px] px-4 py-3">
-                      <span className="truncate text-sm font-medium text-pf-text-primary">
+                    <td className="max-w-[200px] overflow-hidden px-4 py-3">
+                      <span className="block truncate text-sm font-medium text-pf-text-primary">
                         {tender.title}
                       </span>
                     </td>
@@ -186,7 +200,8 @@ export function TendersPageContent() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs text-pf-text-secondary">
-                        {TENDER_TYPE_LABELS[tender.tenderType] ?? tender.tenderType}
+                        {TENDER_TYPE_LABELS[tender.tenderType] ??
+                          tender.tenderType}
                       </span>
                     </td>
                     <td className="hidden max-w-[160px] truncate px-4 py-3 text-sm text-pf-text-secondary md:table-cell">
@@ -219,15 +234,17 @@ export function TendersPageContent() {
 
         {/* Pagination */}
         {!isLoading && total > 0 && (
-          <div className="flex items-center justify-between rounded-card border border-pf-border bg-pf-bg-secondary/60 px-4 py-3 backdrop-blur-xl">
+          <div className="bg-pf-bg-secondary/60 flex items-center justify-between rounded-card border border-pf-border px-4 py-3 backdrop-blur-xl">
             <p className="text-sm text-pf-text-secondary">
               Pagina{' '}
-              <span className="font-medium text-pf-text-primary">{page}</span>
-              {' '}di{' '}
-              <span className="font-medium text-pf-text-primary">{totalPages}</span>
-              {' '}&middot;{' '}
-              <span className="font-medium text-pf-text-primary">{total}</span>
-              {' '}risultati
+              <span className="font-medium text-pf-text-primary">{page}</span>{' '}
+              di{' '}
+              <span className="font-medium text-pf-text-primary">
+                {totalPages}
+              </span>{' '}
+              &middot;{' '}
+              <span className="font-medium text-pf-text-primary">{total}</span>{' '}
+              risultati
             </p>
 
             <div className="flex items-center gap-2">
@@ -237,8 +254,8 @@ export function TendersPageContent() {
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                   page <= 1
-                    ? 'cursor-not-allowed text-pf-text-secondary/40'
-                    : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
                 )}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -250,8 +267,8 @@ export function TendersPageContent() {
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                   page >= totalPages
-                    ? 'cursor-not-allowed text-pf-text-secondary/40'
-                    : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
                 )}
               >
                 Successiva
