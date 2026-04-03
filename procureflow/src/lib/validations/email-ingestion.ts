@@ -49,7 +49,12 @@ const emailAttachmentSchema = z.object({
  * - "update_existing": aggiornamento a una richiesta esistente
  * - "info_only": informazione generica, solo timeline event
  */
-const actionTypeSchema = z.enum(['new_request', 'update_existing', 'info_only'])
+const actionTypeSchema = z.enum([
+  'new_request',
+  'update_existing',
+  'info_only',
+  'create_commessa',
+])
 
 const prioritySchema = z
   .enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
@@ -141,6 +146,23 @@ export const emailIngestionSchema = z.object({
 
   // Allegati originali
   attachments: z.array(emailAttachmentSchema).default([]),
+
+  // --- Dati cliente/commessa (per create_commessa) ---
+  ai_client_name: nullableString,
+  ai_client_code: nullableString,
+  ai_client_order_items: z
+    .array(
+      z.object({
+        description: z.string().min(1),
+        quantity: z.number().positive().optional(),
+        unit: z.string().optional(),
+      }),
+    )
+    .nullable()
+    .optional()
+    .transform((v) => v ?? undefined),
+  ai_client_deadline: nullableString,
+  ai_client_value: nullableNumber,
 })
 
 export type EmailIngestionPayload = z.infer<typeof emailIngestionSchema>
