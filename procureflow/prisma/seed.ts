@@ -1763,6 +1763,8 @@ async function main() {
         'analytics',
         'tenders',
         'inventory',
+        'chatbot',
+        'smartfill',
         'commesse',
       ],
       categories: [
