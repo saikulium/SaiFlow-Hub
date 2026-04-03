@@ -24,6 +24,7 @@ import {
   Gavel,
   Package,
   Shield,
+  BookOpen,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -248,6 +249,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Budget', href: '/budgets', icon: PiggyBank },
   { label: 'Gare', href: '/tenders', icon: Gavel },
   { label: 'Magazzino', href: '/inventory', icon: Package },
+  { label: 'Articoli', href: '/articles', icon: BookOpen },
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Commesse', href: '/commesse', icon: Briefcase },
   { label: 'Clienti', href: '/clients', icon: Building2 },
