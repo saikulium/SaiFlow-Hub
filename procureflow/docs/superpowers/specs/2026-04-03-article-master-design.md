@@ -6,7 +6,9 @@ Introduce an Article Master registry with cross-reference code mapping (internal
 
 ## Architecture
 
-**Approach B — Article as a separate entity.** Article is the pure master record ("what is this product?"). Material (inventory) gains an optional FK to Article. RequestItem, CommessaItem, and InvoiceLineItem each gain an optional `article_id`. All existing flows continue to work without the article registry (opt-in).
+**Approach B — Article as a separate entity.** Article is the pure master record ("what is this product?"). Material (inventory) gains an optional FK to Article. RequestItem and InvoiceLineItem each gain an optional `article_id`. All existing flows continue to work without the article registry (opt-in).
+
+**Note on Commesse:** The current `Commessa` model links directly to `PurchaseRequest[]` and has no line-item breakdown. Article integration with commesse happens through the PurchaseRequest items generated from a commessa, not through a separate `CommessaItem` entity.
 
 **Three sub-projects**, each independently valuable:
 1. Foundations — schema, CRUD, search, import
@@ -53,14 +55,13 @@ model Article {
   prices            ArticlePrice[]
   materials         Material[]
   request_items     RequestItem[]
-  commessa_items    CommessaItem[]
   invoice_items     InvoiceLineItem[]
 
-  @@index([code])
   @@index([name])
   @@index([category])
   @@index([manufacturer_code])
   @@index([is_active])
+  @@map("articles")
 }
 ```
 
@@ -74,10 +75,9 @@ model ArticleAlias {
   article_id  String
   article     Article       @relation(fields: [article_id], references: [id], onDelete: Cascade)
   alias_type  AliasType                     // VENDOR, CLIENT, STANDARD
-  alias_code  String                        // The external code
+  alias_code  String                        // The external code (stored uppercase)
   alias_label String?                       // Optional description
   entity_id   String?                       // FK to Vendor.id or Client.id (null for STANDARD)
-  entity_type String?                       // "vendor" | "client" | null
   is_primary  Boolean       @default(false) // Preferred alias for this type+entity
   created_at  DateTime      @default(now())
 
@@ -85,6 +85,7 @@ model ArticleAlias {
   @@index([alias_code])
   @@index([article_id])
   @@index([entity_id])
+  @@map("article_aliases")
 }
 
 enum AliasType {
@@ -95,6 +96,8 @@ enum AliasType {
 ```
 
 **Uniqueness constraint:** Same external code can exist for different vendors, but not twice for the same vendor. For STANDARD aliases (NSN, EAN), `entity_id` is null making the code globally unique.
+
+**Entity type derivation:** The `entity_type` ("vendor" or "client") is derived from `alias_type` at the service level: `VENDOR → "vendor"`, `CLIENT → "client"`, `STANDARD → null`. No separate `entity_type` column is stored.
 
 #### ArticlePrice
 
@@ -118,6 +121,7 @@ model ArticlePrice {
 
   @@index([article_id, vendor_id])
   @@index([vendor_id])
+  @@map("article_prices")
 }
 ```
 
@@ -126,6 +130,12 @@ model ArticlePrice {
 All additions are optional (nullable FK). No breaking changes.
 
 ```prisma
+// Vendor — add reciprocal relation for article prices
+model Vendor {
+  // ... existing fields ...
+  article_prices  ArticlePrice[]
+}
+
 // Material — add optional link to Article
 model Material {
   // ... existing fields ...
@@ -141,14 +151,6 @@ model RequestItem {
   unresolved_code String?   // External code that couldn't be resolved
 }
 
-// CommessaItem — add optional link to Article + unresolved code
-model CommessaItem {
-  // ... existing fields ...
-  article_id      String?
-  article         Article?  @relation(fields: [article_id], references: [id])
-  unresolved_code String?
-}
-
 // InvoiceLineItem — add optional link to Article
 model InvoiceLineItem {
   // ... existing fields ...
@@ -159,9 +161,50 @@ model InvoiceLineItem {
 
 ### 1.3 DeployConfig Extension
 
+Add a new JSON field for article-specific configuration:
+
+```prisma
+model DeployConfig {
+  // ... existing fields ...
+  article_config  Json?  // { "auto_match_threshold": 0, ... }
+}
 ```
-article_auto_match_threshold: Int  @default(0)  // 0 = never auto-match
+
+Default value (set in code):
+```typescript
+const DEFAULT_ARTICLE_CONFIG = {
+  auto_match_threshold: 0,  // 0 = never auto-match, 80 = auto-match above 80% confidence
+} as const
 ```
+
+### 1.4 Validation Rules
+
+| Field | Constraint |
+|-------|-----------|
+| `Article.code` | Auto-generated, format: `/^ART-\d{4}-\d{5}$/` |
+| `Article.name` | Required, max 200 chars |
+| `Article.unit_of_measure` | Required, max 10 chars |
+| `Article.category` | Optional, max 100 chars |
+| `Article.manufacturer` | Optional, max 200 chars |
+| `Article.manufacturer_code` | Optional, max 100 chars |
+| `ArticleAlias.alias_code` | Required, max 100 chars, stored uppercase (case-insensitive matching) |
+| `ArticleAlias.alias_label` | Optional, max 200 chars |
+| `ArticlePrice.unit_price` | Required, positive decimal |
+| `ArticlePrice.min_quantity` | Required, positive integer, min 1 |
+
+### 1.5 Permissions (RBAC)
+
+| Operation | ADMIN | MANAGER | REQUESTER | VIEWER |
+|-----------|-------|---------|-----------|--------|
+| List / Search articles | Yes | Yes | Yes | Yes |
+| View article detail | Yes | Yes | Yes | Yes |
+| Create article | Yes | Yes | No | No |
+| Update article | Yes | Yes | No | No |
+| Delete article | Yes | No | No | No |
+| Add/remove alias | Yes | Yes | No | No |
+| Add price | Yes | Yes | Yes (own requests) | No |
+| CSV import | Yes | No | No | No |
+| Configure auto-match threshold | Yes | No | No | No |
 
 ---
 
@@ -197,7 +240,12 @@ function resolveCode(code: string, context?: ResolveContext): Promise<ResolveRes
 
 ### 2.2 Resolution Logic (3 steps)
 
-**Step 1 — Exact match:** Query `ArticleAlias` where `alias_code = input`. If context provides `entity_id`, filter by it first (scoped match), then fall back to unscoped. If found → `MATCHED`.
+**Prerequisites:**
+- Migration must include `CREATE EXTENSION IF NOT EXISTS pg_trgm`
+- A GIN index must be created: `CREATE INDEX idx_article_aliases_trgm ON article_aliases USING gin (alias_code gin_trgm_ops)`
+- Fallback: if `pg_trgm` is unavailable (some managed PostgreSQL tiers), Step 2 uses `ILIKE '%pattern%'` with Levenshtein distance calculated in JS
+
+**Step 1 — Exact match:** Query `ArticleAlias` where `alias_code = UPPER(input)`. If context provides `entity_id`, filter by it first (scoped match), then fall back to unscoped. If found → `MATCHED`.
 
 **Step 2 — Fuzzy match (DB):** If exact fails, use PostgreSQL `pg_trgm` similarity on `ArticleAlias.alias_code` and `Article.name`. Return candidates with similarity score mapped to 0-100. Only candidates above 50% similarity are included.
 
@@ -205,7 +253,7 @@ function resolveCode(code: string, context?: ResolveContext): Promise<ResolveRes
 
 ### 2.3 Auto-match Rules
 
-- Threshold is read from `DeployConfig.article_auto_match_threshold` (default 0 = never)
+- Threshold is read from `DeployConfig.article_config.auto_match_threshold` (default 0 = never)
 - Only `source: "exact"` or `source: "fuzzy"` candidates can auto-match
 - `source: "ai"` candidates ALWAYS require human confirmation regardless of threshold
 - When auto-matched: the alias is created automatically and the item's `article_id` is set
@@ -235,20 +283,19 @@ New module `articles` in `MODULE_REGISTRY`:
 
 Added to `ModuleId` union type.
 
-### 3.2 Commesse Integration (client orders inbound)
+### 3.2 Commesse Integration (via PurchaseRequest)
 
-When creating a `CommessaItem` with a client product code:
-1. Form has a "Codice cliente" free text field
-2. On blur, calls `resolveCode(code, { entity_type: "client", entity_id: client_id })`
+When generating a `PurchaseRequest` from a commessa, each `RequestItem` can reference an article:
+1. The operator can use `ArticleAutocomplete` to search by client product code
+2. On selection, `article_id` is set, item fields auto-populate
+3. If the vendor is selected and the article has a VENDOR alias for that vendor → `RequestItem.sku` is pre-filled with the vendor code
+
+**Client code resolution in request items:**
+1. Form has a "Codice esterno" free text field
+2. On blur, calls `resolveCode(code, { entity_type: "client", entity_id: commessa.client_id })`
 3. If `MATCHED` → auto-populates `article_id`, shows internal article name, UM, last purchase price
 4. If `SUGGESTED` → shows inline suggestion panel (SmartFill style)
 5. If `UNMATCHED` → amber "Non mappato" badge, row created with `unresolved_code` set
-
-**Reverse translation (commessa → RDA):**
-When generating a PurchaseRequest from a commessa, for each row with `article_id`:
-1. Look up `ArticleAlias` of type VENDOR for the selected vendor
-2. If found → pre-fill `RequestItem.sku` with the vendor code
-3. If not found → leave internal code, operator completes manually
 
 ### 3.3 PurchaseRequest / RequestItem Integration
 
@@ -299,18 +346,21 @@ During three-way matching:
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/articles` | GET | requireModule('articles') | Paginated list with filters: search, category, is_active |
-| `/api/articles` | POST | requireModule('articles') | Create article (+ inline aliases optional) |
-| `/api/articles/[id]` | GET | requireModule('articles') | Detail with aliases, prices, usage links |
-| `/api/articles/[id]` | PATCH | requireModule('articles') | Update article |
-| `/api/articles/[id]/aliases` | GET | requireModule('articles') | List aliases for article |
-| `/api/articles/[id]/aliases` | POST | requireModule('articles') | Add alias |
-| `/api/articles/[id]/aliases/[aliasId]` | DELETE | requireModule('articles') | Remove alias |
-| `/api/articles/[id]/prices` | GET | requireModule('articles') | Price history by vendor |
-| `/api/articles/[id]/prices` | POST | requireModule('articles') | Add manual price |
-| `/api/articles/resolve` | POST | requireModule('articles') | Resolve external code → article |
-| `/api/articles/search` | GET | requireModule('articles') | Universal autocomplete |
+| `/api/articles` | GET | requireModule('articles') + any role | Paginated list with filters: search, category, is_active |
+| `/api/articles` | POST | requireModule('articles') + ADMIN/MANAGER | Create article (+ inline aliases optional) |
+| `/api/articles/[id]` | GET | requireModule('articles') + any role | Detail with aliases, prices, usage links |
+| `/api/articles/[id]` | PATCH | requireModule('articles') + ADMIN/MANAGER | Update article |
+| `/api/articles/[id]` | DELETE | requireModule('articles') + ADMIN | Soft delete (set `is_active = false`) |
+| `/api/articles/[id]/aliases` | GET | requireModule('articles') + any role | List aliases for article |
+| `/api/articles/[id]/aliases` | POST | requireModule('articles') + ADMIN/MANAGER | Add alias |
+| `/api/articles/[id]/aliases/[aliasId]` | DELETE | requireModule('articles') + ADMIN/MANAGER | Remove alias |
+| `/api/articles/[id]/prices` | GET | requireModule('articles') + any role | Price history by vendor |
+| `/api/articles/[id]/prices` | POST | requireModule('articles') + ADMIN/MANAGER/REQUESTER | Add manual price |
+| `/api/articles/resolve` | POST | requireModule('articles') + any role | Resolve external code → article |
+| `/api/articles/search` | GET | requireModule('articles') + any role | Universal autocomplete |
 | `/api/articles/import` | POST | requireRole('ADMIN') | Bulk CSV import |
+
+**Note:** `GET /api/articles/[id]` also accepts an article `code` value (e.g., `ART-2026-00001`) and resolves internally, following the same pattern as `GET /api/requests/[id]`.
 
 ### Response Patterns
 
@@ -330,7 +380,7 @@ Follows `materials-page-content.tsx` pattern:
 - Action buttons: "Nuovo Articolo", "Importa CSV"
 - CSV export button
 
-### 5.2 Article Detail (`/articles/[code]`)
+### 5.2 Article Detail (`/articles/[id]`)
 
 Header: code, name, active/inactive badge, category, manufacturer.
 
@@ -345,7 +395,7 @@ Header: code, name, active/inactive badge, category, manufacturer.
 - Add price button → dialog
 
 **Tab "Dove Usato":**
-- Aggregated list of where the article appears: RDA lines, commessa lines, invoice lines, linked material
+- Aggregated list of where the article appears: RDA lines, invoice lines, linked material
 - Each entry is a clickable link to the source document
 
 **Tab "Dettagli":**
@@ -359,6 +409,13 @@ Header: code, name, active/inactive badge, category, manufacturer.
 2. **Preview** — first 10 rows, auto-detected column mapping with manual override, counters: N new articles, N new aliases, N duplicates (skip)
 3. **Confirm** — executes with progress bar, final report: X articles created, Y aliases created, Z errors with detail
 
+**Import constraints:**
+- Max file size: 10 MB
+- Max rows: 10,000
+- Transactional behavior: all-or-nothing per article group (if article creation fails, all its aliases are rolled back; other articles in the batch are unaffected)
+- Within a single CSV, the first row with a given `codice_interno` creates the article; subsequent rows with the same `codice_interno` only add aliases
+- Import is synchronous (under 10k rows completes in seconds)
+
 ### 5.4 CSV Format
 
 ```csv
@@ -370,14 +427,14 @@ FAL-CON-038,Connettore circolare MIL 38999,Connettori,pz,Amphenol,38999-20WG35SN
 ```
 
 Import logic:
-- If `codice_interno` doesn't exist → create Article
+- If `codice_interno` doesn't exist → create Article (auto-generates internal `code` like `ART-2026-00001`)
 - If `codice_interno` exists → skip creation (update if fields differ)
 - For each row with `tipo_alias` + `codice_alias` → create ArticleAlias (skip if duplicate)
 - `entita` is resolved by name → case-insensitive match against Vendor/Client `name`. If not found → warning in report, alias created with `entity_id = null`
 
 ### 5.5 ArticleAutocomplete Component
 
-Reusable component used in RequestItem form, CommessaItem form, Material linking:
+Reusable component used in RequestItem form, Material linking:
 - Input with 300ms debounce
 - Calls `GET /api/articles/search?q=...`
 - Results grouped: internal code matches first, then alias matches, then name matches
@@ -388,11 +445,11 @@ Reusable component used in RequestItem form, CommessaItem form, Material linking
 
 ## 6. Unresolved Code Handling
 
-When a CommessaItem or RequestItem arrives with a code that cannot be resolved:
+When a RequestItem arrives with a code that cannot be resolved:
 
 1. Row is created normally (nothing blocks)
 2. `article_id = null`, `unresolved_code` is set to the original external code
-3. A `Notification` is created for ADMIN/MANAGER users: "Codice non mappato: LEO-EL-7842 sulla commessa COM-2026-00003"
+3. A `Notification` is created for ADMIN/MANAGER users: "Codice non mappato: LEO-EL-7842 sulla richiesta PR-2026-00003"
 4. In the UI, unresolved rows show an amber "Non mappato" badge (clickable)
 5. Clicking opens a resolution panel with:
    - Fuzzy/AI suggested matches (if any)
@@ -407,13 +464,13 @@ When a CommessaItem or RequestItem arrives with a code that cannot be resolved:
 
 ### Sub-project 1: Foundations
 
-Schema (Article, ArticleAlias, ArticlePrice + migration), article_id on existing models, module registry entry, full CRUD API, search/autocomplete API, CSV import, UI pages (list + detail + import dialog), Zod validations, React Query hooks, constants, atomic code generation (ART-YYYY-NNNNN).
+Schema (Article, ArticleAlias, ArticlePrice + migration with `pg_trgm` extension), `article_id` on existing models, module registry entry, full CRUD API, search/autocomplete API, CSV import, UI pages (list + detail + import dialog), Zod validations, React Query hooks, constants, atomic code generation (ART-YYYY-NNNNN).
 
 **Value:** Standalone article registry is usable. Operators can create articles, add aliases, import from Excel, search by any code.
 
 ### Sub-project 2: Integration
 
-ArticleAutocomplete component, RequestItem form integration (autocomplete + auto-fill), CommessaItem form integration (client code resolution), reverse translation commessa→RDA (vendor code auto), price comparison panel in RDA creation, article_id propagation in three-way matching, automatic ArticlePrice from invoices, Material→Article link in material page.
+ArticleAutocomplete component, RequestItem form integration (autocomplete + auto-fill), commessa-to-RDA reverse translation (vendor code auto), price comparison panel in RDA creation, `article_id` propagation in three-way matching, automatic ArticlePrice from invoices, Material→Article link in material page.
 
 **Depends on:** Sub-project 1.
 
@@ -421,7 +478,7 @@ ArticleAutocomplete component, RequestItem form integration (autocomplete + auto
 
 ### Sub-project 3: AI Matching
 
-`article-resolver.service.ts` with 3-step logic, `pg_trgm` extension for fuzzy search, `unresolved_code` field on CommessaItem/RequestItem, "Non mappato" badge + resolution panel UI, notifications for unresolvable codes, configurable auto-match threshold in DeployConfig + Settings UI, learning loop (manual mapping → saved alias).
+`article-resolver.service.ts` with 3-step logic, `pg_trgm` fuzzy search queries (GIN index), `unresolved_code` field on RequestItem, "Non mappato" badge + resolution panel UI, notifications for unresolvable codes, configurable auto-match threshold in DeployConfig + Settings UI, learning loop (manual mapping → saved alias).
 
 **Depends on:** Sub-projects 1 and 2.
 
@@ -441,16 +498,21 @@ Each sub-project follows its own plan→build→review cycle.
 
 ```
 prisma/
-  migrations/YYYYMMDD_article_master/   — Schema migration
+  migrations/YYYYMMDD_article_master/   — Schema migration (includes CREATE EXTENSION pg_trgm)
 
 src/
   app/
     (dashboard)/articles/
       page.tsx                          — Article list page
-      [code]/page.tsx                   — Article detail page
+      loading.tsx                       — Skeleton loader
+      error.tsx                         — Error boundary
+      [id]/
+        page.tsx                        — Article detail page
+        loading.tsx                     — Skeleton loader
+        error.tsx                       — Error boundary
     api/articles/
       route.ts                          — GET list, POST create
-      [id]/route.ts                     — GET detail, PATCH update
+      [id]/route.ts                     — GET detail, PATCH update, DELETE
       [id]/aliases/route.ts             — GET/POST aliases
       [id]/aliases/[aliasId]/route.ts   — DELETE alias
       [id]/prices/route.ts              — GET/POST prices
@@ -472,7 +534,7 @@ src/
     use-article-search.ts              — Autocomplete hook with debounce
   lib/
     validations/article.ts              — Zod schemas
-    constants/article.ts                — Status configs, alias type configs
+    constants/article.ts                — Alias type configs, default article config
   server/services/
     article.service.ts                  — Pure business logic
     article-db.service.ts               — DB queries, code generation
