@@ -15,6 +15,7 @@ import {
   Banknote,
   Receipt,
   Loader2,
+  Plus,
 } from 'lucide-react'
 import {
   useCommessaDetail,
@@ -350,10 +351,19 @@ function RequestsTab({
 
       {/* Confirmed Requests */}
       <div className="space-y-3">
-        <h3 className="flex items-center gap-2 text-sm font-medium text-pf-text-secondary">
-          <ClipboardList className="h-4 w-4" />
-          Richieste di acquisto ({commessa.requests.length})
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-medium text-pf-text-secondary">
+            <ClipboardList className="h-4 w-4" />
+            Richieste di acquisto ({commessa.requests.length})
+          </h3>
+          <Link
+            href={`/requests/new?commessa_id=${commessa.id}`}
+            className="bg-pf-accent/10 hover:bg-pf-accent/20 inline-flex h-8 items-center gap-1.5 rounded-button px-3 text-xs font-medium text-pf-accent transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Nuova Richiesta
+          </Link>
+        </div>
         {commessa.requests.length === 0 ? (
           <p className="rounded-card border border-pf-border bg-pf-bg-secondary p-6 text-center text-sm text-pf-text-muted">
             Nessuna richiesta di acquisto collegata

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm, useFieldArray, type SubmitHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
@@ -247,6 +247,8 @@ function VendorSelect({
 
 export function RequestForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const preselectedCommessaId = searchParams.get('commessa_id') ?? undefined
   const createRequest = useCreateRequest()
   const { data: adminConfig } = useAdminConfig()
   const { data: commesse, isLoading: commesseLoading } = useCommesse({
@@ -275,7 +277,7 @@ export function RequestForm() {
       budget_code: '',
       cig: '',
       cup: '',
-      commessa_id: undefined,
+      commessa_id: preselectedCommessaId,
       is_mepa: false,
       mepa_oda_number: '',
       tags: [],
@@ -577,7 +579,7 @@ export function RequestForm() {
             <select
               id="commessa_id"
               {...register('commessa_id')}
-              disabled={commesseLoading}
+              disabled={commesseLoading || !!preselectedCommessaId}
               className="h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent disabled:opacity-50"
             >
               <option value="">Nessuna commessa</option>
@@ -587,6 +589,12 @@ export function RequestForm() {
                 </option>
               ))}
             </select>
+            {preselectedCommessaId && (
+              <p className="mt-1 text-xs text-pf-text-muted">
+                Commessa preselezionata — la richiesta sarà associata
+                automaticamente
+              </p>
+            )}
           </div>
 
           <div>

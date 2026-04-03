@@ -35,6 +35,7 @@ export const createRequestSchema = z.object({
     .or(z.literal('')),
   is_mepa: z.boolean().default(false),
   mepa_oda_number: z.string().optional(),
+  commessa_id: z.string().optional(),
   tags: z.array(z.string()).default([]),
   items: z.array(requestItemSchema).default([]),
 })
