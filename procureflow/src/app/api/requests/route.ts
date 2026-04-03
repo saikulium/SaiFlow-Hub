@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
         description: data.description,
         priority: data.priority,
         vendor_id: data.vendor_id || null,
+        commessa_id: data.commessa_id || null,
         estimated_amount: data.estimated_amount
           ? new Prisma.Decimal(data.estimated_amount)
           : null,
@@ -106,6 +107,10 @@ export async function POST(req: NextRequest) {
         department: data.department,
         cost_center: data.cost_center,
         budget_code: data.budget_code,
+        cig: data.cig || null,
+        cup: data.cup || null,
+        is_mepa: data.is_mepa ?? false,
+        mepa_oda_number: data.mepa_oda_number || null,
         tags: data.tags,
         requester_id: requesterId,
         items: {
@@ -135,6 +140,7 @@ export async function POST(req: NextRequest) {
       include: {
         vendor: { select: { id: true, name: true } },
         requester: { select: { id: true, name: true } },
+        commessa: { select: { id: true, code: true, title: true } },
         items: true,
       },
     })

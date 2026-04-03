@@ -29,6 +29,7 @@ export async function GET(
             department: true,
           },
         },
+        commessa: { select: { id: true, code: true, title: true } },
         items: true,
         approvals: {
           include: {
@@ -60,6 +61,7 @@ export async function GET(
               department: true,
             },
           },
+          commessa: { select: { id: true, code: true, title: true } },
           items: true,
           approvals: {
             include: {

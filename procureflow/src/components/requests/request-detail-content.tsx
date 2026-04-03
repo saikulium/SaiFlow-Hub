@@ -150,6 +150,19 @@ function DettagliTab({ request }: { request: RequestDetail }) {
           <InfoField label="Dipartimento" value={request.department} />
           <InfoField label="Centro Costo" value={request.cost_center} />
           <InfoField label="Codice Budget" value={request.budget_code} />
+          <InfoField
+            label="Commessa"
+            value={
+              request.commessa ? (
+                <Link
+                  href={`/commesse/${request.commessa.code}`}
+                  className="text-pf-accent transition-colors hover:text-pf-accent-hover"
+                >
+                  {request.commessa.code} — {request.commessa.title}
+                </Link>
+              ) : null
+            }
+          />
           <InfoField label="Riferimento Esterno" value={request.external_ref} />
           <InfoField label="Tracking" value={request.tracking_number} />
         </dl>
