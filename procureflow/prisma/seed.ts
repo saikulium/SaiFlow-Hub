@@ -1178,6 +1178,7 @@ async function main() {
   await prisma.stockLot.deleteMany()
   await prisma.warehouseZone.deleteMany()
   await prisma.warehouse.deleteMany()
+  await prisma.materialAlert.deleteMany()
   await prisma.material.deleteMany()
 
   // Warehouses
@@ -1763,6 +1764,36 @@ async function main() {
         'tenders',
         'inventory',
         'commesse',
+      ],
+      categories: [
+        'Hardware',
+        'Software',
+        'Servizi',
+        'Materiali',
+        'Attrezzature',
+        'Consulenza',
+        'Logistica',
+        'Altro',
+      ],
+      departments: [
+        'IT',
+        'Produzione',
+        'Amministrazione',
+        'Commerciale',
+        'Risorse Umane',
+        'Logistica',
+        'Qualità',
+        'R&D',
+      ],
+      cost_centers: [
+        'CC-IT-001',
+        'CC-PROD-001',
+        'CC-AMM-001',
+        'CC-COMM-001',
+        'CC-HR-001',
+        'CC-LOG-001',
+        'CC-QA-001',
+        'CC-RD-001',
       ],
     },
   })

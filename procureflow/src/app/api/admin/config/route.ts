@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
-import { requireRole } from '@/lib/auth'
+import { requireAuth, requireRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { updateConfigSchema } from '@/lib/validations/admin'
 
 export async function GET() {
-  const authResult = await requireRole('ADMIN')
+  const authResult = await requireAuth()
   if (authResult instanceof NextResponse) return authResult
 
   const config = await prisma.deployConfig.findUnique({
