@@ -13,12 +13,24 @@ const mockPrisma = {
   },
 }
 
+const mockCallClaude = vi.fn()
+
 vi.mock('@/lib/db', () => ({ prisma: mockPrisma }))
-vi.mock('@/lib/ai/claude-client', () => ({ callClaude: vi.fn() }))
+vi.mock('@/lib/ai/claude-client', () => ({
+  callClaude: mockCallClaude,
+  extractJsonFromAiResponse: (raw: string) => {
+    const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (fence) return fence[1]!.trim()
+    const brace = raw.match(/\{[\s\S]*\}/)
+    if (brace) return brace[0]!
+    return raw.trim()
+  },
+}))
 
 describe('forecast.service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.resetModules()
   })
 
   describe('computeWMA', () => {
@@ -119,8 +131,6 @@ describe('forecast.service', () => {
         { month: '2026-02', total: 35 },
       ])
 
-      const { callClaude } = await import('@/lib/ai/claude-client')
-      const mockCallClaude = vi.mocked(callClaude)
       mockCallClaude.mockResolvedValue({
         content: [
           {
@@ -158,8 +168,6 @@ describe('forecast.service', () => {
 
       mockPrisma.$queryRaw.mockResolvedValue([])
 
-      const { callClaude } = await import('@/lib/ai/claude-client')
-      const mockCallClaude = vi.mocked(callClaude)
       mockCallClaude.mockRejectedValue(new Error('API unavailable'))
 
       const { getAiForecast } =

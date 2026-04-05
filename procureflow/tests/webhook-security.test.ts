@@ -44,7 +44,11 @@ function nowEpoch(): number {
   return Math.floor(Date.now() / 1000)
 }
 
-function signPayload(payload: string, secret: string, timestamp?: string): string {
+function signPayload(
+  payload: string,
+  secret: string,
+  timestamp?: string,
+): string {
   const signedPayload = timestamp ? `${timestamp}.${payload}` : payload
   return crypto.createHmac('sha256', secret).update(signedPayload).digest('hex')
 }
@@ -153,21 +157,33 @@ describe('verifyWebhookAuth', () => {
     expect(verifyWebhookAuth(payload, sig, null, TEST_SECRET, ts)).toBe(false)
   })
 
-  it('accetta HMAC senza timestamp (backward-compatible)', () => {
+  it('rifiuta HMAC senza timestamp (timestamp obbligatorio)', () => {
     const sig = signPayload(payload, TEST_SECRET)
-    expect(verifyWebhookAuth(payload, sig, null, TEST_SECRET, null)).toBe(true)
+    expect(verifyWebhookAuth(payload, sig, null, TEST_SECRET, null)).toBe(false)
   })
 
-  it('accetta Bearer token anche senza timestamp', () => {
+  it('rifiuta Bearer token senza timestamp (timestamp obbligatorio)', () => {
     expect(
-      verifyWebhookAuth(payload, null, `Bearer ${TEST_SECRET}`, TEST_SECRET, null),
-    ).toBe(true)
+      verifyWebhookAuth(
+        payload,
+        null,
+        `Bearer ${TEST_SECRET}`,
+        TEST_SECRET,
+        null,
+      ),
+    ).toBe(false)
   })
 
   it('rifiuta Bearer token con timestamp scaduto', () => {
     const ts = String(nowEpoch() - 600)
     expect(
-      verifyWebhookAuth(payload, null, `Bearer ${TEST_SECRET}`, TEST_SECRET, ts),
+      verifyWebhookAuth(
+        payload,
+        null,
+        `Bearer ${TEST_SECRET}`,
+        TEST_SECRET,
+        ts,
+      ),
     ).toBe(false)
   })
 
@@ -220,7 +236,9 @@ describe('recordWebhookProcessed', () => {
 
   it('usa upsert per registrare il webhook', async () => {
     mockPrisma.processedWebhook.upsert.mockResolvedValue({})
-    await recordWebhookProcessed('wh-456', 'sdi-invoice', 200, { success: true })
+    await recordWebhookProcessed('wh-456', 'sdi-invoice', 200, {
+      success: true,
+    })
 
     expect(mockPrisma.processedWebhook.upsert).toHaveBeenCalledWith({
       where: { webhook_id: 'wh-456' },
@@ -263,7 +281,8 @@ describe('cleanupOldWebhooks', () => {
 
     await cleanupOldWebhooks()
 
-    const callArg = mockPrisma.processedWebhook.deleteMany.mock.calls[0]![0] as {
+    const callArg = mockPrisma.processedWebhook.deleteMany.mock
+      .calls[0]![0] as {
       where: { created_at: { lt: Date } }
     }
     const cutoff = callArg.where.created_at.lt
