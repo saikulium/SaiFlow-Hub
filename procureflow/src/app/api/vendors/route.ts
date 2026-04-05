@@ -1,15 +1,32 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
-import { successResponse, errorResponse, validationErrorResponse } from '@/lib/api-response'
+import {
+  successResponse,
+  errorResponse,
+  validationErrorResponse,
+} from '@/lib/api-response'
 import { createVendorSchema } from '@/lib/validations/vendor'
+import { requireAuth, requireRole } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   try {
+    const authResult = await requireAuth()
+    if (authResult instanceof NextResponse) return authResult
+
     const search = req.nextUrl.searchParams.get('search') || undefined
     const status = req.nextUrl.searchParams.get('status') || undefined
 
     const where = {
-      ...(status && { status: { equals: status as 'ACTIVE' | 'INACTIVE' | 'BLACKLISTED' | 'PENDING_REVIEW' } }),
+      ...(status && {
+        status: {
+          equals: status as
+            | 'ACTIVE'
+            | 'INACTIVE'
+            | 'BLACKLISTED'
+            | 'PENDING_REVIEW',
+        },
+      }),
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' as const } },
@@ -35,19 +52,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const authResult = await requireRole('ADMIN', 'MANAGER')
+    if (authResult instanceof NextResponse) return authResult
+
     const body = await req.json()
     const parsed = createVendorSchema.safeParse(body)
 
     if (!parsed.success) {
       return validationErrorResponse(parsed.error.flatten())
-    }
-
-    const existing = await prisma.vendor.findUnique({
-      where: { code: parsed.data.code },
-    })
-
-    if (existing) {
-      return errorResponse('DUPLICATE_CODE', 'Codice fornitore già esistente', 409)
     }
 
     const vendor = await prisma.vendor.create({
@@ -61,6 +73,16 @@ export async function POST(req: NextRequest) {
 
     return successResponse(vendor)
   } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return errorResponse(
+        'DUPLICATE_CODE',
+        'Codice fornitore già esistente',
+        409,
+      )
+    }
     console.error('POST /api/vendors error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore creazione fornitore', 500)
   }

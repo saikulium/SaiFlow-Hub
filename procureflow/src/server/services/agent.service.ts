@@ -15,7 +15,8 @@ import type {
 // Constants
 // ---------------------------------------------------------------------------
 
-const MAX_TOOL_ROUNDS = 5
+const AGENT_MODEL = 'claude-haiku-4-5-20251001'
+const MAX_TOOL_ROUNDS = 3
 const MAX_RESULTS = 20
 
 type ToolInput = Record<string, unknown>
@@ -330,7 +331,9 @@ const READ_TOOL_EXECUTORS: Record<
 
 function generateRequestCode(): string {
   const year = new Date().getFullYear()
-  const seq = String(Math.floor(Math.random() * 99999) + 1).padStart(5, '0')
+  const bytes = new Uint32Array(1)
+  globalThis.crypto.getRandomValues(bytes)
+  const seq = String((bytes[0]! % 99999) + 1).padStart(5, '0')
   return `PR-${year}-${seq}`
 }
 
@@ -604,6 +607,7 @@ export async function* streamAgentResponse(
         }>,
         maxTokens: 2048,
         tools: anthropicTools,
+        model: AGENT_MODEL,
       })
     } catch (err) {
       yield { type: 'error', message: `Errore AI: ${String(err)}` }

@@ -5,6 +5,43 @@ import { streamAgentResponse } from '@/server/services/agent.service'
 import type { UserRole } from '@/lib/ai/tool-registry'
 
 // ---------------------------------------------------------------------------
+// Rate limiting: max 10 messaggi per utente per minuto (in-memory)
+// ---------------------------------------------------------------------------
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX = 10
+
+const rateLimitMap = new Map<string, number[]>()
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const windowStart = now - RATE_LIMIT_WINDOW_MS
+  const existing = rateLimitMap.get(userId) ?? []
+  const recent = existing.filter((ts: number) => ts > windowStart)
+
+  if (recent.length >= RATE_LIMIT_MAX) {
+    return false
+  }
+
+  rateLimitMap.set(userId, [...recent, now])
+  return true
+}
+
+// Cleanup periodico per evitare memory leak
+setInterval(() => {
+  const now = Date.now()
+  const windowStart = now - RATE_LIMIT_WINDOW_MS
+  const entries = Array.from(rateLimitMap.entries())
+  for (const [userId, timestamps] of entries) {
+    const recent = timestamps.filter((ts: number) => ts > windowStart)
+    if (recent.length === 0) {
+      rateLimitMap.delete(userId)
+    } else {
+      rateLimitMap.set(userId, recent)
+    }
+  }
+}, RATE_LIMIT_WINDOW_MS)
+
+// ---------------------------------------------------------------------------
 // POST /api/chat — AI Agent con streaming SSE
 //
 // Richiede sessione NextAuth valida.
@@ -32,8 +69,25 @@ export async function POST(req: Request) {
   const session = await auth()
   if (!session?.user) {
     return Response.json(
-      { success: false, error: { code: 'UNAUTHORIZED', message: 'Sessione non valida' } },
+      {
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Sessione non valida' },
+      },
       { status: 401 },
+    )
+  }
+
+  // Rate limiting
+  if (!checkRateLimit(session.user.id)) {
+    return Response.json(
+      {
+        success: false,
+        error: {
+          code: 'RATE_LIMITED',
+          message: `Massimo ${RATE_LIMIT_MAX} messaggi al minuto`,
+        },
+      },
+      { status: 429 },
     )
   }
 
@@ -43,7 +97,10 @@ export async function POST(req: Request) {
     body = await req.json()
   } catch {
     return Response.json(
-      { success: false, error: { code: 'INVALID_PAYLOAD', message: 'JSON non valido' } },
+      {
+        success: false,
+        error: { code: 'INVALID_PAYLOAD', message: 'JSON non valido' },
+      },
       { status: 400 },
     )
   }

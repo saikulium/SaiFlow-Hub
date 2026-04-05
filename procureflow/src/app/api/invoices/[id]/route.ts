@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { requireRole } from '@/lib/auth'
 import {
   successResponse,
   errorResponse,
   notFoundResponse,
+  validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
+
+const invoicePatchSchema = z
+  .object({
+    reconciliation_notes: z.string().max(2000).optional(),
+    sdi_status: z.enum(['RECEIVED', 'ACCEPTED', 'REJECTED']).optional(),
+  })
+  .refine(
+    (data) =>
+      data.reconciliation_notes !== undefined || data.sdi_status !== undefined,
+    { message: 'Almeno un campo da aggiornare' },
+  )
 
 // ---------------------------------------------------------------------------
 // GET /api/invoices/[id] — Dettaglio fattura
@@ -74,6 +87,11 @@ export async function PATCH(
     if (authResult instanceof NextResponse) return authResult
 
     const body = await req.json()
+    const parsed = invoicePatchSchema.safeParse(body)
+
+    if (!parsed.success) {
+      return validationErrorResponse(parsed.error.flatten())
+    }
 
     const invoice = await prisma.invoice.findUnique({
       where: { id: params.id },
@@ -84,19 +102,12 @@ export async function PATCH(
       return notFoundResponse('Fattura non trovata')
     }
 
-    // Campi aggiornabili manualmente
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: any = {}
-
-    if (body.reconciliation_notes !== undefined) {
-      updateData.reconciliation_notes = body.reconciliation_notes
+    const updateData: Record<string, string> = {}
+    if (parsed.data.reconciliation_notes !== undefined) {
+      updateData.reconciliation_notes = parsed.data.reconciliation_notes
     }
-    if (body.sdi_status !== undefined) {
-      updateData.sdi_status = body.sdi_status
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return errorResponse('NO_CHANGES', 'Nessun campo da aggiornare', 400)
+    if (parsed.data.sdi_status !== undefined) {
+      updateData.sdi_status = parsed.data.sdi_status
     }
 
     const updated = await prisma.invoice.update({
