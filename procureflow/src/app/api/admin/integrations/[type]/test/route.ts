@@ -3,6 +3,7 @@ import net from 'net'
 import { requireRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { decrypt } from '@/lib/crypto'
+import { successResponse, errorResponse } from '@/lib/api-response'
 import { integrationTypeSchema } from '@/lib/validations/admin'
 
 interface RouteParams {
@@ -124,93 +125,72 @@ async function testVendorApiConnection(
 }
 
 export async function POST(_request: Request, { params }: RouteParams) {
-  const authResult = await requireRole('ADMIN')
-  if (authResult instanceof NextResponse) return authResult
-
-  const { type } = await params
-
-  const typeParsed = integrationTypeSchema.safeParse(type)
-  if (!typeParsed.success) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: `Tipo integrazione non valido: ${type}`,
-        },
-      },
-      { status: 400 },
-    )
-  }
-
-  const integration = await prisma.integrationConfig.findUnique({
-    where: { type: typeParsed.data },
-  })
-
-  if (!integration) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'NOT_FOUND',
-          message: `Integrazione "${type}" non configurata`,
-        },
-      },
-      { status: 404 },
-    )
-  }
-
-  let config: Record<string, unknown>
   try {
-    config = JSON.parse(decrypt(integration.config)) as Record<string, unknown>
-  } catch {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'DECRYPTION_ERROR',
-          message: 'Impossibile decifrare la configurazione',
-        },
-      },
-      { status: 500 },
-    )
-  }
+    const authResult = await requireRole('ADMIN')
+    if (authResult instanceof NextResponse) return authResult
 
-  const start = Date.now()
-  let testResult: TestResult
+    const { type } = await params
 
-  switch (typeParsed.data) {
-    case 'imap':
-      testResult = await testImapConnection(config as unknown as ImapConfig)
-      break
-    case 'sdi':
-      testResult = await testSdiConnection(config as unknown as SdiConfig)
-      break
-    case 'vendor_api':
-      testResult = await testVendorApiConnection(
-        config as unknown as VendorApiConfig,
+    const typeParsed = integrationTypeSchema.safeParse(type)
+    if (!typeParsed.success) {
+      return errorResponse(
+        'VALIDATION_ERROR',
+        `Tipo integrazione non valido: ${type}`,
+        400,
       )
-      break
-  }
+    }
 
-  const latencyMs = Date.now() - start
-  const newStatus = testResult.success ? 'connected' : 'error'
-  const lastError = testResult.success ? null : testResult.message
+    const integration = await prisma.integrationConfig.findUnique({
+      where: { type: typeParsed.data },
+    })
 
-  await prisma.integrationConfig.update({
-    where: { type: typeParsed.data },
-    data: {
-      status: newStatus,
-      last_error: lastError,
-    },
-  })
+    if (!integration) {
+      return errorResponse('NOT_FOUND', `Integrazione "${type}" non configurata`, 404)
+    }
 
-  return NextResponse.json({
-    success: true,
-    data: Object.freeze({
+    let config: Record<string, unknown>
+    try {
+      config = JSON.parse(decrypt(integration.config)) as Record<string, unknown>
+    } catch {
+      return errorResponse('DECRYPTION_ERROR', 'Impossibile decifrare la configurazione', 500)
+    }
+
+    const start = Date.now()
+    let testResult: TestResult
+
+    switch (typeParsed.data) {
+      case 'imap':
+        testResult = await testImapConnection(config as unknown as ImapConfig)
+        break
+      case 'sdi':
+        testResult = await testSdiConnection(config as unknown as SdiConfig)
+        break
+      case 'vendor_api':
+        testResult = await testVendorApiConnection(
+          config as unknown as VendorApiConfig,
+        )
+        break
+    }
+
+    const latencyMs = Date.now() - start
+    const newStatus = testResult.success ? 'connected' : 'error'
+    const lastError = testResult.success ? null : testResult.message
+
+    await prisma.integrationConfig.update({
+      where: { type: typeParsed.data },
+      data: {
+        status: newStatus,
+        last_error: lastError,
+      },
+    })
+
+    return successResponse(Object.freeze({
       success: testResult.success,
       message: testResult.message,
       latency_ms: latencyMs,
-    }),
-  })
+    }))
+  } catch (error) {
+    console.error('POST /api/admin/integrations/[type]/test error:', error)
+    return errorResponse('INTERNAL_ERROR', 'Errore test integrazione', 500)
+  }
 }

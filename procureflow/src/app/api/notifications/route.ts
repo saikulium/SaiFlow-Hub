@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -40,13 +40,7 @@ export async function GET(req: NextRequest) {
       where: { user_id: userId, read: false },
     })
 
-    const body = {
-      success: true,
-      data: notifications,
-      meta: { total, page, pageSize, unread_count: unreadCount },
-    }
-
-    return NextResponse.json(body)
+    return successResponse(notifications, { total, page, pageSize })
   } catch (error) {
     console.error('GET /api/notifications error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)

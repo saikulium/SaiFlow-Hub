@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth'
+import { errorResponse } from '@/lib/api-response'
 import {
   isValidEntity,
   EXPORT_COLUMNS,
@@ -13,37 +14,37 @@ interface RouteParams {
 }
 
 export async function GET(_request: Request, { params }: RouteParams) {
-  const authResult = await requireRole('ADMIN')
-  if (authResult instanceof NextResponse) return authResult
+  try {
+    const authResult = await requireRole('ADMIN')
+    if (authResult instanceof NextResponse) return authResult
 
-  const { entity } = await params
+    const { entity } = await params
 
-  if (!isValidEntity(entity)) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: `Entità non valida: "${entity}". Valori ammessi: vendors, materials, requests, invoices, users, budgets`,
-        },
+    if (!isValidEntity(entity)) {
+      return errorResponse(
+        'VALIDATION_ERROR',
+        `Entità non valida: "${entity}". Valori ammessi: vendors, materials, requests, invoices, users, budgets`,
+        400,
+      )
+    }
+
+    const typedEntity = entity as ExportEntity
+    const columns = EXPORT_COLUMNS[typedEntity]
+    const rows = await fetchEntityData(typedEntity)
+    const csv = toCsv(rows, columns)
+
+    const now = new Date().toISOString().slice(0, 10)
+    const filename = `${entity}_${now}.csv`
+
+    return new NextResponse(csv, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
-      { status: 400 },
-    )
+    })
+  } catch (error) {
+    console.error('GET /api/admin/export/[entity] error:', error)
+    return errorResponse('INTERNAL_ERROR', 'Errore esportazione dati', 500)
   }
-
-  const typedEntity = entity as ExportEntity
-  const columns = EXPORT_COLUMNS[typedEntity]
-  const rows = await fetchEntityData(typedEntity)
-  const csv = toCsv(rows, columns)
-
-  const now = new Date().toISOString().slice(0, 10)
-  const filename = `${entity}_${now}.csv`
-
-  return new NextResponse(csv, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-    },
-  })
 }
