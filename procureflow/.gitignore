@@ -33,6 +33,19 @@ yarn-error.log*
 # vercel
 .vercel
 
+# superpowers (AI tooling cache)
+.superpowers/
+
+# client-specific documents (sensitive)
+docs/clienti/
+
+# Office temp files
+~$*
+
+# Binary documents (use markdown instead)
+*.docx
+*.pptx
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

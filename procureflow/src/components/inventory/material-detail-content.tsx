@@ -10,10 +10,12 @@ import {
   Layers,
   ArrowLeftRight,
   Lock,
+  BarChart3,
 } from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
 import { StockLevelBadge } from '@/components/inventory/stock-level-badge'
 import { MaterialFormDialog } from '@/components/inventory/material-form-dialog'
+import { ForecastPanel } from '@/components/inventory/forecast-panel'
 import { useMaterial } from '@/hooks/use-materials'
 import {
   MOVEMENT_TYPE_CONFIG,
@@ -36,7 +38,13 @@ interface MaterialDetailContentProps {
   id: string
 }
 
-type TabKey = 'generale' | 'giacenze' | 'lotti' | 'movimenti' | 'riserve'
+type TabKey =
+  | 'generale'
+  | 'giacenze'
+  | 'lotti'
+  | 'movimenti'
+  | 'riserve'
+  | 'forecast'
 
 const quantityFormatter = new Intl.NumberFormat('it-IT', {
   maximumFractionDigits: 3,
@@ -95,7 +103,10 @@ function GeneraleTab({ material }: { material: MaterialDetail }) {
           label="Fattore Conversione"
           value={material.conversionFactor}
         />
-        <DetailField label="Costo Medio" value={formatCurrency(material.unitCost)} />
+        <DetailField
+          label="Costo Medio"
+          value={formatCurrency(material.unitCost)}
+        />
         <DetailField
           label="Scorta Minima"
           value={
@@ -114,7 +125,10 @@ function GeneraleTab({ material }: { material: MaterialDetail }) {
         />
         <DetailField label="Codice a Barre" value={material.barcode} />
         <DetailField label="QR Code" value={material.qrCode} />
-        <DetailField label="Fornitore Preferito" value={material.preferredVendor} />
+        <DetailField
+          label="Fornitore Preferito"
+          value={material.preferredVendor}
+        />
         <DetailField label="Attivo" value={material.isActive ? 'Si' : 'No'} />
       </div>
 
@@ -136,11 +150,12 @@ function GeneraleTab({ material }: { material: MaterialDetail }) {
         </div>
       )}
 
-      {material.notes && (
-        <DetailField label="Note" value={material.notes} />
-      )}
+      {material.notes && <DetailField label="Note" value={material.notes} />}
 
-      <DetailField label="Data Creazione" value={formatDate(material.createdAt)} />
+      <DetailField
+        label="Data Creazione"
+        value={formatDate(material.createdAt)}
+      />
     </div>
   )
 }
@@ -151,7 +166,9 @@ function GiacenzeTab({ data }: { data: StockByWarehouse[] }) {
     return (
       <div className="py-8 text-center">
         <Warehouse className="mx-auto mb-2 h-8 w-8 text-pf-text-muted" />
-        <p className="text-sm text-pf-text-secondary">Nessuna giacenza registrata</p>
+        <p className="text-sm text-pf-text-secondary">
+          Nessuna giacenza registrata
+        </p>
       </div>
     )
   }
@@ -284,7 +301,9 @@ function LottiTab({ lots }: { lots: LotSummary[] }) {
                       {statusCfg.label}
                     </span>
                   ) : (
-                    <span className="text-xs text-pf-text-muted">{lot.status}</span>
+                    <span className="text-xs text-pf-text-muted">
+                      {lot.status}
+                    </span>
                   )}
                 </td>
               </tr>
@@ -318,7 +337,9 @@ function MovimentiTab({ materialId }: { materialId: string }) {
     return (
       <div className="py-8 text-center">
         <ArrowLeftRight className="mx-auto mb-2 h-8 w-8 text-pf-text-muted" />
-        <p className="text-sm text-pf-text-secondary">Nessun movimento recente</p>
+        <p className="text-sm text-pf-text-secondary">
+          Nessun movimento recente
+        </p>
       </div>
     )
   }
@@ -460,7 +481,9 @@ function RiserveTab({ reservations }: { reservations: ReservationSummary[] }) {
                       {statusCfg.label}
                     </span>
                   ) : (
-                    <span className="text-xs text-pf-text-muted">{res.status}</span>
+                    <span className="text-xs text-pf-text-muted">
+                      {res.status}
+                    </span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-sm text-pf-text-secondary">
@@ -515,6 +538,7 @@ export function MaterialDetailContent({ id }: MaterialDetailContentProps) {
       icon: Lock,
       count: material?.activeReservations.length,
     },
+    { key: 'forecast', label: 'Forecast AI', icon: BarChart3 },
   ]
 
   return (
@@ -594,7 +618,7 @@ export function MaterialDetailContent({ id }: MaterialDetailContentProps) {
         )}
 
         {/* Tab content */}
-        <div className="rounded-card border border-pf-border bg-pf-bg-secondary/60 p-6 backdrop-blur-xl">
+        <div className="bg-pf-bg-secondary/60 rounded-card border border-pf-border p-6 backdrop-blur-xl">
           {isLoading && <DetailsSkeleton />}
 
           {!isLoading && !material && (
@@ -621,6 +645,10 @@ export function MaterialDetailContent({ id }: MaterialDetailContentProps) {
 
           {!isLoading && material && activeTab === 'riserve' && (
             <RiserveTab reservations={material.activeReservations} />
+          )}
+
+          {!isLoading && material && activeTab === 'forecast' && (
+            <ForecastPanel materialId={material.id} />
           )}
         </div>
 

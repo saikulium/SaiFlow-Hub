@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
-import { callClaude } from '@/lib/ai/claude-client'
+import { callClaude, extractJsonFromAiResponse } from '@/lib/ai/claude-client'
 import { INSIGHT_SYSTEM_PROMPT } from '@/lib/ai/prompts'
 import {
   INSIGHT_TTL_HOURS,
@@ -91,7 +91,7 @@ function parseClaudeInsights(
   responseText: string,
 ): readonly ValidatedInsight[] {
   try {
-    const parsed: unknown = JSON.parse(responseText)
+    const parsed: unknown = JSON.parse(extractJsonFromAiResponse(responseText))
     if (!Array.isArray(parsed)) {
       console.warn('[insight-service] Claude response is not an array')
       return []

@@ -96,30 +96,14 @@ function InsightSkeleton() {
 export function InsightCards() {
   const { insights, isLoading, dismiss } = useInsights()
 
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium text-pf-text-secondary">
-          Insight AI
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <InsightSkeleton />
-          <InsightSkeleton />
-          <InsightSkeleton />
-        </div>
-      </div>
-    )
-  }
-
-  if (insights.length === 0) {
+  // Don't show anything (no flash) if loading or empty
+  if (isLoading || insights.length === 0) {
     return null
   }
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-medium text-pf-text-secondary">
-        Insight AI
-      </h3>
+      <h3 className="text-sm font-medium text-pf-text-secondary">Insight AI</h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {insights.map((insight) => (
           <InsightCardItem

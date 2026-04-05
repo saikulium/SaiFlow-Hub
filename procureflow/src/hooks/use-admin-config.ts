@@ -18,19 +18,41 @@ interface DeployConfigData {
 
 async function fetchConfig(): Promise<DeployConfigData> {
   const res = await fetch('/api/admin/config')
-  const json = (await res.json()) as { success: boolean; data: DeployConfigData }
+  const json = (await res.json()) as {
+    success: boolean
+    data: DeployConfigData
+  }
   if (!json.success) throw new Error('Errore caricamento configurazione')
   return json.data
 }
 
-async function updateConfig(data: UpdateConfigInput): Promise<DeployConfigData> {
+async function updateConfig(
+  data: UpdateConfigInput,
+): Promise<DeployConfigData> {
   const res = await fetch('/api/admin/config', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
-  const json = (await res.json()) as { success: boolean; data: DeployConfigData }
-  if (!json.success) throw new Error('Errore salvataggio configurazione')
+  const text = await res.text()
+  let json: {
+    success: boolean
+    data: DeployConfigData
+    error?: { message?: string }
+  }
+  try {
+    json = JSON.parse(text)
+  } catch {
+    throw new Error(
+      `Risposta non valida dal server (HTTP ${res.status}): ${text.slice(0, 200)}`,
+    )
+  }
+  if (!res.ok || !json.success) {
+    throw new Error(
+      json.error?.message ??
+        `Errore salvataggio configurazione (HTTP ${res.status})`,
+    )
+  }
   return json.data
 }
 

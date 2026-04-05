@@ -17,30 +17,47 @@ import {
   createBulkNotifications,
   NOTIFICATION_TYPES,
 } from '@/server/services/notification.service'
+import {
+  checkWebhookProcessed,
+  recordWebhookProcessed,
+} from '@/server/services/webhook-idempotency.service'
 import type { RequestStatus } from '@prisma/client'
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/sdi-invoice
 //
 // Riceve fatture passive via SDI (tramite n8n o provider API).
-// Flusso: autenticazione → dedup → parsing XML → matching → three-way → notifiche
+// Flusso: autenticazione → timestamp → idempotency → dedup → parsing XML → matching → three-way → notifiche
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text()
 
-    // --- Autenticazione ---
+    // --- Autenticazione + Timestamp ---
     const secret = SDI_CONFIG.webhook_secret
     const isAuthed = verifyWebhookAuth(
       rawBody,
       req.headers.get('x-webhook-signature'),
       req.headers.get('authorization'),
       secret,
+      req.headers.get('x-webhook-timestamp'),
     )
 
     if (!isAuthed) {
       return errorResponse('UNAUTHORIZED', 'Firma webhook non valida', 401)
+    }
+
+    // --- Idempotency Key ---
+    const webhookId = req.headers.get('x-webhook-id')
+    if (webhookId) {
+      const existing = await checkWebhookProcessed(webhookId)
+      if (existing.processed && existing.response) {
+        console.log(`[sdi-invoice] Idempotency hit: webhook_id=${webhookId}`)
+        return Response.json(existing.response, { status: 200 })
+      }
+    } else {
+      console.warn('[sdi-invoice] Webhook ricevuto senza x-webhook-id — idempotency disattivata')
     }
 
     // --- Parsing JSON ---
@@ -359,21 +376,31 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return successResponse({
-      invoice_id: invoice.id,
-      invoice_number: invoiceNumber,
-      match_status: matchResult.status,
-      match_confidence: matchResult.confidence,
-      matched_request_id: matchResult.matched_request_id ?? null,
-      reconciliation: reconciliationResult
-        ? {
-            status: reconciliationResult.status,
-            auto_approved: reconciliationResult.auto_approve,
-            discrepancy_percent: reconciliationResult.discrepancy_percentage,
-          }
-        : null,
-      deduplicated: false,
-    })
+    const responseData = {
+      success: true,
+      data: {
+        invoice_id: invoice.id,
+        invoice_number: invoiceNumber,
+        match_status: matchResult.status,
+        match_confidence: matchResult.confidence,
+        matched_request_id: matchResult.matched_request_id ?? null,
+        reconciliation: reconciliationResult
+          ? {
+              status: reconciliationResult.status,
+              auto_approved: reconciliationResult.auto_approve,
+              discrepancy_percent: reconciliationResult.discrepancy_percentage,
+            }
+          : null,
+        deduplicated: false,
+      },
+    }
+
+    // Registra idempotency
+    if (webhookId) {
+      await recordWebhookProcessed(webhookId, 'sdi-invoice', 200, responseData)
+    }
+
+    return Response.json(responseData, { status: 200 })
   } catch (error) {
     console.error('POST /api/webhooks/sdi-invoice error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)

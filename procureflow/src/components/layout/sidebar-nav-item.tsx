@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useInvoiceBadgeCount } from '@/hooks/use-invoice-stats'
+import { useSidebarBadges } from '@/hooks/use-sidebar-badges'
 import type { NavItem } from '@/lib/constants'
 
 interface SidebarNavItemProps {
@@ -14,6 +15,7 @@ interface SidebarNavItemProps {
 
 function useBadgeValue(badge: NavItem['badge']): number | null {
   const { data: invoiceData } = useInvoiceBadgeCount()
+  const { data: sidebarData } = useSidebarBadges()
 
   if (!badge) return null
 
@@ -24,10 +26,14 @@ function useBadgeValue(badge: NavItem['badge']): number | null {
         (invoiceData?.pendingReconciliation ?? 0)
       return count > 0 ? count : null
     }
-    case 'approvals':
-      return 4 // TODO: dynamic
-    case 'requests':
-      return 3 // TODO: dynamic
+    case 'approvals': {
+      const count = sidebarData?.pendingApprovals ?? 0
+      return count > 0 ? count : null
+    }
+    case 'requests': {
+      const count = sidebarData?.actionableRequests ?? 0
+      return count > 0 ? count : null
+    }
     default:
       return null
   }

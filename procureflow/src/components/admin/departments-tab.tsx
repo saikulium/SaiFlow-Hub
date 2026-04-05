@@ -66,7 +66,7 @@ function ListEditor({
           onChange={(e) => setNewItem(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="h-9 flex-1 rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary placeholder:text-pf-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-pf-accent"
+          className="placeholder:text-pf-text-secondary/50 h-9 flex-1 rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent"
         />
         <button
           type="button"
@@ -147,8 +147,8 @@ export function DepartmentsTab() {
 
   useEffect(() => {
     if (config) {
-      setDepartments([...config.departments])
-      setCostCenters([...config.cost_centers])
+      setDepartments([...(config.departments ?? [])])
+      setCostCenters([...(config.cost_centers ?? [])])
     }
   }, [config])
 

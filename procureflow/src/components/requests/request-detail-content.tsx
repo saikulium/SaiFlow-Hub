@@ -5,7 +5,6 @@ import Link from 'next/link'
 import {
   ArrowLeft,
   Edit,
-  MoreHorizontal,
   FileText,
   Clock,
   CheckCircle2,
@@ -195,13 +194,6 @@ export function RequestDetailContent({ requestId }: RequestDetailContentProps) {
           >
             <Edit className="h-4 w-4" />
             Modifica
-          </button>
-          <button
-            type="button"
-            className="bg-pf-bg-elevated flex h-10 w-10 items-center justify-center rounded-button border border-pf-border text-pf-text-secondary transition-colors hover:bg-pf-bg-secondary hover:text-pf-text-primary"
-            aria-label="Altre azioni"
-          >
-            <MoreHorizontal className="h-4 w-4" />
           </button>
         </div>
       </div>

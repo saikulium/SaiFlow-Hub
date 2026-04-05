@@ -1,10 +1,14 @@
 'use client'
 
-import { SidebarProvider, useSidebar } from '@/components/layout/sidebar-context'
+import {
+  SidebarProvider,
+  useSidebar,
+} from '@/components/layout/sidebar-context'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
 import { MobileDrawer } from '@/components/layout/mobile-drawer'
 import { ModulesProvider } from '@/components/providers/modules-provider'
+import { MfaGuard } from '@/components/auth/mfa-guard'
 import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
 
@@ -36,7 +40,9 @@ export function DashboardShell({
       <SidebarProvider>
         <Sidebar />
         <MobileDrawer />
-        <DashboardContent>{children}</DashboardContent>
+        <DashboardContent>
+          <MfaGuard>{children}</MfaGuard>
+        </DashboardContent>
       </SidebarProvider>
     </ModulesProvider>
   )

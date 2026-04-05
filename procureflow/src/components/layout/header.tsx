@@ -1,21 +1,26 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu, Search } from 'lucide-react'
+import { Menu, Search, MessageSquare } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { useSidebar } from './sidebar-context'
 import { Breadcrumbs } from './breadcrumbs'
 import { ThemeToggle } from './theme-toggle'
 import { SearchDialog } from './search-dialog'
 import { NotificationCenter } from './notification-center'
+import { ChatPanel } from '@/components/chat/chat-panel'
+import { useModules } from '@/hooks/use-modules'
 import { getInitials } from '@/lib/utils'
 
 export function Header() {
   const { setMobileOpen } = useSidebar()
   const [searchOpen, setSearchOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const { isModuleEnabled } = useModules()
 
   const { data: session } = useSession()
   const user = session?.user
+  const chatEnabled = isModuleEnabled('chatbot')
 
   return (
     <>
@@ -45,6 +50,17 @@ export function Header() {
             </kbd>
           </button>
 
+          {/* Chat AI */}
+          {chatEnabled && (
+            <button
+              onClick={() => setChatOpen(true)}
+              title="Assistente AI"
+              className="flex h-9 w-9 items-center justify-center rounded-button text-pf-text-secondary transition-colors hover:bg-pf-bg-hover hover:text-pf-accent"
+            >
+              <MessageSquare className="h-4 w-4" />
+            </button>
+          )}
+
           {/* Notifications */}
           <NotificationCenter />
 
@@ -65,6 +81,9 @@ export function Header() {
       </header>
 
       {searchOpen && <SearchDialog />}
+      {chatEnabled && (
+        <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+      )}
     </>
   )
 }

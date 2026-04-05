@@ -21,6 +21,7 @@ import {
   getTenderDashboardStats,
   getInventoryDashboardStats,
 } from '@/server/services/dashboard.service'
+import { getRoiSummaryOnly } from '@/server/services/roi-metrics.service'
 import { getEnabledModules } from '@/server/services/module.service'
 
 const DEFAULT_INVOICE_STATS = {
@@ -75,30 +76,48 @@ async function DashboardContent() {
   const hasTenders = modules.includes('tenders')
   const hasInventory = modules.includes('inventory')
 
-  // Each service function uses $transaction internally for batched queries.
-  // Sequential at page level to stay within connection_limit=1.
-  const stats = await getDashboardStats()
-  const recentRequests = await getRecentRequests(10)
-  const deliveries = await getUpcomingDeliveries(5)
-  const statusDist = await getStatusDistribution()
-  const monthlySpend = await getMonthlySpendTrend()
-  const spendByVendor = hasAnalytics ? await getSpendByVendor() : []
-  const trend = hasAnalytics ? await getRequestsTrend() : []
-  const invoiceStats = hasInvoicing
-    ? await getInvoiceStats()
-    : DEFAULT_INVOICE_STATS
-  const matchDist = hasInvoicing ? await getInvoiceMatchDistribution() : []
-  const invoiceAging = hasInvoicing ? await getInvoiceAgingBuckets() : []
-  const orderedVsInvoiced = hasInvoicing ? await getOrderedVsInvoiced() : []
-  const budgetStats = hasBudgets
-    ? await getBudgetDashboardStats().catch(() => DEFAULT_BUDGET_STATS)
-    : DEFAULT_BUDGET_STATS
-  const tenderStats = hasTenders
-    ? await getTenderDashboardStats().catch(() => DEFAULT_TENDER_STATS)
-    : DEFAULT_TENDER_STATS
-  const inventoryStats = hasInventory
-    ? await getInventoryDashboardStats().catch(() => DEFAULT_INVENTORY_STATS)
-    : DEFAULT_INVENTORY_STATS
+  // Fetch all dashboard data in parallel — each function uses $transaction internally
+  const [
+    stats,
+    recentRequests,
+    deliveries,
+    statusDist,
+    monthlySpend,
+    spendByVendor,
+    trend,
+    invoiceStats,
+    matchDist,
+    invoiceAging,
+    orderedVsInvoiced,
+    budgetStats,
+    tenderStats,
+    inventoryStats,
+    roiSummary,
+  ] = await Promise.all([
+    getDashboardStats(),
+    getRecentRequests(10),
+    getUpcomingDeliveries(5),
+    getStatusDistribution(),
+    getMonthlySpendTrend(),
+    hasAnalytics ? getSpendByVendor() : Promise.resolve([]),
+    hasAnalytics ? getRequestsTrend() : Promise.resolve([]),
+    hasInvoicing ? getInvoiceStats() : Promise.resolve(DEFAULT_INVOICE_STATS),
+    hasInvoicing ? getInvoiceMatchDistribution() : Promise.resolve([]),
+    hasInvoicing ? getInvoiceAgingBuckets() : Promise.resolve([]),
+    hasInvoicing ? getOrderedVsInvoiced() : Promise.resolve([]),
+    hasBudgets
+      ? getBudgetDashboardStats().catch(() => DEFAULT_BUDGET_STATS)
+      : Promise.resolve(DEFAULT_BUDGET_STATS),
+    hasTenders
+      ? getTenderDashboardStats().catch(() => DEFAULT_TENDER_STATS)
+      : Promise.resolve(DEFAULT_TENDER_STATS),
+    hasInventory
+      ? getInventoryDashboardStats().catch(() => DEFAULT_INVENTORY_STATS)
+      : Promise.resolve(DEFAULT_INVENTORY_STATS),
+    hasAnalytics
+      ? getRoiSummaryOnly().catch(() => null)
+      : Promise.resolve(null),
+  ])
 
   return (
     <PageTransition>
@@ -131,6 +150,7 @@ async function DashboardContent() {
           inventoryStats={inventoryStats}
           spendByVendor={spendByVendor}
           trend={trend}
+          roiSummary={roiSummary}
         />
       </div>
     </PageTransition>

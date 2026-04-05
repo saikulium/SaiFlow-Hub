@@ -16,7 +16,10 @@ function SkeletonBlock() {
       <div className="h-5 w-32 animate-pulse rounded bg-pf-border" />
       <div className="space-y-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-8 w-full animate-pulse rounded bg-pf-border" />
+          <div
+            key={i}
+            className="h-8 w-full animate-pulse rounded bg-pf-border"
+          />
         ))}
       </div>
     </div>
@@ -35,9 +38,9 @@ export function GeneralTab() {
   // Sync local state with fetched config
   useEffect(() => {
     if (config) {
-      setDeployName(config.deploy_name)
-      setLogoUrl(config.company_logo_url)
-      setEnabledModules([...config.enabled_modules])
+      setDeployName(config.deploy_name ?? '')
+      setLogoUrl(config.company_logo_url ?? null)
+      setEnabledModules([...(config.enabled_modules ?? ['core'])])
     }
   }, [config])
 
@@ -113,7 +116,7 @@ export function GeneralTab() {
               value={deployName}
               onChange={(e) => setDeployName(e.target.value)}
               placeholder="Nome della tua organizzazione"
-              className="h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary placeholder:text-pf-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-pf-accent"
+              className="placeholder:text-pf-text-secondary/50 h-10 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary focus:outline-none focus:ring-2 focus:ring-pf-accent"
             />
           </div>
 
@@ -174,7 +177,8 @@ export function GeneralTab() {
           Moduli Attivi
         </h2>
         <p className="mb-4 text-xs text-pf-text-secondary">
-          Abilita o disabilita i moduli del sistema. Il modulo Core e sempre attivo.
+          Abilita o disabilita i moduli del sistema. Il modulo Core e sempre
+          attivo.
         </p>
         <div className="space-y-2">
           {Array.from(MODULE_REGISTRY.values()).map((mod) => {

@@ -193,3 +193,44 @@ export async function PATCH(
     )
   }
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const blocked = await requireModule('/api/inventory')
+  if (blocked) return blocked
+  try {
+    const { id } = params
+    const authResult = await requireRole('ADMIN')
+    if (authResult instanceof NextResponse) return authResult
+
+    const material = await prisma.material.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            lots: { where: { status: { in: ['AVAILABLE', 'RESERVED'] } } },
+          },
+        },
+      },
+    })
+
+    if (!material) return notFoundResponse('Materiale non trovato')
+
+    if (material._count.lots > 0) {
+      return errorResponse(
+        'HAS_STOCK',
+        'Impossibile eliminare: il materiale ha lotti attivi in magazzino',
+        400,
+      )
+    }
+
+    await prisma.material.delete({ where: { id } })
+
+    return successResponse({ id, deleted: true })
+  } catch (error) {
+    console.error('DELETE /api/inventory/materials/[id] error:', error)
+    return errorResponse('INTERNAL_ERROR', 'Errore eliminazione materiale', 500)
+  }
+}

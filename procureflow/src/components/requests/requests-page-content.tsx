@@ -38,9 +38,11 @@ export function RequestsPageContent() {
   const [sort, setSort] = useState('created_at')
   const [order, setOrder] = useState<'asc' | 'desc'>('desc')
 
+  const isKanban = view === 'kanban'
+
   const params: RequestsParams = {
-    page,
-    pageSize: DEFAULT_PAGE_SIZE,
+    page: isKanban ? 1 : page,
+    pageSize: isKanban ? 500 : DEFAULT_PAGE_SIZE,
     search: filters.search,
     status: filters.status,
     priority: filters.priority,
@@ -157,15 +159,17 @@ export function RequestsPageContent() {
           <RequestsKanban data={requests} isLoading={isLoading} />
         )}
 
-        {/* Pagination */}
-        <PaginationBar
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          isLoading={isLoading}
-          onPrevPage={handlePrevPage}
-          onNextPage={handleNextPage}
-        />
+        {/* Pagination — hidden in kanban mode */}
+        {!isKanban && (
+          <PaginationBar
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            isLoading={isLoading}
+            onPrevPage={handlePrevPage}
+            onNextPage={handleNextPage}
+          />
+        )}
       </div>
     </PageTransition>
   )

@@ -1,22 +1,11 @@
-import crypto from 'crypto'
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { successResponse, errorResponse } from '@/lib/api-response'
-
-// ---------------------------------------------------------------------------
-// HMAC Signature Verification
-// ---------------------------------------------------------------------------
-
-function verifySignature(payload: string, signature: string): boolean {
-  const secret = process.env.WEBHOOK_SECRET
-  if (!secret) return false
-  const expected = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex')
-  if (signature.length !== expected.length) return false
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
-}
+import { verifyWebhookAuth } from '@/lib/webhook-auth'
+import {
+  checkWebhookProcessed,
+  recordWebhookProcessed,
+} from '@/server/services/webhook-idempotency.service'
 
 // ---------------------------------------------------------------------------
 // Tipi
@@ -39,14 +28,29 @@ export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text()
 
-    // --- Validazione firma HMAC ---
-    const signature = req.headers.get('x-webhook-signature') ?? ''
-    if (!signature || !verifySignature(rawBody, signature)) {
-      return errorResponse(
-        'UNAUTHORIZED',
-        'Firma webhook non valida',
-        401,
-      )
+    // --- Autenticazione + Timestamp ---
+    const isAuthed = verifyWebhookAuth(
+      rawBody,
+      req.headers.get('x-webhook-signature'),
+      req.headers.get('authorization'),
+      process.env.WEBHOOK_SECRET,
+      req.headers.get('x-webhook-timestamp'),
+    )
+
+    if (!isAuthed) {
+      return errorResponse('UNAUTHORIZED', 'Firma webhook non valida', 401)
+    }
+
+    // --- Idempotency Key ---
+    const webhookId = req.headers.get('x-webhook-id')
+    if (webhookId) {
+      const existing = await checkWebhookProcessed(webhookId)
+      if (existing.processed && existing.response) {
+        console.log(`[approval-response] Idempotency hit: webhook_id=${webhookId}`)
+        return Response.json(existing.response, { status: 200 })
+      }
+    } else {
+      console.warn('[approval-response] Webhook ricevuto senza x-webhook-id — idempotency disattivata')
     }
 
     // --- Parsing e validazione body ---
@@ -148,7 +152,14 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return successResponse(updatedApproval)
+    const responseData = { success: true, data: updatedApproval }
+
+    // Registra idempotency
+    if (webhookId) {
+      await recordWebhookProcessed(webhookId, 'approval-response', 200, responseData)
+    }
+
+    return Response.json(responseData, { status: 200 })
   } catch (error) {
     console.error('POST /api/webhooks/approval-response error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)

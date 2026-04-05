@@ -1,23 +1,12 @@
-import crypto from 'crypto'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-response'
+import { verifyWebhookAuth } from '@/lib/webhook-auth'
 import { emailIngestionSchema } from '@/lib/validations/email-ingestion'
 import { processEmailIngestion } from '@/server/services/email-ingestion.service'
-
-// ---------------------------------------------------------------------------
-// HMAC Signature Verification
-// ---------------------------------------------------------------------------
-
-function verifySignature(payload: string, signature: string): boolean {
-  const secret = process.env.WEBHOOK_SECRET
-  if (!secret) return false
-  const expected = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex')
-  if (signature.length !== expected.length) return false
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
-}
+import {
+  checkWebhookProcessed,
+  recordWebhookProcessed,
+} from '@/server/services/webhook-idempotency.service'
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/email-ingestion
@@ -33,19 +22,29 @@ export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text()
 
-    // --- Autenticazione: HMAC signature OPPURE Bearer token ---
-    const signature = req.headers.get('x-webhook-signature') ?? ''
-    const authHeader = req.headers.get('authorization') ?? ''
-    const bearerToken = authHeader.startsWith('Bearer ')
-      ? authHeader.slice(7)
-      : ''
+    // --- Autenticazione + Timestamp ---
+    const isAuthed = verifyWebhookAuth(
+      rawBody,
+      req.headers.get('x-webhook-signature'),
+      req.headers.get('authorization'),
+      process.env.WEBHOOK_SECRET,
+      req.headers.get('x-webhook-timestamp'),
+    )
 
-    const isHmacValid = signature !== '' && verifySignature(rawBody, signature)
-    const isBearerValid =
-      bearerToken !== '' && bearerToken === process.env.WEBHOOK_SECRET
-
-    if (!isHmacValid && !isBearerValid) {
+    if (!isAuthed) {
       return errorResponse('UNAUTHORIZED', 'Firma webhook non valida', 401)
+    }
+
+    // --- Idempotency Key ---
+    const webhookId = req.headers.get('x-webhook-id')
+    if (webhookId) {
+      const existing = await checkWebhookProcessed(webhookId)
+      if (existing.processed && existing.response) {
+        console.log(`[email-ingestion] Idempotency hit: webhook_id=${webhookId}`)
+        return Response.json(existing.response, { status: 200 })
+      }
+    } else {
+      console.warn('[email-ingestion] Webhook ricevuto senza x-webhook-id — idempotency disattivata')
     }
 
     // --- Parsing JSON ---
@@ -95,7 +94,14 @@ export async function POST(req: NextRequest) {
       `[email-ingestion] Risultato: action=${result.action} request=${result.request_code} items=${result.items_created} status_updated=${result.status_updated} confidence=${result.ai_confidence}`,
     )
 
-    return successResponse(result)
+    const responseData = { success: true, data: result }
+
+    // Registra idempotency
+    if (webhookId) {
+      await recordWebhookProcessed(webhookId, 'email-ingestion', 200, responseData)
+    }
+
+    return Response.json(responseData, { status: 200 })
   } catch (error) {
     console.error('POST /api/webhooks/email-ingestion error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)
