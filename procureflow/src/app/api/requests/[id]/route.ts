@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -8,7 +8,7 @@ import {
 } from '@/lib/api-response'
 import { updateRequestSchema } from '@/lib/validations/request'
 import { Prisma } from '@prisma/client'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser, requireRole } from '@/lib/auth'
 import { assertTransition, TransitionError } from '@/lib/state-machine'
 
 export async function GET(
@@ -16,6 +16,14 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   try {
+    const authResult = await requireRole(
+      'ADMIN',
+      'MANAGER',
+      'REQUESTER',
+      'VIEWER',
+    )
+    if (authResult instanceof NextResponse) return authResult
+
     const request = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
       include: {
@@ -109,6 +117,9 @@ export async function PATCH(
   { params }: { params: { id: string } },
 ) {
   try {
+    const authResult = await requireRole('ADMIN', 'MANAGER', 'REQUESTER')
+    if (authResult instanceof NextResponse) return authResult
+
     const body = await req.json()
     const parsed = updateRequestSchema.safeParse(body)
 
@@ -193,6 +204,9 @@ export async function DELETE(
   { params }: { params: { id: string } },
 ) {
   try {
+    const authResult = await requireRole('ADMIN')
+    if (authResult instanceof NextResponse) return authResult
+
     const existing = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
       select: { id: true, status: true },

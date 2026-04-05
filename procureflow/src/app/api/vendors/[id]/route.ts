@@ -1,5 +1,6 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { requireRole } from '@/lib/auth'
 import {
   successResponse,
   notFoundResponse,
@@ -13,6 +14,14 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   try {
+    const authResult = await requireRole(
+      'ADMIN',
+      'MANAGER',
+      'REQUESTER',
+      'VIEWER',
+    )
+    if (authResult instanceof NextResponse) return authResult
+
     const vendor = await prisma.vendor.findUnique({
       where: { id: params.id },
       include: {
@@ -48,6 +57,9 @@ export async function PATCH(
   { params }: { params: { id: string } },
 ) {
   try {
+    const authResult = await requireRole('ADMIN', 'MANAGER')
+    if (authResult instanceof NextResponse) return authResult
+
     const body = await req.json()
     const parsed = updateVendorSchema.safeParse(body)
 
@@ -83,6 +95,9 @@ export async function DELETE(
   { params }: { params: { id: string } },
 ) {
   try {
+    const authResult = await requireRole('ADMIN')
+    if (authResult instanceof NextResponse) return authResult
+
     const vendor = await prisma.vendor.findUnique({
       where: { id: params.id },
       include: { _count: { select: { requests: true } } },

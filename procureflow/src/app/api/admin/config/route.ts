@@ -63,22 +63,41 @@ export async function PATCH(request: Request) {
   if (parsed.data.cost_centers !== undefined)
     data.cost_centers = parsed.data.cost_centers
   if (parsed.data.approval_rules !== undefined)
-    data.approval_rules = parsed.data.approval_rules
+    data.approval_rules =
+      parsed.data.approval_rules === null
+        ? Prisma.JsonNull
+        : parsed.data.approval_rules
 
-  const updated = await prisma.deployConfig.upsert({
-    where: { id: 'default' },
-    update: data,
-    create: {
-      id: 'default',
-      deploy_name: parsed.data.deploy_name ?? 'ProcureFlow',
-      enabled_modules: parsed.data.enabled_modules ?? ['core'],
-      categories: parsed.data.categories ?? [],
-      departments: parsed.data.departments ?? [],
-      cost_centers: parsed.data.cost_centers ?? [],
-      approval_rules: parsed.data.approval_rules ?? Prisma.JsonNull,
-      company_logo_url: parsed.data.company_logo_url ?? null,
-    },
-  })
+  try {
+    const updated = await prisma.deployConfig.upsert({
+      where: { id: 'default' },
+      update: data,
+      create: {
+        id: 'default',
+        deploy_name: parsed.data.deploy_name ?? 'ProcureFlow',
+        enabled_modules: parsed.data.enabled_modules ?? ['core'],
+        categories: parsed.data.categories ?? [],
+        departments: parsed.data.departments ?? [],
+        cost_centers: parsed.data.cost_centers ?? [],
+        approval_rules: parsed.data.approval_rules
+          ? parsed.data.approval_rules
+          : Prisma.JsonNull,
+        company_logo_url: parsed.data.company_logo_url ?? null,
+      },
+    })
 
-  return NextResponse.json({ success: true, data: updated })
+    return NextResponse.json({ success: true, data: updated })
+  } catch (err) {
+    console.error('[admin/config] PATCH error:', err)
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Errore salvataggio configurazione',
+        },
+      },
+      { status: 500 },
+    )
+  }
 }

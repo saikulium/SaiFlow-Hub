@@ -1,5 +1,6 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { requireRole } from '@/lib/auth'
 import {
   successResponse,
   errorResponse,
@@ -19,6 +20,14 @@ export async function GET(
   const blocked = await requireModule('/api/invoices')
   if (blocked) return blocked
   try {
+    const authResult = await requireRole(
+      'ADMIN',
+      'MANAGER',
+      'REQUESTER',
+      'VIEWER',
+    )
+    if (authResult instanceof NextResponse) return authResult
+
     const invoice = await prisma.invoice.findUnique({
       where: { id: params.id },
       include: {
@@ -61,6 +70,9 @@ export async function PATCH(
   const blocked = await requireModule('/api/invoices')
   if (blocked) return blocked
   try {
+    const authResult = await requireRole('ADMIN', 'MANAGER')
+    if (authResult instanceof NextResponse) return authResult
+
     const body = await req.json()
 
     const invoice = await prisma.invoice.findUnique({
@@ -96,5 +108,39 @@ export async function PATCH(
   } catch (error) {
     console.error('PATCH /api/invoices/[id] error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore interno', 500)
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const blocked = await requireModule('/api/invoices')
+  if (blocked) return blocked
+  try {
+    const authResult = await requireRole('ADMIN')
+    if (authResult instanceof NextResponse) return authResult
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: params.id },
+      select: { id: true, reconciliation_status: true },
+    })
+
+    if (!invoice) return notFoundResponse('Fattura non trovata')
+
+    if (['APPROVED', 'PAID'].includes(invoice.reconciliation_status)) {
+      return errorResponse(
+        'INVALID_STATE',
+        'Impossibile eliminare fatture approvate o pagate',
+        400,
+      )
+    }
+
+    await prisma.invoice.delete({ where: { id: params.id } })
+
+    return successResponse({ deleted: true })
+  } catch (error) {
+    console.error('DELETE /api/invoices/[id] error:', error)
+    return errorResponse('INTERNAL_ERROR', 'Errore eliminazione fattura', 500)
   }
 }
