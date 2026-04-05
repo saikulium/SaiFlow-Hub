@@ -1,5 +1,3 @@
-'use client'
-
 import { TENDER_STATUS_CONFIG } from '@/lib/constants/tenders'
 import { cn } from '@/lib/utils'
 
@@ -10,9 +8,11 @@ interface TenderStatusBadgeProps {
 
 export function TenderStatusBadge({ status, pulse }: TenderStatusBadgeProps) {
   const config = TENDER_STATUS_CONFIG[status]
-  if (!config) return <span className="text-xs text-pf-text-muted">{status}</span>
+  if (!config)
+    return <span className="text-xs text-pf-text-muted">{status}</span>
   const Icon = config.icon
-  const shouldPulse = pulse ?? (status === 'EVALUATING' || status === 'UNDER_EVALUATION')
+  const shouldPulse =
+    pulse ?? (status === 'EVALUATING' || status === 'UNDER_EVALUATION')
 
   return (
     <span

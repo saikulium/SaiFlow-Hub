@@ -2,11 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import type {
-  MovementListItem,
-  LotSummary,
-  WarehouseListItem,
-} from '@/types'
+import type { MovementListItem, LotSummary, WarehouseListItem } from '@/types'
 
 /* ------------------------------------------------------------------ */
 /*  Movements                                                         */
@@ -33,7 +29,8 @@ export function useMovements(params: MovementQueryParams = {}) {
   if (params.pageSize) searchParams.set('pageSize', String(params.pageSize))
   if (params.material_id) searchParams.set('material_id', params.material_id)
   if (params.warehouse_id) searchParams.set('warehouse_id', params.warehouse_id)
-  if (params.movement_type) searchParams.set('movement_type', params.movement_type)
+  if (params.movement_type)
+    searchParams.set('movement_type', params.movement_type)
   if (params.date_from) searchParams.set('date_from', params.date_from)
   if (params.date_to) searchParams.set('date_to', params.date_to)
 
@@ -105,19 +102,6 @@ export function useLots(params: LotQueryParams = {}) {
       if (!json.success) throw new Error(json.error?.message ?? 'Errore')
       return { data: json.data, meta: json.meta }
     },
-  })
-}
-
-export function useLot(id: string | null) {
-  return useQuery<LotSummary>({
-    queryKey: ['lots', id],
-    queryFn: async () => {
-      const res = await fetch(`/api/inventory/lots/${id}`)
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error?.message ?? 'Errore')
-      return json.data
-    },
-    enabled: !!id,
   })
 }
 

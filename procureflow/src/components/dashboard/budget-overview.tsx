@@ -1,5 +1,3 @@
-'use client'
-
 import { PiggyBank, Receipt, Clock, Wallet, AlertTriangle } from 'lucide-react'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { BudgetBarsChart } from '@/components/dashboard/budget-bars-chart'
@@ -24,15 +22,18 @@ export function BudgetOverview({ stats }: BudgetOverviewProps) {
                 {stats.centricostoSforati} centro/i di costo sforati
               </span>
             )}
-            {stats.centricostoSforati > 0 && stats.centricostoInWarning > 0 && ' · '}
+            {stats.centricostoSforati > 0 &&
+              stats.centricostoInWarning > 0 &&
+              ' · '}
             {stats.centricostoInWarning > 0 && (
               <span className="text-amber-400">
                 {stats.centricostoInWarning} in zona allerta
               </span>
             )}
-            {stats.centricostoSforati === 0 && stats.centricostoInWarning === 0 && (
-              <span>Tutti i centri di costo nei limiti</span>
-            )}
+            {stats.centricostoSforati === 0 &&
+              stats.centricostoInWarning === 0 && (
+                <span>Tutti i centri di costo nei limiti</span>
+              )}
           </p>
         </div>
       </div>
@@ -68,7 +69,9 @@ export function BudgetOverview({ stats }: BudgetOverviewProps) {
           value={stats.totalAvailable}
           format="currency"
           icon={stats.totalAvailable < 0 ? AlertTriangle : Wallet}
-          iconColor={stats.totalAvailable < 0 ? 'text-red-400' : 'text-pf-accent'}
+          iconColor={
+            stats.totalAvailable < 0 ? 'text-red-400' : 'text-pf-accent'
+          }
           index={3}
           alert={stats.totalAvailable < 0}
         />

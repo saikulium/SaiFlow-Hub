@@ -1,5 +1,3 @@
-'use client'
-
 import { cn } from '@/lib/utils'
 import {
   INVOICE_MATCH_STATUS_CONFIG,
@@ -12,11 +10,13 @@ interface InvoiceStatusBadgeProps {
 }
 
 export function InvoiceStatusBadge({ type, status }: InvoiceStatusBadgeProps) {
-  const config = type === 'match'
-    ? INVOICE_MATCH_STATUS_CONFIG[status]
-    : RECONCILIATION_STATUS_CONFIG[status]
+  const config =
+    type === 'match'
+      ? INVOICE_MATCH_STATUS_CONFIG[status]
+      : RECONCILIATION_STATUS_CONFIG[status]
 
-  if (!config) return <span className="text-xs text-pf-text-muted">{status}</span>
+  if (!config)
+    return <span className="text-xs text-pf-text-muted">{status}</span>
 
   return (
     <span

@@ -1,6 +1,7 @@
-'use client'
-
-import { STOCK_STATUS_CONFIG, type StockStatusKey } from '@/lib/constants/inventory'
+import {
+  STOCK_STATUS_CONFIG,
+  type StockStatusKey,
+} from '@/lib/constants/inventory'
 import { cn } from '@/lib/utils'
 
 interface StockLevelBadgeProps {
@@ -9,7 +10,8 @@ interface StockLevelBadgeProps {
 
 export function StockLevelBadge({ status }: StockLevelBadgeProps) {
   const config = STOCK_STATUS_CONFIG[status]
-  if (!config) return <span className="text-xs text-pf-text-muted">{status}</span>
+  if (!config)
+    return <span className="text-xs text-pf-text-muted">{status}</span>
   const Icon = config.icon
 
   return (

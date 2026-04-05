@@ -1,5 +1,3 @@
-'use client'
-
 import { ClipboardList, Clock, Wallet, AlertTriangle } from 'lucide-react'
 import { StatCard } from './stat-card'
 import type { DashboardStats } from '@/types'
