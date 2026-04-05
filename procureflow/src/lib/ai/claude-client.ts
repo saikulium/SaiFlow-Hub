@@ -24,7 +24,7 @@ interface CallClaudeOptions {
   readonly model?: string
 }
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6-20250514'
+const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929'
 const MAX_RETRIES = 3
 const BASE_DELAY_MS = 1000
 
@@ -66,4 +66,20 @@ export async function callClaude(
   }
 
   throw lastError
+}
+
+/**
+ * Extract JSON from an AI response that may contain markdown fences or extra text.
+ */
+export function extractJsonFromAiResponse(raw: string): string {
+  // Strip markdown code fences if present (```json ... ```)
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fenceMatch) return fenceMatch[1]!.trim()
+  // Try to find a JSON array
+  const arrayMatch = raw.match(/\[[\s\S]*\]/)
+  if (arrayMatch) return arrayMatch[0]!
+  // Try to find a JSON object
+  const braceMatch = raw.match(/\{[\s\S]*\}/)
+  if (braceMatch) return braceMatch[0]!
+  return raw.trim()
 }

@@ -2,25 +2,24 @@
 
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  Package,
-  AlertTriangle,
-  X,
-} from 'lucide-react'
+import { Plus, Package, AlertTriangle, X } from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
+import { PaginationBar } from '@/components/shared/pagination-bar'
+import { SkeletonRows } from '@/components/shared/skeleton-row'
+import { TableEmptyState } from '@/components/shared/table-empty-state'
+import { DeleteRowButton } from '@/components/shared/delete-row-button'
 import {
   InventoryFiltersBar,
   type InventoryFilters,
 } from '@/components/inventory/inventory-filters'
 import { StockLevelBadge } from '@/components/inventory/stock-level-badge'
 import { MaterialFormDialog } from '@/components/inventory/material-form-dialog'
+import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog'
+import { useDeleteRecord, useIsAdmin } from '@/hooks/use-delete-record'
 import { useMaterials } from '@/hooks/use-materials'
 import { useMaterialAlerts } from '@/hooks/use-forecast'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
-import { cn, formatCurrency } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import type { StockStatusKey } from '@/lib/constants/inventory'
 
 const MATERIAL_CSV_COLUMNS = [
@@ -39,24 +38,20 @@ const quantityFormatter = new Intl.NumberFormat('it-IT', {
   maximumFractionDigits: 3,
 })
 
-function SkeletonRow() {
-  return (
-    <tr className="border-b border-pf-border">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <td key={i} className="px-4 py-3">
-          <div className="skeleton-shimmer h-4 w-full rounded" />
-        </td>
-      ))}
-    </tr>
-  )
-}
-
 export function MaterialsPageContent() {
   const router = useRouter()
   const [filters, setFilters] = useState<InventoryFilters>({})
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string
+    code: string
+    name: string
+  } | null>(null)
   const { alerts, dismiss: dismissAlert } = useMaterialAlerts()
+
+  const isAdmin = useIsAdmin()
+  const deleteMutation = useDeleteRecord('inventory/materials')
 
   const { data: response, isLoading } = useMaterials({
     page,
@@ -186,6 +181,7 @@ export function MaterialsPageContent() {
               <col className="hidden w-[100px] lg:table-column" />
               <col className="hidden w-[100px] lg:table-column" />
               <col className="w-[110px]" />
+              {isAdmin && <col className="w-[48px]" />}
             </colgroup>
             <thead>
               <tr className="border-b border-pf-border">
@@ -213,26 +209,19 @@ export function MaterialsPageContent() {
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-pf-text-secondary">
                   Scorta
                 </th>
+                {isAdmin && <th className="px-2 py-3" />}
               </tr>
             </thead>
             <tbody>
-              {isLoading &&
-                Array.from({ length: 5 }).map((_, i) => (
-                  <SkeletonRow key={i} />
-                ))}
+              {isLoading && <SkeletonRows columns={8} />}
 
               {!isLoading && materials.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-16 text-center">
-                    <Package className="mx-auto mb-3 h-10 w-10 text-pf-text-muted" />
-                    <p className="text-sm font-medium text-pf-text-secondary">
-                      Nessun materiale trovato
-                    </p>
-                    <p className="mt-1 text-xs text-pf-text-muted">
-                      Crea il primo materiale per iniziare.
-                    </p>
-                  </td>
-                </tr>
+                <TableEmptyState
+                  icon={Package}
+                  colSpan={8}
+                  title="Nessun materiale trovato"
+                  description="Crea il primo materiale per iniziare."
+                />
               )}
 
               {!isLoading &&
@@ -272,6 +261,19 @@ export function MaterialsPageContent() {
                         status={mat.stockStatus as StockStatusKey}
                       />
                     </td>
+                    {isAdmin && (
+                      <td className="px-2 py-3">
+                        <DeleteRowButton
+                          onDelete={() =>
+                            setDeleteTarget({
+                              id: mat.id,
+                              code: mat.code,
+                              name: mat.name,
+                            })
+                          }
+                        />
+                      </td>
+                    )}
                   </tr>
                 ))}
             </tbody>
@@ -279,53 +281,40 @@ export function MaterialsPageContent() {
         </div>
 
         {/* Pagination */}
-        {!isLoading && total > 0 && (
-          <div className="bg-pf-bg-secondary/60 flex items-center justify-between rounded-card border border-pf-border px-4 py-3 backdrop-blur-xl">
-            <p className="text-sm text-pf-text-secondary">
-              Pagina{' '}
-              <span className="font-medium text-pf-text-primary">{page}</span>{' '}
-              di{' '}
-              <span className="font-medium text-pf-text-primary">
-                {totalPages}
-              </span>{' '}
-              &middot;{' '}
-              <span className="font-medium text-pf-text-primary">{total}</span>{' '}
-              risultati
-            </p>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handlePrevPage}
-                disabled={page <= 1}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
-                  page <= 1
-                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
-                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
-                )}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Precedente
-              </button>
-              <button
-                onClick={handleNextPage}
-                disabled={page >= totalPages}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
-                  page >= totalPages
-                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
-                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
-                )}
-              >
-                Successiva
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <PaginationBar
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          isLoading={isLoading}
+          onPrevPage={handlePrevPage}
+          onNextPage={handleNextPage}
+        />
 
         {/* Form dialog */}
         <MaterialFormDialog open={formOpen} onOpenChange={setFormOpen} />
+
+        {/* Delete confirm dialog */}
+        <DeleteConfirmDialog
+          open={deleteTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null)
+          }}
+          onConfirm={() => {
+            if (deleteTarget) {
+              deleteMutation.mutate(deleteTarget.id, {
+                onSuccess: () => setDeleteTarget(null),
+              })
+            }
+          }}
+          isDeleting={deleteMutation.isPending}
+          title="Elimina materiale"
+          description="Questa azione e irreversibile. Il materiale verra eliminato solo se non ha lotti attivi in magazzino."
+          itemName={
+            deleteTarget
+              ? `${deleteTarget.code} — ${deleteTarget.name}`
+              : undefined
+          }
+        />
       </div>
     </PageTransition>
   )

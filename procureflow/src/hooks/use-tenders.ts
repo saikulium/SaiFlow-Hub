@@ -1,7 +1,8 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { createListHook } from './create-list-hook'
 import type { TenderListItem } from '@/types'
 
 interface TenderQueryParams {
@@ -15,32 +16,11 @@ interface TenderQueryParams {
   deadline_to?: string
 }
 
-interface TenderListResponse {
-  data: TenderListItem[]
-  meta: { total: number; page: number; pageSize: number }
-}
-
-export function useTenders(params: TenderQueryParams = {}) {
-  const searchParams = new URLSearchParams()
-  if (params.page) searchParams.set('page', String(params.page))
-  if (params.pageSize) searchParams.set('pageSize', String(params.pageSize))
-  if (params.search) searchParams.set('search', params.search)
-  if (params.status) searchParams.set('status', params.status)
-  if (params.tender_type) searchParams.set('tender_type', params.tender_type)
-  if (params.assigned_to) searchParams.set('assigned_to', params.assigned_to)
-  if (params.deadline_from) searchParams.set('deadline_from', params.deadline_from)
-  if (params.deadline_to) searchParams.set('deadline_to', params.deadline_to)
-
-  return useQuery<TenderListResponse>({
-    queryKey: ['tenders', params],
-    queryFn: async () => {
-      const res = await fetch(`/api/tenders?${searchParams}`)
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error?.message ?? 'Errore')
-      return { data: json.data, meta: json.meta }
-    },
-  })
-}
+export const useTenders = createListHook<TenderListItem, TenderQueryParams>({
+  endpoint: '/api/tenders',
+  queryKey: 'tenders',
+  errorMessage: 'Errore nel caricamento delle gare',
+})
 
 export function useCreateTender() {
   const queryClient = useQueryClient()

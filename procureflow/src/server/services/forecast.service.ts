@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { prisma } from '@/lib/db'
-import { callClaude } from '@/lib/ai/claude-client'
+import { callClaude, extractJsonFromAiResponse } from '@/lib/ai/claude-client'
 import { FORECAST_SYSTEM_PROMPT } from '@/lib/ai/prompts'
 import {
   WMA_WEIGHTS,
@@ -58,8 +58,8 @@ async function getMonthlyOutbound(materialId: string): Promise<number[]> {
   >`
     SELECT
       TO_CHAR(created_at, 'YYYY-MM') AS month,
-      SUM(quantity)::float AS total
-    FROM "StockMovement"
+      ABS(SUM(quantity))::float AS total
+    FROM "stock_movements"
     WHERE material_id = ${materialId}
       AND movement_type = 'OUTBOUND'
       AND created_at >= ${sixMonthsAgo}
@@ -86,8 +86,10 @@ export async function getBasicForecast(
     throw new Error('Material not found')
   }
 
-  const currentStock = await getCurrentStock(materialId)
-  const monthlyValues = await getMonthlyOutbound(materialId)
+  const [currentStock, monthlyValues] = await Promise.all([
+    getCurrentStock(materialId),
+    getMonthlyOutbound(materialId),
+  ])
   const monthlyRate = computeWMA(monthlyValues)
 
   const projected = Array.from(
@@ -124,7 +126,8 @@ interface AiResponsePayload {
 
 function parseAiResponse(text: string): AiResponsePayload | null {
   try {
-    const parsed = JSON.parse(text) as AiResponsePayload
+    const cleaned = extractJsonFromAiResponse(text)
+    const parsed = JSON.parse(cleaned) as AiResponsePayload
     if (
       Array.isArray(parsed.projected) &&
       typeof parsed.confidence === 'number' &&

@@ -1,6 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { createListHook } from './create-list-hook'
 import type { RequestStatusKey, PriorityKey } from '@/lib/constants'
-import type { ApiResponse } from '@/lib/api-response'
 
 export interface RequestListItem {
   id: string
@@ -37,30 +36,8 @@ export interface RequestsParams {
   order?: 'asc' | 'desc'
 }
 
-type RequestsResponse = ApiResponse<RequestListItem[]>
-
-async function fetchRequests(params: RequestsParams): Promise<RequestsResponse> {
-  const searchParams = new URLSearchParams()
-
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null && value !== '') {
-      searchParams.set(key, String(value))
-    }
-  }
-
-  const url = `/api/requests?${searchParams.toString()}`
-  const response = await fetch(url)
-
-  if (!response.ok) {
-    throw new Error('Errore nel caricamento delle richieste')
-  }
-
-  return response.json()
-}
-
-export function useRequests(params: RequestsParams = {}) {
-  return useQuery<RequestsResponse>({
-    queryKey: ['requests', params],
-    queryFn: () => fetchRequests(params),
-  })
-}
+export const useRequests = createListHook<RequestListItem, RequestsParams>({
+  endpoint: '/api/requests',
+  queryKey: 'requests',
+  errorMessage: 'Errore nel caricamento delle richieste',
+})

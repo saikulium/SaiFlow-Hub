@@ -1,16 +1,15 @@
-import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
-import { successResponse, errorResponse } from '@/lib/api-response'
-import { getCurrentUserId } from '@/lib/auth'
-import { Prisma } from '@prisma/client'
+import { successResponse } from '@/lib/api-response'
+import { withApiHandler } from '@/lib/api-handler'
+import type { Prisma } from '@prisma/client'
 
-export async function GET(req: NextRequest) {
-  try {
-    const userId = await getCurrentUserId()
+export const GET = withApiHandler(
+  { auth: true, errorMessage: 'Errore interno del server' },
+  async ({ req, user }) => {
     const statusFilter = req.nextUrl.searchParams.get('status')
 
     const where: Prisma.ApprovalWhereInput = {
-      approver_id: userId,
+      approver_id: user.id,
     }
 
     if (statusFilter) {
@@ -57,8 +56,5 @@ export async function GET(req: NextRequest) {
     }))
 
     return successResponse(data)
-  } catch (error) {
-    console.error('GET /api/approvals error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)
-  }
-}
+  },
+)

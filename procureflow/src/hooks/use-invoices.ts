@@ -1,5 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
-import type { ApiResponse } from '@/lib/api-response'
+import { createListHook } from './create-list-hook'
 
 export interface InvoiceListItem {
   id: string
@@ -32,32 +31,8 @@ export interface InvoicesParams {
   order?: 'asc' | 'desc'
 }
 
-type InvoicesResponse = ApiResponse<InvoiceListItem[]>
-
-async function fetchInvoices(
-  params: InvoicesParams,
-): Promise<InvoicesResponse> {
-  const searchParams = new URLSearchParams()
-
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null && value !== '') {
-      searchParams.set(key, String(value))
-    }
-  }
-
-  const url = `/api/invoices?${searchParams.toString()}`
-  const response = await fetch(url)
-
-  if (!response.ok) {
-    throw new Error('Errore nel caricamento delle fatture')
-  }
-
-  return response.json()
-}
-
-export function useInvoices(params: InvoicesParams = {}) {
-  return useQuery<InvoicesResponse>({
-    queryKey: ['invoices', params],
-    queryFn: () => fetchInvoices(params),
-  })
-}
+export const useInvoices = createListHook<InvoiceListItem, InvoicesParams>({
+  endpoint: '/api/invoices',
+  queryKey: 'invoices',
+  errorMessage: 'Errore nel caricamento delle fatture',
+})

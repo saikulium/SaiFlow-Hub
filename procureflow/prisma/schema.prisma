@@ -142,6 +142,7 @@ model Vendor {
   materials_as_preferred  Material[]  @relation("MaterialPreferredVendor")
   material_alerts         MaterialAlert[]  @relation("MaterialAlertVendor")
 
+  @@index([status])
   @@map("vendors")
 }
 
@@ -181,7 +182,7 @@ model PurchaseRequest {
   priority    Priority      @default(MEDIUM)
 
   requester_id String
-  requester    User   @relation(fields: [requester_id], references: [id])
+  requester    User   @relation(fields: [requester_id], references: [id], onDelete: Restrict)
   vendor_id    String?
   vendor       Vendor? @relation(fields: [vendor_id], references: [id])
 
@@ -288,7 +289,7 @@ model Approval {
   request_id  String
   request     PurchaseRequest @relation(fields: [request_id], references: [id])
   approver_id String
-  approver    User            @relation(fields: [approver_id], references: [id])
+  approver    User            @relation(fields: [approver_id], references: [id], onDelete: Restrict)
 
   status      ApprovalStatus @default(PENDING)
   decision_at DateTime?
@@ -296,6 +297,8 @@ model Approval {
 
   created_at DateTime @default(now())
 
+  @@index([request_id, status])
+  @@index([approver_id, status])
   @@map("approvals")
 }
 
@@ -323,6 +326,7 @@ model TimelineEvent {
 
   created_at DateTime @default(now())
 
+  @@index([request_id, created_at])
   @@index([email_message_id])
   @@index([invoice_id])
   @@map("timeline_events")
@@ -333,7 +337,7 @@ model Comment {
   request_id  String
   request     PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
   author_id   String
-  author      User            @relation(fields: [author_id], references: [id])
+  author      User            @relation(fields: [author_id], references: [id], onDelete: Restrict)
 
   content     String
   is_internal Boolean @default(true)
@@ -455,6 +459,7 @@ model Invoice {
   @@index([reconciliation_status])
   @@index([tenant_id])
   @@index([invoice_date])
+  @@index([vendor_id])
   @@index([purchase_request_id])
   @@map("invoices")
 }
