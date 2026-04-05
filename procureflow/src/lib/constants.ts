@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   ClipboardList,
   Building2,
+  Briefcase,
   CheckCircle2,
   BarChart3,
   Settings,
@@ -23,6 +24,7 @@ import {
   Gavel,
   Package,
   Shield,
+  BookOpen,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -247,7 +249,10 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Budget', href: '/budgets', icon: PiggyBank },
   { label: 'Gare', href: '/tenders', icon: Gavel },
   { label: 'Magazzino', href: '/inventory', icon: Package },
+  { label: 'Articoli', href: '/articles', icon: BookOpen },
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { label: 'Commesse', href: '/commesse', icon: Briefcase },
+  { label: 'Clienti', href: '/clients', icon: Building2 },
   { label: 'Utenti', href: '/users', icon: Users },
   { label: 'Admin', href: '/admin/config', icon: Shield, adminOnly: true },
   { label: 'Impostazioni', href: '/settings', icon: Settings },

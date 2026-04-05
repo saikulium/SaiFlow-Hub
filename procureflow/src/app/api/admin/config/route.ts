@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
-import { requireRole } from '@/lib/auth'
+import { requireAuth, requireRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { successResponse, errorResponse, validationErrorResponse } from '@/lib/api-response'
+import {
+  successResponse,
+  errorResponse,
+  validationErrorResponse,
+} from '@/lib/api-response'
 import { updateConfigSchema } from '@/lib/validations/admin'
 
 export async function GET() {
@@ -15,21 +19,27 @@ export async function GET() {
     })
 
     if (!config) {
-      return successResponse(Object.freeze({
-        deploy_name: 'ProcureFlow',
-        enabled_modules: ['core'],
-        categories: [],
-        departments: [],
-        cost_centers: [],
-        approval_rules: null,
-        company_logo_url: null,
-      }))
+      return successResponse(
+        Object.freeze({
+          deploy_name: 'ProcureFlow',
+          enabled_modules: ['core'],
+          categories: [],
+          departments: [],
+          cost_centers: [],
+          approval_rules: null,
+          company_logo_url: null,
+        }),
+      )
     }
 
     return successResponse(config)
   } catch (error) {
     console.error('[admin/config] GET error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore caricamento configurazione', 500)
+    return errorResponse(
+      'INTERNAL_ERROR',
+      'Errore caricamento configurazione',
+      500,
+    )
   }
 }
 
@@ -83,6 +93,10 @@ export async function PATCH(request: Request) {
     return successResponse(updated)
   } catch (error) {
     console.error('[admin/config] PATCH error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore salvataggio configurazione', 500)
+    return errorResponse(
+      'INTERNAL_ERROR',
+      'Errore salvataggio configurazione',
+      500,
+    )
   }
 }

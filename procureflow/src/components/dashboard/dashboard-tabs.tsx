@@ -8,6 +8,7 @@ import {
   Gavel,
   Package,
   BarChart3,
+  Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useModules } from '@/hooks/use-modules'
@@ -19,6 +20,7 @@ import { DeliveryTimeline } from './delivery-timeline'
 import { InvoiceStatsRow } from './invoice-stats-row'
 import { RoiSummaryMini } from '@/components/analytics/roi-summary-cards'
 import { InsightCards } from './insight-cards'
+import { CommesseTab } from './commesse-tab'
 
 // Lazy-load chart components (Recharts ~150KB) — loaded only when tab is active
 const MonthlySpendTrendChart = dynamic(
@@ -113,6 +115,7 @@ type TabId =
   | 'gare'
   | 'magazzino'
   | 'analisi'
+  | 'commesse'
 
 interface Tab {
   readonly id: TabId
@@ -144,6 +147,7 @@ const BASE_TABS: readonly Tab[] = [
   { id: 'gare', label: 'Gare', icon: Gavel },
   { id: 'magazzino', label: 'Magazzino', icon: Package },
   { id: 'analisi', label: 'Analisi', icon: BarChart3 },
+  { id: 'commesse', label: 'Commesse', icon: Briefcase },
 ] as const
 
 export function DashboardTabs(props: DashboardTabsProps) {
@@ -215,6 +219,7 @@ export function DashboardTabs(props: DashboardTabsProps) {
             roiSummary={props.roiSummary ?? null}
           />
         )}
+        {activeTab === 'commesse' && <CommesseTab />}
       </div>
     </div>
   )

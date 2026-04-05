@@ -1,12 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getClaudeClient } from '@/lib/ai/claude-client'
 import type { EmailIngestionPayload } from '@/lib/validations/email-ingestion'
+import type { ActionType } from '@/lib/validations/email-ingestion'
 
 // ---------------------------------------------------------------------------
 // Email AI Classifier — Classifica l'intent delle email con Claude
 //
 // Riceve email grezze (from, subject, body) e restituisce:
-//   - intent (CONFERMA_ORDINE, RITARDO_CONSEGNA, etc.)
+//   - intent (CONFERMA_ORDINE, RITARDO_CONSEGNA, ORDINE_CLIENTE, etc.)
 //   - confidence (0.0–1.0)
 //   - extracted_data (codice PR, fornitore, importi, date, riepilogo)
 //
@@ -39,6 +40,7 @@ export type EmailIntent =
   | 'VARIAZIONE_PREZZO'
   | 'RICHIESTA_INFO'
   | 'FATTURA_ALLEGATA'
+  | 'ORDINE_CLIENTE'
   | 'ALTRO'
 
 export interface ClassificationResult {
@@ -52,6 +54,15 @@ export interface ClassificationResult {
     readonly new_delivery_date?: string
     readonly tracking_number?: string
     readonly summary: string
+    readonly client_name?: string
+    readonly client_code?: string
+    readonly client_order_items?: ReadonlyArray<{
+      readonly description: string
+      readonly quantity?: number
+      readonly unit?: string
+    }>
+    readonly client_deadline?: string
+    readonly client_value?: number
   }
 }
 
@@ -78,6 +89,15 @@ interface AiClassificationResponse {
   new_delivery_date: string | null
   tracking_number: string | null
   summary: string | null
+  client_name: string | null
+  client_code: string | null
+  client_order_items: Array<{
+    description: string
+    quantity?: number
+    unit?: string
+  }> | null
+  client_deadline: string | null
+  client_value: number | null
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +120,7 @@ CATEGORIE DI INTENT:
 - VARIAZIONE_PREZZO: Il fornitore comunica una variazione di prezzo rispetto all'ordine
 - RICHIESTA_INFO: Il fornitore chiede informazioni o chiarimenti
 - FATTURA_ALLEGATA: L'email contiene o fa riferimento a una fattura allegata
+- ORDINE_CLIENTE: Un cliente invia un ordine di acquisto o una commessa da evadere
 - ALTRO: Nessuna delle categorie precedenti
 
 SCHEMA JSON RICHIESTO (rispondi SOLO con il JSON, nient'altro):
@@ -112,7 +133,12 @@ SCHEMA JSON RICHIESTO (rispondi SOLO con il JSON, nient'altro):
   "new_amount": "number|null — nuovo importo se VARIAZIONE_PREZZO",
   "new_delivery_date": "string|null — nuova data consegna YYYY-MM-DD se RITARDO_CONSEGNA",
   "tracking_number": "string|null — numero tracking se presente",
-  "summary": "string — riepilogo leggibile dell'email in 1-2 frasi in italiano"
+  "summary": "string — riepilogo leggibile dell'email in 1-2 frasi in italiano",
+  "client_name": "string|null — nome del cliente se ORDINE_CLIENTE",
+  "client_code": "string|null — codice cliente se ORDINE_CLIENTE",
+  "client_order_items": "[{description, quantity?, unit?}]|null — articoli ordinati se ORDINE_CLIENTE",
+  "client_deadline": "string|null — data consegna richiesta YYYY-MM-DD se ORDINE_CLIENTE",
+  "client_value": "number|null — valore totale ordine se ORDINE_CLIENTE"
 }`
 
 // ---------------------------------------------------------------------------
@@ -195,15 +221,13 @@ export async function classifyEmailIntent(
 // Mapping: ClassificationResult → EmailIngestionPayload
 // ---------------------------------------------------------------------------
 
-const INTENT_TO_ACTION: Record<
-  EmailIntent,
-  'new_request' | 'update_existing' | 'info_only'
-> = {
+const INTENT_TO_ACTION: Record<EmailIntent, ActionType> = {
   CONFERMA_ORDINE: 'update_existing',
   RITARDO_CONSEGNA: 'update_existing',
   VARIAZIONE_PREZZO: 'update_existing',
   RICHIESTA_INFO: 'info_only',
   FATTURA_ALLEGATA: 'info_only',
+  ORDINE_CLIENTE: 'create_commessa',
   ALTRO: 'info_only',
 }
 
@@ -256,6 +280,15 @@ export function mapClassificationToPayload(
     ai_confidence: classification.confidence,
     ai_tags: [`ai-intent:${classification.intent}`],
     attachments: [],
+
+    // Client/Commessa fields (for ORDINE_CLIENTE)
+    ai_client_name: classification.extracted_data.client_name,
+    ai_client_code: classification.extracted_data.client_code,
+    ai_client_order_items: classification.extracted_data.client_order_items as
+      | Array<{ description: string; quantity?: number; unit?: string }>
+      | undefined,
+    ai_client_deadline: classification.extracted_data.client_deadline,
+    ai_client_value: classification.extracted_data.client_value,
   }
 }
 
@@ -309,6 +342,7 @@ const VALID_INTENTS = new Set<string>([
   'VARIAZIONE_PREZZO',
   'RICHIESTA_INFO',
   'FATTURA_ALLEGATA',
+  'ORDINE_CLIENTE',
   'ALTRO',
 ])
 
@@ -330,6 +364,11 @@ export function mapAiResponseToClassification(
       new_delivery_date: raw.new_delivery_date ?? undefined,
       tracking_number: raw.tracking_number ?? undefined,
       summary: raw.summary ?? 'Nessun riepilogo disponibile',
+      client_name: raw.client_name ?? undefined,
+      client_code: raw.client_code ?? undefined,
+      client_order_items: raw.client_order_items ?? undefined,
+      client_deadline: raw.client_deadline ?? undefined,
+      client_value: raw.client_value ?? undefined,
     },
   }
 }

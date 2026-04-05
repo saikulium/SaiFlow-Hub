@@ -1,0 +1,288 @@
+'use client'
+
+import { useCallback, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  Plus,
+  Upload,
+  ChevronLeft,
+  ChevronRight,
+  BookOpen,
+  Search,
+} from 'lucide-react'
+import { useArticles } from '@/hooks/use-articles'
+import { ArticleCreateDialog } from '@/components/articles/article-create-dialog'
+import { ArticleImportDialog } from '@/components/articles/article-import-dialog'
+import { cn } from '@/lib/utils'
+
+const DEFAULT_PAGE_SIZE = 20
+
+function SkeletonRow() {
+  return (
+    <tr className="border-b border-pf-border">
+      {Array.from({ length: 7 }).map((_, i) => (
+        <td key={i} className="px-4 py-3">
+          <div className="skeleton-shimmer h-4 w-full rounded" />
+        </td>
+      ))}
+    </tr>
+  )
+}
+
+export function ArticlesPageContent() {
+  const router = useRouter()
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('')
+  const [page, setPage] = useState(1)
+  const [formOpen, setFormOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+
+  const { data: response, isLoading } = useArticles({
+    page,
+    pageSize: DEFAULT_PAGE_SIZE,
+    search: search || undefined,
+    category: category || undefined,
+  })
+
+  const articles = response?.data ?? []
+  const meta = response?.meta
+  const total = meta?.total ?? 0
+  const totalPages = meta ? Math.ceil(meta.total / meta.pageSize) : 1
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value)
+    setPage(1)
+  }, [])
+
+  const handleCategoryChange = useCallback((value: string) => {
+    setCategory(value)
+    setPage(1)
+  }, [])
+
+  const handlePrevPage = useCallback(() => {
+    setPage((prev) => Math.max(1, prev - 1))
+  }, [])
+
+  const handleNextPage = useCallback(() => {
+    setPage((prev) => Math.min(totalPages, prev + 1))
+  }, [totalPages])
+
+  const handleRowClick = useCallback(
+    (id: string) => {
+      router.push(`/articles/${id}`)
+    },
+    [router],
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-pf-text-primary">
+            Anagrafica Articoli
+          </h1>
+          <p className="mt-1 text-sm text-pf-text-secondary">
+            {isLoading ? 'Caricamento...' : `${total} articoli totali`}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="inline-flex items-center gap-2 rounded-button border border-pf-border px-4 py-2 text-sm font-medium text-pf-text-secondary transition-colors hover:border-pf-border-hover hover:text-pf-text-primary"
+          >
+            <Upload className="h-4 w-4" />
+            Importa CSV
+          </button>
+          <button
+            onClick={() => setFormOpen(true)}
+            className="inline-flex items-center gap-2 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-pf-accent-hover"
+          >
+            <Plus className="h-4 w-4" />
+            Nuovo Articolo
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pf-text-muted" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Cerca per codice, nome, alias..."
+            className="w-full rounded-button border border-pf-border bg-pf-bg-tertiary py-2 pl-9 pr-3 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
+          />
+        </div>
+        <input
+          type="text"
+          value={category}
+          onChange={(e) => handleCategoryChange(e.target.value)}
+          placeholder="Filtra per categoria"
+          className="w-full rounded-button border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent sm:w-48"
+        />
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-card border border-pf-border bg-pf-bg-secondary/60 backdrop-blur-xl">
+        <table className="w-full table-fixed">
+          <colgroup>
+            <col className="w-[120px]" />
+            <col />
+            <col className="hidden w-[120px] md:table-column" />
+            <col className="hidden w-[60px] sm:table-column" />
+            <col className="w-[80px]" />
+            <col className="w-[80px]" />
+            <col className="w-[90px]" />
+          </colgroup>
+          <thead>
+            <tr className="border-b border-pf-border">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-pf-text-secondary">
+                Codice
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-pf-text-secondary">
+                Nome
+              </th>
+              <th className="hidden px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-pf-text-secondary md:table-cell">
+                Categoria
+              </th>
+              <th className="hidden px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-pf-text-secondary sm:table-cell">
+                UM
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-pf-text-secondary">
+                Alias
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-pf-text-secondary">
+                Prezzi
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-pf-text-secondary">
+                Stato
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading &&
+              Array.from({ length: 5 }).map((_, i) => (
+                <SkeletonRow key={i} />
+              ))}
+
+            {!isLoading && articles.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-16 text-center">
+                  <BookOpen className="mx-auto mb-3 h-10 w-10 text-pf-text-muted" />
+                  <p className="text-sm font-medium text-pf-text-secondary">
+                    Nessun articolo trovato
+                  </p>
+                  <p className="mt-1 text-xs text-pf-text-muted">
+                    Crea il primo articolo per iniziare.
+                  </p>
+                </td>
+              </tr>
+            )}
+
+            {!isLoading &&
+              articles.map((article) => (
+                <tr
+                  key={article.id}
+                  onClick={() => handleRowClick(article.id)}
+                  className="cursor-pointer border-b border-pf-border transition-colors hover:bg-pf-bg-hover"
+                >
+                  <td className="px-4 py-3">
+                    <span className="font-mono text-xs text-pf-text-secondary">
+                      {article.code}
+                    </span>
+                  </td>
+                  <td className="overflow-hidden px-4 py-3">
+                    <span className="block truncate text-sm font-medium text-pf-text-primary">
+                      {article.name}
+                    </span>
+                  </td>
+                  <td className="hidden px-4 py-3 text-sm text-pf-text-secondary md:table-cell">
+                    {article.category ?? '-'}
+                  </td>
+                  <td className="hidden px-4 py-3 text-sm text-pf-text-secondary sm:table-cell">
+                    {article.unit_of_measure}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="inline-flex min-w-[24px] items-center justify-center rounded-full bg-pf-bg-tertiary px-2 py-0.5 text-xs font-medium text-pf-text-secondary">
+                      {article._count.aliases}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="inline-flex min-w-[24px] items-center justify-center rounded-full bg-pf-bg-tertiary px-2 py-0.5 text-xs font-medium text-pf-text-secondary">
+                      {article._count.prices}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                        article.is_active
+                          ? 'bg-emerald-400/10 text-emerald-400'
+                          : 'bg-zinc-400/10 text-zinc-400',
+                      )}
+                    >
+                      {article.is_active ? 'Attivo' : 'Inattivo'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {!isLoading && total > 0 && (
+        <div className="flex items-center justify-between rounded-card border border-pf-border bg-pf-bg-secondary/60 px-4 py-3 backdrop-blur-xl">
+          <p className="text-sm text-pf-text-secondary">
+            Pagina{' '}
+            <span className="font-medium text-pf-text-primary">{page}</span>{' '}
+            di{' '}
+            <span className="font-medium text-pf-text-primary">
+              {totalPages}
+            </span>{' '}
+            &middot;{' '}
+            <span className="font-medium text-pf-text-primary">{total}</span>{' '}
+            risultati
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrevPage}
+              disabled={page <= 1}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
+                page <= 1
+                  ? 'cursor-not-allowed text-pf-text-secondary/40'
+                  : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+              )}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Precedente
+            </button>
+            <button
+              onClick={handleNextPage}
+              disabled={page >= totalPages}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
+                page >= totalPages
+                  ? 'cursor-not-allowed text-pf-text-secondary/40'
+                  : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+              )}
+            >
+              Successiva
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Dialogs */}
+      <ArticleCreateDialog open={formOpen} onOpenChange={setFormOpen} />
+      <ArticleImportDialog open={importOpen} onOpenChange={setImportOpen} />
+    </div>
+  )
+}

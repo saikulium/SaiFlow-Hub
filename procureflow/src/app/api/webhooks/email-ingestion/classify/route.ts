@@ -14,7 +14,10 @@ import {
 import type { RawEmailData } from '@/server/services/email-ai-classifier.service'
 import { processEmailIngestion } from '@/server/services/email-ingestion.service'
 import { prisma } from '@/lib/db'
-import { createNotification, NOTIFICATION_TYPES } from '@/server/services/notification.service'
+import {
+  createNotification,
+  NOTIFICATION_TYPES,
+} from '@/server/services/notification.service'
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/email-ingestion/classify
@@ -98,7 +101,12 @@ export async function POST(req: NextRequest) {
         path: i.path.join('.'),
         message: i.message,
       }))
-      return errorResponse('VALIDATION_ERROR', 'Payload non valido', 400, issues)
+      return errorResponse(
+        'VALIDATION_ERROR',
+        'Payload non valido',
+        400,
+        issues,
+      )
     }
 
     const emailData: RawEmailData = parsed.data
@@ -119,11 +127,7 @@ export async function POST(req: NextRequest) {
                 : 500
         return errorResponse(err.code, err.message, statusCode)
       }
-      return errorResponse(
-        'AI_ERROR',
-        'Errore nella classificazione AI',
-        500,
-      )
+      return errorResponse('AI_ERROR', 'Errore nella classificazione AI', 500)
     }
 
     console.log(
@@ -144,16 +148,21 @@ export async function POST(req: NextRequest) {
       ingestionResult = await processEmailIngestion(payload)
       actionTaken = true
 
+      const resultCode =
+        'request_code' in ingestionResult
+          ? ingestionResult.request_code
+          : ingestionResult.commessa_code
+
       console.log(
         `[email-classify] Azione automatica: action=${ingestionResult.action}` +
-          ` request=${ingestionResult.request_code}`,
+          ` code=${resultCode}`,
       )
 
       // Notifica conferma dell'azione eseguita
       await notifyActionTaken(
         classification.intent,
         classification.extracted_data.summary,
-        ingestionResult.request_code,
+        resultCode,
       )
       notificationSent = true
     } else {

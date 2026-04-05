@@ -13,6 +13,14 @@ import type {
 // ---------------------------------------------------------------------------
 
 describe('mapAiResponseToClassification', () => {
+  const CLIENT_DEFAULTS = {
+    client_name: null,
+    client_code: null,
+    client_order_items: null,
+    client_deadline: null,
+    client_value: null,
+  } as const
+
   it('mappa una risposta AI completa', () => {
     const raw = {
       intent: 'CONFERMA_ORDINE' as const,
@@ -24,6 +32,7 @@ describe('mapAiResponseToClassification', () => {
       new_delivery_date: null,
       tracking_number: 'TRK-789',
       summary: 'Conferma ricezione ordine PR-2025-00042 da Acme Srl',
+      ...CLIENT_DEFAULTS,
     }
 
     const result = mapAiResponseToClassification(raw)
@@ -50,6 +59,7 @@ describe('mapAiResponseToClassification', () => {
       new_delivery_date: '2025-04-15',
       tracking_number: null,
       summary: 'Ritardo di 5 giorni nella consegna',
+      ...CLIENT_DEFAULTS,
     }
 
     const result = mapAiResponseToClassification(raw)
@@ -70,6 +80,7 @@ describe('mapAiResponseToClassification', () => {
       new_delivery_date: null,
       tracking_number: null,
       summary: 'Variazione prezzo da 1200 a 1500 EUR',
+      ...CLIENT_DEFAULTS,
     }
 
     const result = mapAiResponseToClassification(raw)
@@ -90,6 +101,7 @@ describe('mapAiResponseToClassification', () => {
       new_delivery_date: null,
       tracking_number: null,
       summary: 'Email non classificabile',
+      ...CLIENT_DEFAULTS,
     }
 
     const result = mapAiResponseToClassification(raw)
@@ -107,6 +119,7 @@ describe('mapAiResponseToClassification', () => {
       new_delivery_date: null,
       tracking_number: null,
       summary: null,
+      ...CLIENT_DEFAULTS,
     }
 
     const result = mapAiResponseToClassification(raw)
@@ -127,6 +140,7 @@ describe('mapAiResponseToClassification', () => {
       new_delivery_date: null,
       tracking_number: null,
       summary: 'test',
+      ...CLIENT_DEFAULTS,
     }
 
     expect(mapAiResponseToClassification(overOne).confidence).toBe(1)
@@ -145,7 +159,7 @@ describe('mapClassificationToPayload', () => {
     email_from: 'fornitore@acme.it',
     email_to: 'procurement@mycompany.it',
     email_subject: 'Conferma ordine PR-2025-00042',
-    email_body: 'Vi confermiamo la ricezione dell\'ordine PO-12345.',
+    email_body: "Vi confermiamo la ricezione dell'ordine PO-12345.",
     email_date: '2025-03-10',
     email_message_id: '<msg-123@acme.it>',
   }
@@ -196,7 +210,7 @@ describe('mapClassificationToPayload', () => {
   it('mappa VARIAZIONE_PREZZO → update_existing con actual_amount', () => {
     const classification: ClassificationResult = {
       intent: 'VARIAZIONE_PREZZO',
-      confidence: 0.80,
+      confidence: 0.8,
       extracted_data: {
         matched_request_code: 'PR-2025-00020',
         new_amount: 1500.0,
@@ -214,7 +228,7 @@ describe('mapClassificationToPayload', () => {
   it('mappa RICHIESTA_INFO → action info_only', () => {
     const classification: ClassificationResult = {
       intent: 'RICHIESTA_INFO',
-      confidence: 0.90,
+      confidence: 0.9,
       extracted_data: {
         matched_request_code: 'PR-2025-00042',
         summary: 'Richiesta chiarimenti su quantità ordine',
@@ -246,7 +260,7 @@ describe('mapClassificationToPayload', () => {
   it('mappa ALTRO → action info_only', () => {
     const classification: ClassificationResult = {
       intent: 'ALTRO',
-      confidence: 0.60,
+      confidence: 0.6,
       extracted_data: {
         summary: 'Email promozionale del fornitore',
       },

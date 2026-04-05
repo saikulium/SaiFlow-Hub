@@ -16,7 +16,7 @@ import type {
 // ---------------------------------------------------------------------------
 
 interface IngestionResult {
-  readonly action: ActionType
+  readonly action: Exclude<ActionType, 'create_commessa'>
   readonly request_id: string
   readonly request_code: string
   readonly items_created: number
@@ -26,13 +26,25 @@ interface IngestionResult {
   readonly deduplicated: boolean
 }
 
+interface CommessaIngestionResult {
+  readonly action: 'create_commessa'
+  readonly commessa_id: string
+  readonly commessa_code: string
+  readonly suggested_prs_created: number
+  readonly timeline_event_id: string
+  readonly ai_confidence: number | null
+  readonly deduplicated: boolean
+}
+
+type ProcessingResult = IngestionResult | CommessaIngestionResult
+
 // ---------------------------------------------------------------------------
 // Entry point — processa il payload email AI-enriched
 // ---------------------------------------------------------------------------
 
 export async function processEmailIngestion(
   payload: EmailIngestionPayload,
-): Promise<IngestionResult> {
+): Promise<ProcessingResult> {
   switch (payload.action) {
     case 'new_request':
       return handleNewRequest(payload)
@@ -40,6 +52,8 @@ export async function processEmailIngestion(
       return handleUpdateExisting(payload)
     case 'info_only':
       return handleInfoOnly(payload)
+    case 'create_commessa':
+      return handleCreateCommessa(payload)
   }
 }
 
@@ -395,6 +409,192 @@ async function handleInfoOnly(
     items_created: 0,
     status_updated: false,
     timeline_event_id: timelineEvent.id,
+    ai_confidence: payload.ai_confidence ?? null,
+    deduplicated: false,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Caso 4: Ordine cliente — crea commessa con PR suggerite
+// ---------------------------------------------------------------------------
+
+async function handleCreateCommessa(
+  payload: EmailIngestionPayload,
+): Promise<CommessaIngestionResult> {
+  // Deduplicazione: se questa email è già stata processata, ritorna idempotente
+  if (payload.email_message_id) {
+    const existing = await prisma.commessa.findUnique({
+      where: { email_message_id: payload.email_message_id },
+      select: { id: true, code: true },
+    })
+    if (existing) {
+      console.log(
+        `[email-ingestion] Dedup commessa: email ${payload.email_message_id} già processata → ${existing.code}`,
+      )
+      return {
+        action: 'create_commessa',
+        commessa_id: existing.id,
+        commessa_code: existing.code,
+        suggested_prs_created: 0,
+        timeline_event_id: '',
+        ai_confidence: payload.ai_confidence ?? null,
+        deduplicated: true,
+      }
+    }
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Find or create Client
+    const clientName = payload.ai_client_name ?? payload.email_from
+    const clientCode =
+      payload.ai_client_code ??
+      `AUTO-${clientName.substring(0, 8).toUpperCase().replace(/\s+/g, '')}-${Date.now().toString(36).slice(-4)}`
+
+    let client = await tx.client.findUnique({
+      where: { code: clientCode },
+      select: { id: true },
+    })
+
+    if (!client) {
+      // Try fuzzy match by name
+      client = await tx.client.findFirst({
+        where: { name: { contains: clientName, mode: 'insensitive' } },
+        select: { id: true },
+      })
+    }
+
+    if (!client) {
+      client = await tx.client.create({
+        data: {
+          code: clientCode,
+          name: clientName,
+          email: payload.email_from,
+          status: 'PENDING_REVIEW',
+          notes:
+            'Cliente creato automaticamente da email ingestion. Verificare i dati.',
+        },
+        select: { id: true },
+      })
+      console.log(
+        `[email-ingestion] Auto-created client: code=${clientCode} name=${clientName} id=${client.id}`,
+      )
+    }
+
+    // 2. Generate COM code
+    const comCode = await generateNextCodeAtomic('COM', 'commesse', tx)
+
+    // 3. Create Commessa
+    const commessa = await tx.commessa.create({
+      data: {
+        code: comCode,
+        title: payload.ai_title ?? payload.email_subject,
+        description: buildDescription(payload),
+        status: 'PLANNING',
+        client_id: client.id,
+        client_value: payload.ai_client_value
+          ? new Prisma.Decimal(payload.ai_client_value)
+          : null,
+        deadline: payload.ai_client_deadline
+          ? new Date(payload.ai_client_deadline)
+          : null,
+        priority: payload.ai_priority ?? 'MEDIUM',
+        email_message_id: payload.email_message_id ?? null,
+        tags: payload.ai_tags,
+      },
+      select: { id: true, code: true },
+    })
+
+    // 4. Create suggested PRs from client order items
+    let suggestedPrsCreated = 0
+    const clientItems = payload.ai_client_order_items ?? []
+
+    for (const item of clientItems) {
+      const prCode = await generateNextCodeAtomic('PR', 'purchase_requests', tx)
+
+      const requester = await resolveRequester(payload.email_from)
+
+      await tx.purchaseRequest.create({
+        data: {
+          code: prCode,
+          title: item.description,
+          description: `Richiesta suggerita automaticamente dalla commessa ${comCode} — ordine cliente via email.`,
+          status: 'DRAFT',
+          priority: payload.ai_priority ?? 'MEDIUM',
+          requester_id: requester.id,
+          commessa_id: commessa.id,
+          is_ai_suggested: true,
+          category: payload.ai_category ?? null,
+          department: payload.ai_department ?? null,
+          tags: ['ai-suggested', `commessa:${comCode}`],
+          items:
+            item.quantity != null
+              ? {
+                  create: {
+                    name: item.description,
+                    quantity: Math.max(1, Math.round(item.quantity)),
+                    unit: item.unit ?? null,
+                  },
+                }
+              : undefined,
+        },
+      })
+      suggestedPrsCreated++
+    }
+
+    // 5. Create CommessaTimeline event
+    const timelineEvent = await tx.commessaTimeline.create({
+      data: {
+        commessa_id: commessa.id,
+        type: 'email_ingestion',
+        title: 'Commessa creata da email cliente',
+        description:
+          payload.ai_summary ??
+          `Email da ${payload.email_from}: ${payload.email_subject}`,
+        actor: payload.email_from,
+        metadata: {
+          email_from: payload.email_from,
+          email_subject: payload.email_subject,
+          email_message_id: payload.email_message_id ?? null,
+          ai_confidence: payload.ai_confidence ?? null,
+          suggested_prs: suggestedPrsCreated,
+          client_items_count: clientItems.length,
+        },
+        email_message_id: payload.email_message_id ?? null,
+      },
+    })
+
+    // 6. Notify admins/managers
+    const recipients = await tx.user.findMany({
+      where: { role: { in: ['ADMIN', 'MANAGER'] } },
+      select: { id: true },
+    })
+
+    if (recipients.length > 0) {
+      await tx.notification.createMany({
+        data: recipients.map((r) => ({
+          user_id: r.id,
+          title: `Nuova commessa da email: ${comCode}`,
+          body: `L'AI ha creato la commessa ${comCode} dall'ordine cliente di ${payload.email_from}. ${suggestedPrsCreated} richieste suggerite create.`,
+          type: NOTIFICATION_TYPES.COMMESSA_CREATED,
+          link: `/commesse/${commessa.id}`,
+        })),
+      })
+    }
+
+    return {
+      commessa_id: commessa.id,
+      commessa_code: commessa.code,
+      suggested_prs_created: suggestedPrsCreated,
+      timeline_event_id: timelineEvent.id,
+    }
+  })
+
+  return {
+    action: 'create_commessa',
+    commessa_id: result.commessa_id,
+    commessa_code: result.commessa_code,
+    suggested_prs_created: result.suggested_prs_created,
+    timeline_event_id: result.timeline_event_id,
     ai_confidence: payload.ai_confidence ?? null,
     deduplicated: false,
   }

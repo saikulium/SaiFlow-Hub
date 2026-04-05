@@ -8,6 +8,8 @@ export type ModuleId =
   | 'inventory'
   | 'chatbot'
   | 'smartfill'
+  | 'commesse'
+  | 'articles'
 
 export interface ModuleDefinition {
   readonly id: ModuleId
@@ -127,6 +129,29 @@ export const MODULE_REGISTRY: ReadonlyMap<ModuleId, ModuleDefinition> = new Map(
         navPaths: [],
         dashboardTabs: [],
         apiPrefixes: ['/api/requests/suggest'],
+      },
+    ],
+    [
+      'commesse',
+      {
+        id: 'commesse',
+        label: 'Commesse',
+        description:
+          'Gestione commesse cliente, tracciamento margine, suggerimenti AI',
+        navPaths: ['/commesse', '/clients'],
+        dashboardTabs: ['commesse'],
+        apiPrefixes: ['/api/commesse', '/api/clients'],
+      },
+    ],
+    [
+      'articles',
+      {
+        id: 'articles',
+        label: 'Anagrafica Articoli',
+        description: 'Codici interni, alias fornitori/clienti, cross-reference',
+        navPaths: ['/articles'],
+        dashboardTabs: [],
+        apiPrefixes: ['/api/articles'],
       },
     ],
   ],

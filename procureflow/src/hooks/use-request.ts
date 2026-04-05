@@ -92,6 +92,11 @@ export interface RequestDetail {
     name: string
     code: string
   } | null
+  commessa: {
+    id: string
+    code: string
+    title: string
+  } | null
   requester: {
     id: string
     name: string

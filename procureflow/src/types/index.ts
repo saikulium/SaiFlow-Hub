@@ -518,4 +518,194 @@ export interface InventoryDashboardStats {
   }>
 }
 
+// --- Commessa Types ---
+
+export interface ClientListItem {
+  readonly id: string
+  readonly code: string
+  readonly name: string
+  readonly tax_id: string | null
+  readonly email: string | null
+  readonly phone: string | null
+  readonly contact_person: string | null
+  readonly status: string
+  readonly activeCommesseCount: number
+}
+
+export interface ClientDetail extends ClientListItem {
+  readonly address: string | null
+  readonly notes: string | null
+  readonly created_at: string
+  readonly commesse: readonly {
+    readonly id: string
+    readonly code: string
+    readonly title: string
+    readonly status: string
+    readonly clientValue: number | null
+    readonly deadline: string | null
+  }[]
+}
+
+export interface CommessaListItem {
+  readonly id: string
+  readonly code: string
+  readonly title: string
+  readonly status: string
+  readonly clientName: string
+  readonly clientCode: string
+  readonly clientValue: number | null
+  readonly totalCosts: number
+  readonly margin: number | null
+  readonly marginPercent: number | null
+  readonly deadline: string | null
+  readonly priority: string
+  readonly requestsCount: number
+  readonly suggestionsCount: number
+  readonly createdAt: string
+}
+
+export interface CommessaDetail extends CommessaListItem {
+  readonly description: string | null
+  readonly clientId: string
+  readonly currency: string
+  readonly receivedAt: string | null
+  readonly completedAt: string | null
+  readonly category: string | null
+  readonly department: string | null
+  readonly tags: string[]
+  readonly assignedTo: string | null
+  readonly emailMessageId: string | null
+  readonly requests: CommessaRequestItem[]
+  readonly suggestions: CommessaRequestItem[]
+  readonly timeline: CommessaTimelineItem[]
+}
+
+export interface CommessaRequestItem {
+  readonly id: string
+  readonly code: string
+  readonly title: string
+  readonly status: string
+  readonly priority: string
+  readonly estimatedAmount: number | null
+  readonly actualAmount: number | null
+  readonly vendorName: string | null
+  readonly isAiSuggested: boolean
+}
+
+export interface CommessaTimelineItem {
+  readonly id: string
+  readonly type: string
+  readonly title: string
+  readonly description: string | null
+  readonly metadata: Record<string, unknown> | null
+  readonly actor: string | null
+  readonly createdAt: string
+}
+
+export interface CommessaDashboardStats {
+  readonly activeCount: number
+  readonly totalValueInProgress: number
+  readonly avgMarginPercent: number
+  readonly dueSoonCount: number
+  readonly topCommesse: readonly {
+    readonly code: string
+    readonly title: string
+    readonly clientName: string
+    readonly deadline: string | null
+    readonly marginPercent: number | null
+    readonly status: string
+  }[]
+}
+
+// --- Anagrafica Articoli ---
+
+import type { AliasTypeKey, PriceSourceKey } from '@/lib/constants/article'
+
+export interface ArticleListItem {
+  readonly id: string
+  readonly code: string
+  readonly name: string
+  readonly category: string | null
+  readonly unit_of_measure: string
+  readonly manufacturer: string | null
+  readonly is_active: boolean
+  readonly created_at: string
+  readonly _count: {
+    readonly aliases: number
+    readonly prices: number
+  }
+}
+
+export interface ArticleAlias {
+  readonly id: string
+  readonly alias_type: AliasTypeKey
+  readonly alias_code: string
+  readonly alias_label: string | null
+  readonly entity_id: string | null
+  readonly is_primary: boolean
+  readonly created_at: string
+}
+
+export interface ArticlePrice {
+  readonly id: string
+  readonly vendor_id: string
+  readonly vendor: { readonly id: string; readonly name: string }
+  readonly unit_price: number
+  readonly currency: string
+  readonly min_quantity: number
+  readonly valid_from: string
+  readonly valid_until: string | null
+  readonly source: PriceSourceKey
+  readonly notes: string | null
+  readonly created_at: string
+}
+
+export interface ArticleDetail {
+  readonly id: string
+  readonly code: string
+  readonly name: string
+  readonly description: string | null
+  readonly category: string | null
+  readonly unit_of_measure: string
+  readonly manufacturer: string | null
+  readonly manufacturer_code: string | null
+  readonly is_active: boolean
+  readonly notes: string | null
+  readonly tags: readonly string[]
+  readonly created_at: string
+  readonly updated_at: string
+  readonly aliases: readonly ArticleAlias[]
+  readonly prices: readonly ArticlePrice[]
+  readonly _count: {
+    readonly aliases: number
+    readonly prices: number
+    readonly request_items: number
+    readonly invoice_items: number
+    readonly materials: number
+  }
+}
+
+export interface ArticleSearchResult {
+  readonly id: string
+  readonly code: string
+  readonly name: string
+  readonly category: string | null
+  readonly unit_of_measure: string
+  readonly matched_via: string
+  readonly matched_value: string
+}
+
+export interface ArticleImportResult {
+  readonly articles_created: number
+  readonly aliases_created: number
+  readonly skipped: number
+  readonly errors: readonly ArticleImportError[]
+}
+
+export interface ArticleImportError {
+  readonly row: number
+  readonly field: string
+  readonly message: string
+}
+
 export * from './ai'

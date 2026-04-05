@@ -16,6 +16,7 @@ export const NOTIFICATION_TYPES = {
   BUDGET_WARNING: 'budget_warning',
   BUDGET_EXCEEDED: 'budget_exceeded',
   BUDGET_FORECAST_ALERT: 'budget_forecast_alert',
+  COMMESSA_CREATED: 'commessa_created',
 } as const
 
 export type NotificationType =

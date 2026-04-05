@@ -90,9 +90,15 @@ export async function POST(req: NextRequest) {
     // --- Processing ---
     const result = await processEmailIngestion(parsed.data)
 
-    console.log(
-      `[email-ingestion] Risultato: action=${result.action} request=${result.request_code} items=${result.items_created} status_updated=${result.status_updated} confidence=${result.ai_confidence}`,
-    )
+    if (result.action === 'create_commessa') {
+      console.log(
+        `[email-ingestion] Risultato: action=${result.action} commessa=${result.commessa_code} suggested_prs=${result.suggested_prs_created} confidence=${result.ai_confidence}`,
+      )
+    } else {
+      console.log(
+        `[email-ingestion] Risultato: action=${result.action} request=${result.request_code} items=${result.items_created} status_updated=${result.status_updated} confidence=${result.ai_confidence}`,
+      )
+    }
 
     const responseData = { success: true, data: result }
 
