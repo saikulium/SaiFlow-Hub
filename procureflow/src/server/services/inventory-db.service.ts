@@ -12,10 +12,7 @@ import {
   computeWeightedAverageCost,
   computeStockLevel,
 } from '@/server/services/inventory.service'
-import type {
-  StockByWarehouse,
-  InventoryDashboardStats,
-} from '@/types'
+import type { StockByWarehouse, InventoryDashboardStats } from '@/types'
 
 // ---------------------------------------------------------------------------
 // Code generators
@@ -31,9 +28,7 @@ export async function getNextMaterialCode(prefix: string): Promise<string> {
     select: { code: true },
   })
 
-  const nextSeq = latest
-    ? Number(latest.code.replace(pattern, '')) + 1
-    : 1
+  const nextSeq = latest ? Number(latest.code.replace(pattern, '')) + 1 : 1
 
   return generateMaterialCode(safePrefix, nextSeq)
 }
@@ -65,9 +60,7 @@ export async function getNextMovementCode(): Promise<string> {
     select: { code: true },
   })
 
-  const nextSeq = latest
-    ? Number(latest.code.replace(pattern, '')) + 1
-    : 1
+  const nextSeq = latest ? Number(latest.code.replace(pattern, '')) + 1 : 1
 
   return generateMovementCode(year, nextSeq)
 }
@@ -82,9 +75,7 @@ export async function getNextInventoryCode(): Promise<string> {
     select: { code: true },
   })
 
-  const nextSeq = latest
-    ? Number(latest.code.replace(pattern, '')) + 1
-    : 1
+  const nextSeq = latest ? Number(latest.code.replace(pattern, '')) + 1 : 1
 
   return generateInventoryCode(year, nextSeq)
 }
@@ -138,7 +129,9 @@ export async function recordInboundMovement(data: InboundMovementInput) {
         warehouse_id: data.warehouse_id,
         zone_id: data.zone_id ?? null,
         movement_type: 'INBOUND',
-        reason: data.reason as Prisma.EnumMovementReasonFieldUpdateOperationsInput['set'] & string,
+        reason:
+          data.reason as Prisma.EnumMovementReasonFieldUpdateOperationsInput['set'] &
+            string,
         quantity: data.quantity,
         quantity_secondary: data.quantity_secondary ?? null,
         unit_cost: data.unit_cost,
@@ -240,7 +233,9 @@ export async function recordOutboundMovement(data: OutboundMovementInput) {
         warehouse_id: data.warehouse_id,
         zone_id: data.zone_id ?? null,
         movement_type: 'OUTBOUND',
-        reason: data.reason as Prisma.EnumMovementReasonFieldUpdateOperationsInput['set'] & string,
+        reason:
+          data.reason as Prisma.EnumMovementReasonFieldUpdateOperationsInput['set'] &
+            string,
         quantity: -data.quantity,
         quantity_secondary: data.quantity_secondary
           ? -data.quantity_secondary
@@ -295,13 +290,16 @@ export async function getStockLevels(materialId: string) {
   const stockLevel = computeStockLevel(physical, reserved, minLevel)
 
   // Group by warehouse
-  const warehouseMap = new Map<string, {
-    id: string
-    name: string
-    physical: number
-    reserved: number
-    zones: Map<string, { id: string; name: string; physical: number }>
-  }>()
+  const warehouseMap = new Map<
+    string,
+    {
+      id: string
+      name: string
+      physical: number
+      reserved: number
+      zones: Map<string, { id: string; name: string; physical: number }>
+    }
+  >()
 
   for (const lot of lots) {
     const whId = lot.warehouse.id
@@ -402,7 +400,6 @@ export async function getSuggestedInbounds() {
 export async function getInventoryDashboardStats(): Promise<InventoryDashboardStats> {
   const now = new Date()
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
   // Run queries in parallel
   const [
@@ -477,7 +474,10 @@ export async function getInventoryDashboardStats(): Promise<InventoryDashboardSt
   const topAlerts = lowStockAlerts.slice(0, 5)
 
   const valueByCategory = Array.from(categoryValueMap.entries())
-    .map(([category, value]) => ({ category, value: Math.round(value * 100) / 100 }))
+    .map(([category, value]) => ({
+      category,
+      value: Math.round(value * 100) / 100,
+    }))
     .sort((a, b) => b.value - a.value)
 
   // Movement trend: last 6 months
@@ -507,17 +507,20 @@ export async function getInventoryDashboardStats(): Promise<InventoryDashboardSt
     }
   }
 
-  const movementTrend = Array.from(trendMap.entries()).map(([period, data]) => ({
-    period,
-    inbound: data.inbound,
-    outbound: data.outbound,
-  }))
+  const movementTrend = Array.from(trendMap.entries()).map(
+    ([period, data]) => ({
+      period,
+      inbound: data.inbound,
+      outbound: data.outbound,
+    }),
+  )
 
   // Approximate previous low stock count using 30-day-ago logic
   // (simplified: use current count as rough comparison base)
-  const lowStockCountPrevious = Math.max(0, previousLowStockCount > 0
-    ? Math.round(lowStockCount * 0.9)
-    : 0)
+  const lowStockCountPrevious = Math.max(
+    0,
+    previousLowStockCount > 0 ? Math.round(lowStockCount * 0.9) : 0,
+  )
 
   return {
     totalMaterials,
