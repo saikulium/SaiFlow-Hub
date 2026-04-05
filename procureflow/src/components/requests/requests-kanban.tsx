@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { REQUEST_STATUS_CONFIG, type RequestStatusKey } from '@/lib/constants'
@@ -43,7 +43,10 @@ interface KanbanCardProps {
   index: number
 }
 
-function KanbanCard({ request, index }: KanbanCardProps) {
+const KanbanCard = memo(function KanbanCard({
+  request,
+  index,
+}: KanbanCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -75,7 +78,7 @@ function KanbanCard({ request, index }: KanbanCardProps) {
       </Link>
     </motion.div>
   )
-}
+})
 
 function KanbanColumnSkeleton() {
   return (

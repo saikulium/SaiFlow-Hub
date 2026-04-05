@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import {
   Bell,
   MessageSquare,
@@ -30,7 +31,7 @@ interface NotificationItemProps {
   onClick: () => void
 }
 
-export function NotificationItemRow({
+export const NotificationItemRow = memo(function NotificationItemRow({
   notification,
   onClick,
 }: NotificationItemProps) {
@@ -74,4 +75,4 @@ export function NotificationItemRow({
       </div>
     </button>
   )
-}
+})

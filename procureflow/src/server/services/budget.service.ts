@@ -254,6 +254,7 @@ export async function checkBudgetCapacity(
       period_start: { lte: now },
       period_end: { gte: now },
     },
+    select: { id: true },
   })
 
   const capacities = await Promise.all(
@@ -318,6 +319,7 @@ export async function getBudgetDashboardStats(): Promise<BudgetDashboardStats> {
       period_start: { lte: now },
       period_end: { gte: now },
     },
+    select: { id: true },
   })
 
   const items: BudgetDashboardItem[] = await Promise.all(

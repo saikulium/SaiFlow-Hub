@@ -34,6 +34,15 @@ export async function GET(req: NextRequest) {
       orderBy: { created_at: 'desc' },
       skip: (page - 1) * pageSize,
       take: pageSize,
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        type: true,
+        link: true,
+        read: true,
+        created_at: true,
+      },
     })
     const total = await prisma.notification.count({ where })
     const unreadCount = await prisma.notification.count({

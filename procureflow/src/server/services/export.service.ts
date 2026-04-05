@@ -155,6 +155,18 @@ export async function fetchEntityData(
 async function fetchVendors(): Promise<readonly Record<string, unknown>[]> {
   const vendors = await prisma.vendor.findMany({
     orderBy: { code: 'asc' },
+    select: {
+      code: true,
+      name: true,
+      email: true,
+      phone: true,
+      website: true,
+      category: true,
+      payment_terms: true,
+      rating: true,
+      status: true,
+      notes: true,
+    },
   })
   return Object.freeze(
     vendors.map((v) =>

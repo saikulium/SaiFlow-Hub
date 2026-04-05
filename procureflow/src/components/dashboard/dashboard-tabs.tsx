@@ -12,22 +12,83 @@ import {
 import { cn } from '@/lib/utils'
 import { useModules } from '@/hooks/use-modules'
 import { filterDashboardTabs } from '@/lib/modules/helpers'
+import dynamic from 'next/dynamic'
 import { RecentRequestsList } from './recent-requests-list'
 import { QuickActions } from './quick-actions'
 import { DeliveryTimeline } from './delivery-timeline'
-import { MonthlySpendTrendChart } from './monthly-spend-trend-chart'
-import { StatusDistributionChart } from './status-distribution-chart'
 import { InvoiceStatsRow } from './invoice-stats-row'
-import { MatchStatusChart } from './match-status-chart'
-import { InvoiceAgingChart } from './invoice-aging-chart'
-import { OrderedVsInvoicedChart } from './ordered-vs-invoiced-chart'
-import { BudgetOverview } from './budget-overview'
-import { TenderPipelineChart } from './tender-pipeline-chart'
-import { InventoryOverviewChart } from './inventory-overview-chart'
-import { SpendByVendorChart } from './spend-by-vendor-chart'
-import { RequestsTrendChart } from './requests-trend-chart'
 import { RoiSummaryMini } from '@/components/analytics/roi-summary-cards'
 import { InsightCards } from './insight-cards'
+
+// Lazy-load chart components (Recharts ~150KB) — loaded only when tab is active
+const MonthlySpendTrendChart = dynamic(
+  () =>
+    import('./monthly-spend-trend-chart').then((m) => ({
+      default: m.MonthlySpendTrendChart,
+    })),
+  { ssr: false },
+)
+const StatusDistributionChart = dynamic(
+  () =>
+    import('./status-distribution-chart').then((m) => ({
+      default: m.StatusDistributionChart,
+    })),
+  { ssr: false },
+)
+const MatchStatusChart = dynamic(
+  () =>
+    import('./match-status-chart').then((m) => ({
+      default: m.MatchStatusChart,
+    })),
+  { ssr: false },
+)
+const InvoiceAgingChart = dynamic(
+  () =>
+    import('./invoice-aging-chart').then((m) => ({
+      default: m.InvoiceAgingChart,
+    })),
+  { ssr: false },
+)
+const OrderedVsInvoicedChart = dynamic(
+  () =>
+    import('./ordered-vs-invoiced-chart').then((m) => ({
+      default: m.OrderedVsInvoicedChart,
+    })),
+  { ssr: false },
+)
+const BudgetOverview = dynamic(
+  () =>
+    import('./budget-overview').then((m) => ({ default: m.BudgetOverview })),
+  { ssr: false },
+)
+const TenderPipelineChart = dynamic(
+  () =>
+    import('./tender-pipeline-chart').then((m) => ({
+      default: m.TenderPipelineChart,
+    })),
+  { ssr: false },
+)
+const InventoryOverviewChart = dynamic(
+  () =>
+    import('./inventory-overview-chart').then((m) => ({
+      default: m.InventoryOverviewChart,
+    })),
+  { ssr: false },
+)
+const SpendByVendorChart = dynamic(
+  () =>
+    import('./spend-by-vendor-chart').then((m) => ({
+      default: m.SpendByVendorChart,
+    })),
+  { ssr: false },
+)
+const RequestsTrendChart = dynamic(
+  () =>
+    import('./requests-trend-chart').then((m) => ({
+      default: m.RequestsTrendChart,
+    })),
+  { ssr: false },
+)
 import type {
   RecentRequest,
   DeliveryItem,
