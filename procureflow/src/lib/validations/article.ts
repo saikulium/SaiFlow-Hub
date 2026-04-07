@@ -6,7 +6,10 @@ export const createArticleSchema = z.object({
   name: z.string().min(1, 'Nome obbligatorio').max(200, 'Max 200 caratteri'),
   description: z.string().max(2000).optional(),
   category: z.string().max(100).optional(),
-  unit_of_measure: z.string().min(1, 'UM obbligatoria').max(10, 'Max 10 caratteri'),
+  unit_of_measure: z
+    .string()
+    .min(1, 'UM obbligatoria')
+    .max(10, 'Max 10 caratteri'),
   manufacturer: z.string().max(200).optional(),
   manufacturer_code: z.string().max(100).optional(),
   notes: z.string().max(2000).optional(),
@@ -15,13 +18,19 @@ export const createArticleSchema = z.object({
     .array(
       z.object({
         alias_type: z.enum(['VENDOR', 'CLIENT', 'STANDARD']),
-        alias_code: z.string().min(1).max(100).transform((v) => v.toUpperCase()),
+        alias_code: z
+          .string()
+          .min(1)
+          .max(100)
+          .transform((v) => v.toUpperCase()),
         alias_label: z.string().max(200).optional(),
         entity_id: z.string().optional(),
         is_primary: z.boolean().default(false),
       }),
     )
     .default([]),
+  // Inventory toggle — auto-creates linked Material
+  manage_inventory: z.boolean().default(false),
 })
 
 export const updateArticleSchema = createArticleSchema.partial().extend({
@@ -37,7 +46,9 @@ export const articleQuerySchema = z.object({
     .string()
     .transform((v) => v === 'true')
     .optional(),
-  sort: z.string().default('created_at'),
+  sort: z
+    .enum(['created_at', 'name', 'code', 'category', 'updated_at'])
+    .default('created_at'),
   order: z.enum(['asc', 'desc']).default('desc'),
 })
 
@@ -45,7 +56,11 @@ export const articleQuerySchema = z.object({
 
 export const createAliasSchema = z.object({
   alias_type: z.enum(['VENDOR', 'CLIENT', 'STANDARD']),
-  alias_code: z.string().min(1, 'Codice obbligatorio').max(100).transform((v) => v.toUpperCase()),
+  alias_code: z
+    .string()
+    .min(1, 'Codice obbligatorio')
+    .max(100)
+    .transform((v) => v.toUpperCase()),
   alias_label: z.string().max(200).optional(),
   entity_id: z.string().optional(),
   is_primary: z.boolean().default(false),
@@ -73,17 +88,26 @@ export const articleSearchSchema = z.object({
 
 // --- CSV Import ---
 
+/** Transform empty strings to undefined so optional fields pass validation */
+const emptyToUndefined = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().optional(),
+)
+
 export const csvRowSchema = z.object({
   codice_interno: z.string().min(1),
   nome: z.string().min(1),
-  categoria: z.string().optional(),
+  categoria: emptyToUndefined,
   um: z.string().min(1),
-  produttore: z.string().optional(),
-  codice_produttore: z.string().optional(),
-  tipo_alias: z.enum(['vendor', 'client', 'standard']).optional(),
-  codice_alias: z.string().optional(),
-  entita: z.string().optional(),
-  note_alias: z.string().optional(),
+  produttore: emptyToUndefined,
+  codice_produttore: emptyToUndefined,
+  tipo_alias: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.enum(['vendor', 'client', 'standard']).optional(),
+  ),
+  codice_alias: emptyToUndefined,
+  entita: emptyToUndefined,
+  note_alias: emptyToUndefined,
 })
 
 // --- Type exports ---

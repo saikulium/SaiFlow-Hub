@@ -73,7 +73,17 @@ export const requestQuerySchema = z.object({
   priority: z.string().optional(),
   vendor_id: z.string().optional(),
   search: z.string().optional(),
-  sort: z.string().default('created_at'),
+  sort: z
+    .enum([
+      'created_at',
+      'updated_at',
+      'title',
+      'code',
+      'priority',
+      'status',
+      'needed_by',
+    ])
+    .default('created_at'),
   order: z.enum(['asc', 'desc']).default('desc'),
 })
 
