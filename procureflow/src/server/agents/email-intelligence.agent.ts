@@ -1,4 +1,3 @@
-import type Anthropic from '@anthropic-ai/sdk'
 import { getClaudeClient } from '@/lib/ai/claude-client'
 import { MODELS } from '@/lib/ai/models'
 import {
@@ -6,10 +5,10 @@ import {
   getRequestDetailTool,
   searchVendorsTool,
 } from '@/server/agents/tools/procurement.tools'
-import type { ZodTool } from '@/server/agents/tools/procurement.tools'
 import { NOTIFICATION_TOOLS } from '@/server/agents/tools/notification.tools'
 import { COMMESSA_TOOLS } from '@/server/agents/tools/commessa.tools'
 import type { RawEmailData } from '@/server/services/email-ai-classifier.service'
+import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
 
 // ---------------------------------------------------------------------------
 // Email Intelligence Agent — Multi-step email processing with tools
@@ -21,7 +20,7 @@ import type { RawEmailData } from '@/server/services/email-ai-classifier.service
 // ---------------------------------------------------------------------------
 
 const AGENT_MODEL = MODELS.SONNET
-const MAX_TOOL_ROUNDS = 10
+const MAX_ITERATIONS = 10
 const MAX_TOKENS = 4096
 
 // ---------------------------------------------------------------------------
@@ -75,49 +74,14 @@ export interface EmailProcessingResult {
  * Combine all tools available to the email agent.
  * READ tools from procurement + notification tools + commessa tools.
  */
-function getEmailAgentTools(): readonly ZodTool[] {
+function getEmailAgentTools(): readonly BetaRunnableTool<any>[] {
   return [
     searchRequestsTool,
     getRequestDetailTool,
     searchVendorsTool,
     ...NOTIFICATION_TOOLS,
     ...COMMESSA_TOOLS,
-  ] as readonly ZodTool[]
-}
-
-/**
- * Convert ZodTool[] to the Anthropic beta tool format for the API.
- */
-function toBetaTools(tools: readonly ZodTool[]): Anthropic.Beta.BetaTool[] {
-  return tools.map((t) => ({
-    type: 'custom' as const,
-    name: t.name,
-    description: t.description,
-    input_schema: t.input_schema,
-  }))
-}
-
-/**
- * Find a runnable tool by name and execute it with Zod-validated input.
- */
-async function executeTool(
-  tools: readonly ZodTool[],
-  toolName: string,
-  rawInput: unknown,
-): Promise<string> {
-  const tool = tools.find((t) => t.name === toolName)
-  if (!tool) {
-    return JSON.stringify({ error: `Tool sconosciuto: ${toolName}` })
-  }
-  try {
-    const parsed = tool.parse(rawInput)
-    const result = await tool.run(parsed)
-    return typeof result === 'string' ? result : JSON.stringify(result)
-  } catch (err) {
-    return JSON.stringify({
-      error: `Errore nell'esecuzione del tool: ${String(err)}`,
-    })
-  }
+  ] as readonly BetaRunnableTool<any>[]
 }
 
 /**
@@ -202,90 +166,52 @@ export async function processEmail(
   email: RawEmailData,
 ): Promise<EmailProcessingResult> {
   const tools = getEmailAgentTools()
-  const betaTools = toBetaTools(tools)
   const client = getClaudeClient()
 
   const emailContent = formatEmailContent(email)
-  const actionsLog: string[] = []
+  const toolCalls: string[] = []
 
-  // Build initial conversation
-  let conversationMessages: Anthropic.Beta.BetaMessageParam[] = [
-    {
-      role: 'user' as const,
-      content: `Analizza e processa questa email commerciale:\n\n--- EMAIL ---\n${emailContent}\n--- FINE EMAIL ---\n\nEsegui tutte le azioni necessarie usando i tool disponibili, poi concludi con il riepilogo JSON.`,
-    },
-  ]
+  try {
+    const runner = client.beta.messages.toolRunner({
+      model: AGENT_MODEL,
+      system: EMAIL_AGENT_SYSTEM_PROMPT,
+      max_tokens: MAX_TOKENS,
+      max_iterations: MAX_ITERATIONS,
+      tools: [...tools],
+      messages: [
+        {
+          role: 'user' as const,
+          content: `Analizza e processa questa email commerciale:\n\n--- EMAIL ---\n${emailContent}\n--- FINE EMAIL ---\n\nEsegui tutte le azioni necessarie usando i tool disponibili, poi concludi con il riepilogo JSON.`,
+        },
+      ],
+    })
 
-  let lastTextContent = ''
+    let lastTextContent = ''
 
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    let response: Anthropic.Beta.BetaMessage
-
-    try {
-      response = await client.beta.messages.create({
-        model: AGENT_MODEL,
-        system: EMAIL_AGENT_SYSTEM_PROMPT,
-        messages: conversationMessages,
-        max_tokens: MAX_TOKENS,
-        tools: betaTools,
-      })
-    } catch (err) {
-      return {
-        intent: 'ALTRO',
-        actions_taken: actionsLog,
-        needs_review: true,
-        summary: `Errore nella chiamata AI: ${String(err)}`,
+    for await (const message of runner) {
+      for (const block of message.content) {
+        if (block.type === 'text') {
+          lastTextContent = block.text
+        } else if (block.type === 'tool_use') {
+          toolCalls.push(`${block.name}: completato`)
+        }
       }
     }
 
-    const toolResults: Anthropic.Beta.BetaToolResultBlockParam[] = []
-    let hasToolUse = false
-
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        lastTextContent = block.text
-      } else if (block.type === 'tool_use') {
-        hasToolUse = true
-        const toolName = block.name
-        const toolInput = block.input
-
-        const toolResult = await executeTool(tools, toolName, toolInput)
-        actionsLog.push(`${toolName}: completato`)
-
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
-          content: toolResult,
-        })
-      }
+    const parsed = parseAgentResult(lastTextContent)
+    return {
+      ...parsed,
+      actions_taken: [
+        ...toolCalls,
+        ...parsed.actions_taken,
+      ],
     }
-
-    // No tool calls means the model finished its response
-    if (!hasToolUse) {
-      const parsed = parseAgentResult(lastTextContent)
-      return {
-        ...parsed,
-        actions_taken: [
-          ...actionsLog,
-          ...parsed.actions_taken,
-        ],
-      }
+  } catch (err) {
+    return {
+      intent: 'ALTRO',
+      actions_taken: toolCalls,
+      needs_review: true,
+      summary: `Errore nella chiamata AI: ${String(err)}`,
     }
-
-    // Feed tool results back for the next round
-    conversationMessages = [
-      ...conversationMessages,
-      { role: 'assistant' as const, content: response.content },
-      { role: 'user' as const, content: toolResults },
-    ]
-  }
-
-  // Max rounds reached — return what we have
-  const parsed = parseAgentResult(lastTextContent)
-  return {
-    ...parsed,
-    actions_taken: actionsLog,
-    needs_review: true,
-    summary: `${parsed.summary} (limite iterazioni raggiunto)`,
   }
 }

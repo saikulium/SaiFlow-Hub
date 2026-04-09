@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       file.name.endsWith('.xls')
 
     const message = isExcel
-      ? 'Converti il file in CSV prima dell\'importazione'
+      ? "Converti il file in CSV prima dell'importazione"
       : `Tipo file non supportato: ${mimeType}. Formati accettati: CSV, testo semplice`
 
     return NextResponse.json(
@@ -88,10 +88,11 @@ export async function POST(request: Request) {
     )
   }
 
-  // Read file content as text
-  let fileText: string
+  // Read file content as Buffer for the Files API
+  let fileBuffer: Buffer
   try {
-    fileText = await file.text()
+    const arrayBuffer = await file.arrayBuffer()
+    fileBuffer = Buffer.from(arrayBuffer)
   } catch {
     return NextResponse.json(
       {
@@ -105,7 +106,7 @@ export async function POST(request: Request) {
     )
   }
 
-  if (fileText.trim().length === 0) {
+  if (fileBuffer.length === 0) {
     return NextResponse.json(
       {
         success: false,
@@ -119,7 +120,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await processVendorImport(fileText, file.name)
+    const result = await processVendorImport(fileBuffer, file.name, mimeType)
 
     return NextResponse.json({
       success: true,

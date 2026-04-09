@@ -1,4 +1,9 @@
-import { callClaude, extractJsonFromAiResponse } from '@/lib/ai/claude-client'
+import { toFile } from '@anthropic-ai/sdk'
+import type Anthropic from '@anthropic-ai/sdk'
+import {
+  getClaudeClient,
+  extractJsonFromAiResponse,
+} from '@/lib/ai/claude-client'
 import { MODELS } from '@/lib/ai/models'
 import {
   VendorBatchSchema,
@@ -12,10 +17,13 @@ import { prisma } from '@/lib/db'
 // Single-call agent (like tender-analysis): the model receives the raw file
 // content and returns a structured JSON array of normalised vendor records.
 // No tools — just structured JSON output from the model.
+//
+// Uses the Anthropic Files API for large files to avoid context overflow.
 // ---------------------------------------------------------------------------
 
 const MAX_TOKENS = 8192
 const MIN_CONFIDENCE = 0.5
+const FILES_API_BETA = 'files-api-2025-04-14' as const
 
 // ---------------------------------------------------------------------------
 // System Prompt
@@ -58,12 +66,45 @@ export interface OnboardingSessionResult {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers — Files API
 // ---------------------------------------------------------------------------
 
-function buildUserMessage(fileContent: string, filename: string): string {
-  return `File: ${filename}\n\nContenuto:\n${fileContent}`
+/**
+ * Upload a file to the Anthropic Files API and return its file ID.
+ */
+async function uploadFile(
+  client: Anthropic,
+  fileBuffer: Buffer,
+  filename: string,
+  mimeType: string,
+): Promise<string> {
+  const file = await toFile(fileBuffer, filename, { type: mimeType })
+  const uploaded = await client.beta.files.upload({
+    file,
+    betas: [FILES_API_BETA],
+  })
+  return uploaded.id
 }
+
+/**
+ * Safely delete an uploaded file from the Anthropic Files API.
+ * Errors are logged but not re-thrown to avoid masking the primary result.
+ */
+async function deleteUploadedFile(
+  client: Anthropic,
+  fileId: string,
+): Promise<void> {
+  try {
+    await client.beta.files.delete(fileId, { betas: [FILES_API_BETA] })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.warn(`[onboarding] Failed to delete file ${fileId}: ${message}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers — Duplicate detection
+// ---------------------------------------------------------------------------
 
 /**
  * Check for an existing vendor by code or name (case-insensitive).
@@ -96,49 +137,18 @@ async function findDuplicateVendor(
 }
 
 // ---------------------------------------------------------------------------
-// Main function — processVendorImport
+// Helpers — Import vendors to DB
 // ---------------------------------------------------------------------------
 
 /**
- * Processes a CSV/text file of vendors using Claude to normalise and map
- * columns, then imports valid records into the database.
- *
- * This is a single-call agent (no tool loop): the model receives the raw
- * file content and returns structured JSON.
+ * Import parsed vendors into the database, skipping low-confidence
+ * and duplicate records. Returns import stats and warnings.
  */
-export async function processVendorImport(
-  fileContent: string,
-  filename: string,
-): Promise<OnboardingSessionResult> {
-  // 1. Call Claude with the file content
-  const response = await callClaude({
-    system: ONBOARDING_PROMPT,
-    messages: [{ role: 'user', content: buildUserMessage(fileContent, filename) }],
-    maxTokens: MAX_TOKENS,
-    model: MODELS.SONNET,
-  })
-
-  // 2. Extract text from response
-  const textBlock = response.content.find((block) => block.type === 'text')
-  if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('Nessuna risposta testuale dal modello AI')
-  }
-
-  // 3. Parse JSON with schema validation
-  const cleanedJson = extractJsonFromAiResponse(textBlock.text)
-
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(cleanedJson)
-  } catch {
-    throw new Error(
-      `Risposta AI non contiene JSON valido: ${textBlock.text.slice(0, 200)}`,
-    )
-  }
-
-  const vendors = VendorBatchSchema.parse(parsed)
-
-  // 4. Import vendors with confidence >= threshold
+async function importVendors(vendors: readonly VendorMapping[]): Promise<{
+  readonly vendorsImported: number
+  readonly vendorsSkipped: number
+  readonly warnings: readonly string[]
+}> {
   const warnings: string[] = []
   let vendorsImported = 0
   let vendorsSkipped = 0
@@ -189,11 +199,91 @@ export async function processVendorImport(
     }
   }
 
-  return {
-    vendors_parsed: vendors.length,
-    vendors_imported: vendorsImported,
-    vendors_skipped: vendorsSkipped,
-    warnings,
-    vendors,
+  return { vendorsImported, vendorsSkipped, warnings }
+}
+
+// ---------------------------------------------------------------------------
+// Main function — processVendorImport
+// ---------------------------------------------------------------------------
+
+/**
+ * Processes a CSV/text file of vendors using Claude to normalise and map
+ * columns, then imports valid records into the database.
+ *
+ * This is a single-call agent (no tool loop): the file is uploaded via the
+ * Anthropic Files API as a document block, and the model returns structured
+ * JSON. This avoids context overflow for large vendor lists (200+ rows).
+ */
+export async function processVendorImport(
+  fileBuffer: Buffer,
+  filename: string,
+  mimeType: string,
+): Promise<OnboardingSessionResult> {
+  const client = getClaudeClient()
+
+  // 1. Upload file via Files API
+  const uploadedFileId = await uploadFile(
+    client,
+    fileBuffer,
+    filename,
+    mimeType,
+  )
+
+  try {
+    // 2. Call Claude with the uploaded file as a document block
+    const content: Anthropic.Beta.Messages.BetaContentBlockParam[] = [
+      {
+        type: 'document',
+        source: { type: 'file', file_id: uploadedFileId },
+        title: filename,
+      } as Anthropic.Beta.Messages.BetaRequestDocumentBlock,
+      {
+        type: 'text',
+        text: 'Analizza questo file fornitori e mappa i dati. Rispondi SOLO con un array JSON.',
+      },
+    ]
+
+    const response = await client.beta.messages.create({
+      model: MODELS.SONNET,
+      system: ONBOARDING_PROMPT,
+      messages: [{ role: 'user', content }],
+      max_tokens: MAX_TOKENS,
+      betas: [FILES_API_BETA],
+    })
+
+    // 3. Extract text from response
+    const textBlock = response.content.find((block) => block.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') {
+      throw new Error('Nessuna risposta testuale dal modello AI')
+    }
+
+    // 4. Parse JSON with schema validation
+    const cleanedJson = extractJsonFromAiResponse(textBlock.text)
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(cleanedJson)
+    } catch {
+      throw new Error(
+        `Risposta AI non contiene JSON valido: ${textBlock.text.slice(0, 200)}`,
+      )
+    }
+
+    const vendors = VendorBatchSchema.parse(parsed)
+
+    // 5. Import vendors with confidence >= threshold
+    const { vendorsImported, vendorsSkipped, warnings } =
+      await importVendors(vendors)
+
+    return {
+      vendors_parsed: vendors.length,
+      vendors_imported: vendorsImported,
+      vendors_skipped: vendorsSkipped,
+      warnings,
+      vendors,
+    }
+  } finally {
+    // 6. Clean up uploaded file regardless of success/failure
+    await deleteUploadedFile(client, uploadedFileId)
   }
 }

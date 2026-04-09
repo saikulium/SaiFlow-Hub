@@ -1,4 +1,3 @@
-import type Anthropic from '@anthropic-ai/sdk'
 import { getClaudeClient } from '@/lib/ai/claude-client'
 import { MODELS } from '@/lib/ai/models'
 import { prisma } from '@/lib/db'
@@ -8,9 +7,9 @@ import {
   getBudgetOverviewTool,
   searchInvoicesTool,
 } from '@/server/agents/tools/procurement.tools'
-import type { ZodTool } from '@/server/agents/tools/procurement.tools'
 import { NOTIFICATION_TOOLS } from '@/server/agents/tools/notification.tools'
 import type { ComplianceAlert } from '@/lib/ai/schemas/compliance-check.schema'
+import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
 
 // ---------------------------------------------------------------------------
 // Compliance Monitor Agent — Daily compliance checks
@@ -25,7 +24,7 @@ import type { ComplianceAlert } from '@/lib/ai/schemas/compliance-check.schema'
 // ---------------------------------------------------------------------------
 
 const AGENT_MODEL = MODELS.SONNET
-const MAX_TOOL_ROUNDS = 12
+const MAX_ITERATIONS = 12
 const MAX_TOKENS = 4096
 
 const DEFAULT_TENANT = 'default'
@@ -217,43 +216,14 @@ async function fetchUnreconciledInvoices(): Promise<
 // Tool Helpers
 // ---------------------------------------------------------------------------
 
-function getComplianceAgentTools(): readonly ZodTool[] {
+function getComplianceAgentTools(): readonly BetaRunnableTool<any>[] {
   return [
     searchRequestsTool,
     getRequestDetailTool,
     getBudgetOverviewTool,
     searchInvoicesTool,
     ...NOTIFICATION_TOOLS,
-  ] as readonly ZodTool[]
-}
-
-function toBetaTools(tools: readonly ZodTool[]): Anthropic.Beta.BetaTool[] {
-  return tools.map((t) => ({
-    type: 'custom' as const,
-    name: t.name,
-    description: t.description,
-    input_schema: t.input_schema,
-  }))
-}
-
-async function executeTool(
-  tools: readonly ZodTool[],
-  toolName: string,
-  rawInput: unknown,
-): Promise<string> {
-  const tool = tools.find((t) => t.name === toolName)
-  if (!tool) {
-    return JSON.stringify({ error: `Tool sconosciuto: ${toolName}` })
-  }
-  try {
-    const parsed = tool.parse(rawInput)
-    const result = await tool.run(parsed)
-    return typeof result === 'string' ? result : JSON.stringify(result)
-  } catch (err) {
-    return JSON.stringify({
-      error: `Errore nell'esecuzione del tool: ${String(err)}`,
-    })
-  }
+  ] as readonly BetaRunnableTool<any>[]
 }
 
 // ---------------------------------------------------------------------------
@@ -394,7 +364,7 @@ function buildContextMessage(
  * The agent:
  * 1. Pre-fetches overdue orders, stale approvals, unreconciled invoices
  * 2. Injects pre-fetched data as context in the first message
- * 3. Uses tools (budget overview, notifications) in a manual tool loop
+ * 3. Uses toolRunner for automatic tool execution (budget overview, notifications)
  * 4. Returns alerts_found, notifications_sent, and summary
  */
 export async function runComplianceCheck(
@@ -409,7 +379,6 @@ export async function runComplianceCheck(
     ])
 
   const tools = getComplianceAgentTools()
-  const betaTools = toBetaTools(tools)
   const client = getClaudeClient()
 
   let notificationCount = 0
@@ -421,74 +390,39 @@ export async function runComplianceCheck(
     adminUserId,
   )
 
-  let conversationMessages: Anthropic.Beta.BetaMessageParam[] = [
-    { role: 'user' as const, content: contextMessage },
-  ]
+  try {
+    const runner = client.beta.messages.toolRunner({
+      model: AGENT_MODEL,
+      system: COMPLIANCE_SYSTEM_PROMPT,
+      max_tokens: MAX_TOKENS,
+      max_iterations: MAX_ITERATIONS,
+      tools: [...tools],
+      messages: [
+        { role: 'user' as const, content: contextMessage },
+      ],
+    })
 
-  let lastTextContent = ''
+    let lastTextContent = ''
 
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    let response: Anthropic.Beta.BetaMessage
-
-    try {
-      response = await client.beta.messages.create({
-        model: AGENT_MODEL,
-        system: COMPLIANCE_SYSTEM_PROMPT,
-        messages: conversationMessages,
-        max_tokens: MAX_TOKENS,
-        tools: betaTools,
-      })
-    } catch (err) {
-      return {
-        alerts_found: 0,
-        notifications_sent: notificationCount,
-        summary: `Errore nella chiamata AI: ${String(err)}`,
-        alerts: [],
-      }
-    }
-
-    const toolResults: Anthropic.Beta.BetaToolResultBlockParam[] = []
-    let hasToolUse = false
-
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        lastTextContent = block.text
-      } else if (block.type === 'tool_use') {
-        hasToolUse = true
-        const toolName = block.name
-        const toolInput = block.input
-
-        const toolResult = await executeTool(tools, toolName, toolInput)
-
-        if (toolName === 'create_notification') {
-          notificationCount += 1
+    for await (const message of runner) {
+      for (const block of message.content) {
+        if (block.type === 'text') {
+          lastTextContent = block.text
+        } else if (block.type === 'tool_use') {
+          if (block.name === 'create_notification') {
+            notificationCount += 1
+          }
         }
-
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
-          content: toolResult,
-        })
       }
     }
 
-    // No tool calls means the model finished its response
-    if (!hasToolUse) {
-      return parseAgentResult(lastTextContent, notificationCount)
+    return parseAgentResult(lastTextContent, notificationCount)
+  } catch (err) {
+    return {
+      alerts_found: 0,
+      notifications_sent: notificationCount,
+      summary: `Errore nella chiamata AI: ${String(err)}`,
+      alerts: [],
     }
-
-    // Feed tool results back for the next round
-    conversationMessages = [
-      ...conversationMessages,
-      { role: 'assistant' as const, content: response.content },
-      { role: 'user' as const, content: toolResults },
-    ]
-  }
-
-  // Max rounds reached
-  const parsed = parseAgentResult(lastTextContent, notificationCount)
-  return {
-    ...parsed,
-    summary: `${parsed.summary} (limite iterazioni raggiunto)`,
   }
 }

@@ -46,7 +46,7 @@ const mockPrisma = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
 }))
 
-const mockBetaMessagesCreate = vi.hoisted(() => vi.fn())
+const mockToolRunner = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
@@ -64,7 +64,7 @@ vi.mock('@/lib/ai/claude-client', () => ({
   getClaudeClient: () => ({
     beta: {
       messages: {
-        create: mockBetaMessagesCreate,
+        toolRunner: mockToolRunner,
       },
     },
   }),
@@ -89,6 +89,27 @@ vi.mock('@/lib/ai/prompts', () => ({
   COMPANY_CONTEXT: 'test-context',
   SAFETY_GUARDRAILS: 'test-guardrails',
 }))
+
+// ---------------------------------------------------------------------------
+// Helper: create async iterable from messages
+// ---------------------------------------------------------------------------
+
+function createMockRunner(messages: Array<{ content: Array<{ type: string; text?: string; name?: string; id?: string; input?: unknown }> }>) {
+  const iterator = {
+    [Symbol.asyncIterator]() {
+      let index = 0
+      return {
+        async next() {
+          if (index < messages.length) {
+            return { value: messages[index++], done: false }
+          }
+          return { value: undefined, done: true }
+        },
+      }
+    },
+  }
+  return iterator
+}
 
 // ---------------------------------------------------------------------------
 // Import after mocks
@@ -146,15 +167,18 @@ describe('runReorderAgent', () => {
   })
 
   it('returns result when agent completes without tool calls', async () => {
-    mockBetaMessagesCreate.mockResolvedValueOnce({
-      content: [
+    mockToolRunner.mockReturnValueOnce(
+      createMockRunner([
         {
-          type: 'text',
-          text: '{"drafts_created": 0, "alerts_processed": 0, "skipped_budget": 0, "summary": "Nessun alert attivo trovato."}',
+          content: [
+            {
+              type: 'text',
+              text: '{"drafts_created": 0, "alerts_processed": 0, "skipped_budget": 0, "summary": "Nessun alert attivo trovato."}',
+            },
+          ],
         },
-      ],
-      usage: { input_tokens: 50, output_tokens: 80 },
-    })
+      ]),
+    )
 
     const result: ReorderResult = await runReorderAgent('user-1')
 
@@ -165,7 +189,9 @@ describe('runReorderAgent', () => {
   })
 
   it('returns error result when API call fails', async () => {
-    mockBetaMessagesCreate.mockRejectedValueOnce(new Error('API down'))
+    mockToolRunner.mockImplementationOnce(() => {
+      throw new Error('API down')
+    })
 
     const result = await runReorderAgent('user-1')
 
@@ -173,54 +199,53 @@ describe('runReorderAgent', () => {
     expect(result.summary).toContain('Errore nella chiamata AI')
   })
 
-  it('executes tool calls and feeds results back', async () => {
-    // Round 1: model calls get_active_alerts
-    mockBetaMessagesCreate.mockResolvedValueOnce({
-      content: [
+  it('processes tool_use blocks from yielded messages', async () => {
+    mockToolRunner.mockReturnValueOnce(
+      createMockRunner([
         {
-          type: 'tool_use',
-          id: 'tu-1',
-          name: 'get_active_alerts',
-          input: {},
+          content: [
+            {
+              type: 'tool_use',
+              id: 'tu-1',
+              name: 'get_active_alerts',
+              input: {},
+            },
+          ],
         },
-      ],
-      usage: { input_tokens: 50, output_tokens: 30 },
-    })
-
-    // Mock prisma for get_active_alerts
-    mockPrisma.materialAlert.findMany.mockResolvedValueOnce([])
-
-    // Round 2: model produces final text
-    mockBetaMessagesCreate.mockResolvedValueOnce({
-      content: [
         {
-          type: 'text',
-          text: '{"drafts_created": 0, "alerts_processed": 0, "skipped_budget": 0, "summary": "Nessun alert da processare."}',
+          content: [
+            {
+              type: 'text',
+              text: '{"drafts_created": 0, "alerts_processed": 0, "skipped_budget": 0, "summary": "Nessun alert da processare."}',
+            },
+          ],
         },
-      ],
-      usage: { input_tokens: 100, output_tokens: 30 },
-    })
+      ]),
+    )
 
     const result = await runReorderAgent('user-1')
 
-    expect(mockBetaMessagesCreate).toHaveBeenCalledTimes(2)
+    expect(mockToolRunner).toHaveBeenCalledTimes(1)
     expect(result.summary).toBe('Nessun alert da processare.')
   })
 
   it('includes manager notification instruction when notifyManagerId is provided', async () => {
-    mockBetaMessagesCreate.mockResolvedValueOnce({
-      content: [
+    mockToolRunner.mockReturnValueOnce(
+      createMockRunner([
         {
-          type: 'text',
-          text: '{"drafts_created": 0, "alerts_processed": 0, "skipped_budget": 0, "summary": "Completato con notifica."}',
+          content: [
+            {
+              type: 'text',
+              text: '{"drafts_created": 0, "alerts_processed": 0, "skipped_budget": 0, "summary": "Completato con notifica."}',
+            },
+          ],
         },
-      ],
-      usage: { input_tokens: 50, output_tokens: 80 },
-    })
+      ]),
+    )
 
     await runReorderAgent('user-1', 'manager-1')
 
-    const callArgs = mockBetaMessagesCreate.mock.calls[0]![0]
+    const callArgs = mockToolRunner.mock.calls[0]![0]
     const userMessage = callArgs.messages[0]
     expect(userMessage.content).toContain('manager-1')
   })

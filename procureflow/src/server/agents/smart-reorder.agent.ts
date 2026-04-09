@@ -1,4 +1,4 @@
-import type Anthropic from '@anthropic-ai/sdk'
+import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { getClaudeClient } from '@/lib/ai/claude-client'
 import { MODELS } from '@/lib/ai/models'
 import {
@@ -6,12 +6,12 @@ import {
   getRequestDetailTool,
   searchVendorsTool,
   getBudgetOverviewTool,
-  createRequestTool,
+  createRequestInputSchema,
   executeWriteTool,
 } from '@/server/agents/tools/procurement.tools'
-import type { ZodTool } from '@/server/agents/tools/procurement.tools'
 import { NOTIFICATION_TOOLS } from '@/server/agents/tools/notification.tools'
 import { INVENTORY_TOOLS } from '@/server/agents/tools/inventory.tools'
+import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
 
 // ---------------------------------------------------------------------------
 // Smart Reorder Agent — Automated inventory replenishment
@@ -21,7 +21,7 @@ import { INVENTORY_TOOLS } from '@/server/agents/tools/inventory.tools'
 // ---------------------------------------------------------------------------
 
 const AGENT_MODEL = MODELS.SONNET
-const MAX_TOOL_ROUNDS = 15
+const MAX_ITERATIONS = 15
 const MAX_TOKENS = 4096
 
 // ---------------------------------------------------------------------------
@@ -75,73 +75,46 @@ export interface ReorderResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Combine all tools available to the reorder agent.
- * Includes inventory tools, procurement READ + WRITE tools, and notification tools.
+ * Build a create_request tool that executes writes directly for the given userId.
+ * Unlike the placeholder in procurement.tools, this tool actually creates the request.
  */
-function getReorderAgentTools(): readonly ZodTool[] {
+function buildCreateRequestTool(userId: string): BetaRunnableTool<any> {
+  return betaZodTool({
+    name: 'create_request',
+    description: "Crea una nuova richiesta d'acquisto.",
+    inputSchema: createRequestInputSchema,
+    run: async (input) => {
+      try {
+        const result = await executeWriteTool(
+          'create_request',
+          input as Record<string, unknown>,
+          userId,
+        )
+        return typeof result === 'string' ? result : JSON.stringify(result)
+      } catch (err) {
+        return JSON.stringify({
+          error: `Errore nell'esecuzione di create_request: ${String(err)}`,
+        })
+      }
+    },
+  }) as BetaRunnableTool<any>
+}
+
+/**
+ * Combine all tools available to the reorder agent.
+ * Includes inventory tools, procurement READ tools, a write-enabled
+ * create_request tool, and notification tools.
+ */
+function getReorderAgentTools(userId: string): readonly BetaRunnableTool<any>[] {
   return [
     ...INVENTORY_TOOLS,
     searchRequestsTool,
     getRequestDetailTool,
     searchVendorsTool,
     getBudgetOverviewTool,
-    createRequestTool,
+    buildCreateRequestTool(userId),
     ...NOTIFICATION_TOOLS,
-  ] as readonly ZodTool[]
-}
-
-/**
- * Convert ZodTool[] to the Anthropic beta tool format for the API.
- */
-function toBetaTools(tools: readonly ZodTool[]): Anthropic.Beta.BetaTool[] {
-  return tools.map((t) => ({
-    type: 'custom' as const,
-    name: t.name,
-    description: t.description,
-    input_schema: t.input_schema,
-  }))
-}
-
-/**
- * Execute a tool with Zod-validated input.
- * For write tools (create_request), delegates to executeWriteTool with userId.
- */
-async function executeTool(
-  tools: readonly ZodTool[],
-  toolName: string,
-  rawInput: unknown,
-  userId: string,
-): Promise<string> {
-  // Write tools: execute directly via the procurement executor
-  if (toolName === 'create_request') {
-    try {
-      const result = await executeWriteTool(
-        toolName,
-        rawInput as Record<string, unknown>,
-        userId,
-      )
-      return typeof result === 'string' ? result : JSON.stringify(result)
-    } catch (err) {
-      return JSON.stringify({
-        error: `Errore nell'esecuzione di ${toolName}: ${String(err)}`,
-      })
-    }
-  }
-
-  // Read tools: find and execute with Zod validation
-  const tool = tools.find((t) => t.name === toolName)
-  if (!tool) {
-    return JSON.stringify({ error: `Tool sconosciuto: ${toolName}` })
-  }
-  try {
-    const parsed = tool.parse(rawInput)
-    const result = await tool.run(parsed)
-    return typeof result === 'string' ? result : JSON.stringify(result)
-  } catch (err) {
-    return JSON.stringify({
-      error: `Errore nell'esecuzione del tool: ${String(err)}`,
-    })
-  }
+  ] as readonly BetaRunnableTool<any>[]
 }
 
 /**
@@ -201,81 +174,42 @@ export async function runReorderAgent(
   userId: string,
   notifyManagerId?: string,
 ): Promise<ReorderResult> {
-  const tools = getReorderAgentTools()
-  const betaTools = toBetaTools(tools)
+  const tools = getReorderAgentTools(userId)
   const client = getClaudeClient()
-
-  const actionsLog: string[] = []
 
   const userPrompt = notifyManagerId
     ? `Esegui il processo di riordino automatico. Al termine, invia una notifica di riepilogo all'utente con user_id "${notifyManagerId}". Concludi con il riepilogo JSON.`
     : 'Esegui il processo di riordino automatico. Concludi con il riepilogo JSON.'
 
-  let conversationMessages: Anthropic.Beta.BetaMessageParam[] = [
-    { role: 'user' as const, content: userPrompt },
-  ]
+  try {
+    const runner = client.beta.messages.toolRunner({
+      model: AGENT_MODEL,
+      system: REORDER_SYSTEM_PROMPT,
+      max_tokens: MAX_TOKENS,
+      max_iterations: MAX_ITERATIONS,
+      tools: [...tools],
+      messages: [
+        { role: 'user' as const, content: userPrompt },
+      ],
+    })
 
-  let lastTextContent = ''
+    let lastTextContent = ''
 
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    let response: Anthropic.Beta.BetaMessage
-
-    try {
-      response = await client.beta.messages.create({
-        model: AGENT_MODEL,
-        system: REORDER_SYSTEM_PROMPT,
-        messages: conversationMessages,
-        max_tokens: MAX_TOKENS,
-        tools: betaTools,
-      })
-    } catch (err) {
-      return {
-        drafts_created: 0,
-        alerts_processed: 0,
-        skipped_budget: 0,
-        summary: `Errore nella chiamata AI: ${String(err)}`,
+    for await (const message of runner) {
+      for (const block of message.content) {
+        if (block.type === 'text') {
+          lastTextContent = block.text
+        }
       }
     }
 
-    const toolResults: Anthropic.Beta.BetaToolResultBlockParam[] = []
-    let hasToolUse = false
-
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        lastTextContent = block.text
-      } else if (block.type === 'tool_use') {
-        hasToolUse = true
-        const toolName = block.name
-        const toolInput = block.input
-
-        const toolResult = await executeTool(tools, toolName, toolInput, userId)
-        actionsLog.push(`${toolName}: completato`)
-
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
-          content: toolResult,
-        })
-      }
+    return parseAgentResult(lastTextContent)
+  } catch (err) {
+    return {
+      drafts_created: 0,
+      alerts_processed: 0,
+      skipped_budget: 0,
+      summary: `Errore nella chiamata AI: ${String(err)}`,
     }
-
-    // No tool calls means the model finished its response
-    if (!hasToolUse) {
-      return parseAgentResult(lastTextContent)
-    }
-
-    // Feed tool results back for the next round
-    conversationMessages = [
-      ...conversationMessages,
-      { role: 'assistant' as const, content: response.content },
-      { role: 'user' as const, content: toolResults },
-    ]
-  }
-
-  // Max rounds reached — return what we have
-  const parsed = parseAgentResult(lastTextContent)
-  return {
-    ...parsed,
-    summary: `${parsed.summary} (limite iterazioni raggiunto)`,
   }
 }

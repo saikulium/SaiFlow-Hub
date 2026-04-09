@@ -1,10 +1,15 @@
-import { getClaudeClient, extractJsonFromAiResponse } from '@/lib/ai/claude-client'
+import { toFile } from '@anthropic-ai/sdk'
+import {
+  getClaudeClient,
+  extractJsonFromAiResponse,
+} from '@/lib/ai/claude-client'
 import { MODELS } from '@/lib/ai/models'
 import {
   TenderAnalysisSchema,
   type TenderAnalysis,
 } from '@/lib/ai/schemas/tender-analysis.schema'
 import { prisma } from '@/lib/db'
+import type Anthropic from '@anthropic-ai/sdk'
 
 // ---------------------------------------------------------------------------
 // Tender Analysis Agent — Deep-reasoning Go/No-Go analysis
@@ -62,7 +67,10 @@ SCHEMA JSON RICHIESTO:
 export interface TenderAnalysisResult {
   readonly analysis: TenderAnalysis
   readonly model_used: string
+  readonly file_id?: string
 }
+
+const FILES_API_BETA = 'files-api-2025-04-14' as const
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -140,14 +148,81 @@ function buildTenderPrompt(tender: {
 // ---------------------------------------------------------------------------
 
 /**
+ * Upload a PDF to the Anthropic Files API and return its file ID.
+ * The caller is responsible for deleting the file after use.
+ */
+async function uploadPdf(
+  client: Anthropic,
+  pdfBuffer: Buffer,
+  filename: string,
+): Promise<string> {
+  const file = await toFile(pdfBuffer, filename, {
+    type: 'application/pdf',
+  })
+  const uploaded = await client.beta.files.upload({
+    file,
+    betas: [FILES_API_BETA],
+  })
+  return uploaded.id
+}
+
+/**
+ * Safely delete an uploaded file from the Anthropic Files API.
+ * Errors are logged but not re-thrown to avoid masking the primary result.
+ */
+async function deleteUploadedFile(
+  client: Anthropic,
+  fileId: string,
+): Promise<void> {
+  try {
+    await client.beta.files.delete(fileId, { betas: [FILES_API_BETA] })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    // Non-critical — log and continue
+    console.warn(
+      `[tender-analysis] Failed to delete file ${fileId}: ${message}`,
+    )
+  }
+}
+
+/**
+ * Build the message content blocks for the AI call.
+ * When a PDF file_id is provided, adds a document block so the model
+ * can read the full tender document.
+ */
+function buildMessageContent(
+  userMessage: string,
+  fileId?: string,
+): Anthropic.Beta.Messages.BetaContentBlockParam[] {
+  const blocks: Anthropic.Beta.Messages.BetaContentBlockParam[] = []
+
+  if (fileId) {
+    blocks.push({
+      type: 'document',
+      source: { type: 'file', file_id: fileId },
+      title: 'Documento gara PDF',
+    } as Anthropic.Beta.Messages.BetaRequestDocumentBlock)
+  }
+
+  blocks.push({ type: 'text', text: userMessage })
+
+  return blocks
+}
+
+/**
  * Analyzes a tender using Opus with adaptive thinking for deep strategic
  * reasoning. Returns a structured go/no-go analysis.
  *
  * This is a single-call agent (no tool loop): the model receives all
  * tender data upfront and returns structured JSON.
+ *
+ * When `pdfBuffer` is provided, the PDF is uploaded via the Files API
+ * so the model can read the full tender document alongside DB metadata.
  */
 export async function analyzeTender(
   tenderId: string,
+  pdfBuffer?: Buffer,
+  pdfFilename?: string,
 ): Promise<TenderAnalysisResult> {
   // 1. Fetch tender from DB
   const tender = await prisma.tender.findUnique({
@@ -182,40 +257,57 @@ export async function analyzeTender(
   // 2. Build the user message with all tender data
   const userMessage = buildTenderPrompt(tender)
 
-  // 3. Call Opus with adaptive thinking
+  // 3. Upload PDF if provided
   const client = getClaudeClient()
   const model = MODELS.OPUS
+  let uploadedFileId: string | undefined
 
-  const response = await client.messages.create({
-    model,
-    system: TENDER_ANALYSIS_PROMPT,
-    messages: [{ role: 'user', content: userMessage }],
-    max_tokens: MAX_TOKENS,
-    thinking: { type: 'adaptive' },
-  })
-
-  // 4. Extract text from response
-  const textBlock = response.content.find((block) => block.type === 'text')
-  if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('Nessuna risposta testuale dal modello AI')
+  if (pdfBuffer && pdfFilename) {
+    uploadedFileId = await uploadPdf(client, pdfBuffer, pdfFilename)
   }
 
-  // 5. Parse JSON with schema validation
-  const cleanedJson = extractJsonFromAiResponse(textBlock.text)
-
-  let parsed: unknown
   try {
-    parsed = JSON.parse(cleanedJson)
-  } catch {
-    throw new Error(
-      `Risposta AI non contiene JSON valido: ${textBlock.text.slice(0, 200)}`,
-    )
-  }
+    // 4. Call Opus with adaptive thinking (use beta messages for Files API)
+    const content = buildMessageContent(userMessage, uploadedFileId)
 
-  const analysis = TenderAnalysisSchema.parse(parsed)
+    const response = await client.beta.messages.create({
+      model,
+      system: TENDER_ANALYSIS_PROMPT,
+      messages: [{ role: 'user', content }],
+      max_tokens: MAX_TOKENS,
+      thinking: { type: 'adaptive' },
+      betas: uploadedFileId ? [FILES_API_BETA] : [],
+    })
 
-  return {
-    analysis,
-    model_used: model,
+    // 5. Extract text from response
+    const textBlock = response.content.find((block) => block.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') {
+      throw new Error('Nessuna risposta testuale dal modello AI')
+    }
+
+    // 6. Parse JSON with schema validation
+    const cleanedJson = extractJsonFromAiResponse(textBlock.text)
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(cleanedJson)
+    } catch {
+      throw new Error(
+        `Risposta AI non contiene JSON valido: ${textBlock.text.slice(0, 200)}`,
+      )
+    }
+
+    const analysis = TenderAnalysisSchema.parse(parsed)
+
+    return {
+      analysis,
+      model_used: model,
+      ...(uploadedFileId ? { file_id: uploadedFileId } : {}),
+    }
+  } finally {
+    // 7. Clean up uploaded file regardless of success/failure
+    if (uploadedFileId) {
+      await deleteUploadedFile(client, uploadedFileId)
+    }
   }
 }

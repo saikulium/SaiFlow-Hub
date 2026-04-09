@@ -1,6 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { getClaudeClient } from '@/lib/ai/claude-client'
 import { MODELS } from '@/lib/ai/models'
+import {
+  EmailClassificationSchema,
+  type EmailClassification,
+} from '@/lib/ai/schemas/email-classification.schema'
 import type { EmailIngestionPayload } from '@/lib/validations/email-ingestion'
 import type { ActionType } from '@/lib/validations/email-ingestion'
 
@@ -77,35 +82,10 @@ export class EmailClassificationError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// AI Raw Response interface
+// Classification System Prompt
 // ---------------------------------------------------------------------------
 
-interface AiClassificationResponse {
-  intent: EmailIntent | null
-  confidence: number | null
-  matched_request_code: string | null
-  vendor_name: string | null
-  external_ref: string | null
-  new_amount: number | null
-  new_delivery_date: string | null
-  tracking_number: string | null
-  summary: string | null
-  client_name: string | null
-  client_code: string | null
-  client_order_items: Array<{
-    description: string
-    quantity?: number
-    unit?: string
-  }> | null
-  client_deadline: string | null
-  client_value: number | null
-}
-
-// ---------------------------------------------------------------------------
-// Classification Prompt
-// ---------------------------------------------------------------------------
-
-const CLASSIFICATION_PROMPT = `Sei un agente di procurement per PMI italiane. Analizza l'email commerciale seguente e classifica il suo intento.
+const CLASSIFICATION_SYSTEM_PROMPT = `Sei un agente di procurement per PMI italiane. Analizza l'email commerciale seguente e classifica il suo intento.
 
 ISTRUZIONI:
 - Classifica l'intent dell'email tra le categorie sotto
@@ -122,25 +102,7 @@ CATEGORIE DI INTENT:
 - RICHIESTA_INFO: Il fornitore chiede informazioni o chiarimenti
 - FATTURA_ALLEGATA: L'email contiene o fa riferimento a una fattura allegata
 - ORDINE_CLIENTE: Un cliente invia un ordine di acquisto o una commessa da evadere
-- ALTRO: Nessuna delle categorie precedenti
-
-SCHEMA JSON RICHIESTO (rispondi SOLO con il JSON, nient'altro):
-{
-  "intent": "string — una delle categorie sopra",
-  "confidence": "number — 0.0-1.0",
-  "matched_request_code": "string|null — codice PR-YYYY-NNNNN se presente",
-  "vendor_name": "string|null — nome del fornitore se identificabile",
-  "external_ref": "string|null — riferimento ordine fornitore (es: PO-12345, OrdF-789)",
-  "new_amount": "number|null — nuovo importo se VARIAZIONE_PREZZO",
-  "new_delivery_date": "string|null — nuova data consegna YYYY-MM-DD se RITARDO_CONSEGNA",
-  "tracking_number": "string|null — numero tracking se presente",
-  "summary": "string — riepilogo leggibile dell'email in 1-2 frasi in italiano",
-  "client_name": "string|null — nome del cliente se ORDINE_CLIENTE",
-  "client_code": "string|null — codice cliente se ORDINE_CLIENTE",
-  "client_order_items": "[{description, quantity?, unit?}]|null — articoli ordinati se ORDINE_CLIENTE",
-  "client_deadline": "string|null — data consegna richiesta YYYY-MM-DD se ORDINE_CLIENTE",
-  "client_value": "number|null — valore totale ordine se ORDINE_CLIENTE"
-}`
+- ALTRO: Nessuna delle categorie precedenti`
 
 // ---------------------------------------------------------------------------
 // Main function
@@ -148,6 +110,7 @@ SCHEMA JSON RICHIESTO (rispondi SOLO con il JSON, nient'altro):
 
 /**
  * Classifica l'intent di un'email commerciale usando Claude.
+ * Usa messages.parse() con structured output per garantire risposta tipizzata.
  *
  * @throws EmailClassificationError se API key mancante, timeout, o risposta non parsabile
  */
@@ -167,33 +130,30 @@ export async function classifyEmailIntent(
 
   const emailContent = formatEmailForClassification(email)
 
-  let rawText: string
+  let parsed: EmailClassification
   try {
-    const response = await client.messages.create({
+    const response = await client.messages.parse({
       model,
       max_tokens: 1024,
+      system: CLASSIFICATION_SYSTEM_PROMPT,
       messages: [
         {
           role: 'user',
-          content: [
-            { type: 'text', text: CLASSIFICATION_PROMPT },
-            {
-              type: 'text',
-              text: `\n\n--- EMAIL DA CLASSIFICARE ---\n${emailContent}`,
-            },
-          ],
+          content: `--- EMAIL DA CLASSIFICARE ---\n${emailContent}`,
         },
       ],
+      output_config: {
+        format: zodOutputFormat(EmailClassificationSchema),
+      },
     })
 
-    const textBlock = response.content.find((b) => b.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
+    if (!response.parsed_output) {
       throw new EmailClassificationError(
         'AI_NO_RESPONSE',
-        'Claude non ha restituito testo',
+        'Claude non ha restituito un output strutturato',
       )
     }
-    rawText = textBlock.text
+    parsed = response.parsed_output
   } catch (err) {
     if (err instanceof EmailClassificationError) throw err
     if (err instanceof Anthropic.APIError) {
@@ -214,8 +174,7 @@ export async function classifyEmailIntent(
     )
   }
 
-  const aiData = parseClassificationJson(rawText)
-  return mapAiResponseToClassification(aiData)
+  return mapParsedToClassification(parsed)
 }
 
 // ---------------------------------------------------------------------------
@@ -319,37 +278,66 @@ function formatEmailForClassification(email: RawEmailData): string {
   return parts.join('\n')
 }
 
-function parseClassificationJson(text: string): AiClassificationResponse {
-  let jsonStr = text.trim()
-
-  const fenceMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)
-  if (fenceMatch) {
-    jsonStr = fenceMatch[1]!.trim()
-  }
-
-  try {
-    return JSON.parse(jsonStr) as AiClassificationResponse
-  } catch {
-    throw new EmailClassificationError(
-      'AI_INVALID_JSON',
-      'Claude ha restituito una risposta non parsabile come JSON',
-    )
+/**
+ * Mappa l'output strutturato (già validato da Zod) al formato ClassificationResult.
+ * I nullable vengono convertiti in undefined per coerenza con l'interfaccia interna.
+ */
+export function mapParsedToClassification(
+  parsed: EmailClassification,
+): ClassificationResult {
+  return {
+    intent: parsed.intent,
+    confidence: parsed.confidence,
+    extracted_data: {
+      matched_request_code: parsed.matched_request_code ?? undefined,
+      vendor_name: parsed.vendor_name ?? undefined,
+      external_ref: parsed.external_ref ?? undefined,
+      new_amount: parsed.new_amount ?? undefined,
+      new_delivery_date: parsed.new_delivery_date ?? undefined,
+      tracking_number: parsed.tracking_number ?? undefined,
+      summary: parsed.summary,
+      client_name: parsed.client_name ?? undefined,
+      client_code: parsed.client_code ?? undefined,
+      client_order_items: parsed.client_order_items ?? undefined,
+      client_deadline: parsed.client_deadline ?? undefined,
+      client_value: parsed.client_value ?? undefined,
+    },
   }
 }
 
-const VALID_INTENTS = new Set<string>([
-  'CONFERMA_ORDINE',
-  'RITARDO_CONSEGNA',
-  'VARIAZIONE_PREZZO',
-  'RICHIESTA_INFO',
-  'FATTURA_ALLEGATA',
-  'ORDINE_CLIENTE',
-  'ALTRO',
-])
+/**
+ * @deprecated Use mapParsedToClassification instead. Kept for backward compatibility with tests.
+ */
+export function mapAiResponseToClassification(raw: {
+  intent: EmailIntent | null
+  confidence: number | null
+  matched_request_code: string | null
+  vendor_name: string | null
+  external_ref: string | null
+  new_amount: number | null
+  new_delivery_date: string | null
+  tracking_number: string | null
+  summary: string | null
+  client_name: string | null
+  client_code: string | null
+  client_order_items: Array<{
+    description: string
+    quantity?: number
+    unit?: string
+  }> | null
+  client_deadline: string | null
+  client_value: number | null
+}): ClassificationResult {
+  const VALID_INTENTS = new Set<string>([
+    'CONFERMA_ORDINE',
+    'RITARDO_CONSEGNA',
+    'VARIAZIONE_PREZZO',
+    'RICHIESTA_INFO',
+    'FATTURA_ALLEGATA',
+    'ORDINE_CLIENTE',
+    'ALTRO',
+  ])
 
-export function mapAiResponseToClassification(
-  raw: AiClassificationResponse,
-): ClassificationResult {
   const intent: EmailIntent = VALID_INTENTS.has(raw.intent ?? '')
     ? (raw.intent as EmailIntent)
     : 'ALTRO'

@@ -1,6 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { getClaudeClient } from '@/lib/ai/claude-client'
 import { MODELS } from '@/lib/ai/models'
+import {
+  InvoiceExtractionSchema,
+  type InvoiceExtraction,
+} from '@/lib/ai/schemas/invoice-extraction.schema'
 import type { ParsedInvoice, ParsedLineItem } from '@/types/fatturapa'
 import { DOCUMENT_TYPES, PAYMENT_METHODS } from '@/types/fatturapa'
 
@@ -46,10 +51,10 @@ export class AiParseError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// Prompt di estrazione
+// Extraction System Prompt
 // ---------------------------------------------------------------------------
 
-const EXTRACTION_PROMPT = `Sei un esperto di fatturazione italiana. Analizza questo documento (fattura, nota di credito, o documento commerciale italiano) ed estrai tutti i dati in formato JSON strutturato.
+const EXTRACTION_SYSTEM_PROMPT = `Sei un esperto di fatturazione italiana. Analizza questo documento (fattura, nota di credito, o documento commerciale italiano) ed estrai tutti i dati strutturati.
 
 ISTRUZIONI:
 - Estrai TUTTI i dati visibili nel documento
@@ -58,89 +63,8 @@ ISTRUZIONI:
 - Se un campo non è leggibile o assente, usa null
 - Se trovi un codice PR-YYYY-NNNNN (riferimento ordine di acquisto), estrailo in pr_code_extracted
 - Valuta la tua confidence (0.0-1.0) sulla qualità dell'estrazione
-
-SCHEMA JSON RICHIESTO (rispondi SOLO con il JSON, nient'altro):
-{
-  "invoice_number": "string — numero fattura",
-  "invoice_date": "string — data fattura in formato YYYY-MM-DD",
-  "document_type": "string — codice tipo documento SDI (TD01=Fattura, TD04=Nota di credito, TD06=Parcella). Default: TD01",
-  "total_amount": "number — importo totale lordo (IVA inclusa)",
-  "total_taxable": "number — imponibile (senza IVA)",
-  "total_tax": "number — totale IVA",
-  "currency": "string — valuta, default EUR",
-  "supplier": {
-    "name": "string — ragione sociale fornitore",
-    "vat_id": "string — partita IVA fornitore (solo cifre, senza IT)",
-    "tax_code": "string|null — codice fiscale fornitore",
-    "vat_country": "string — paese IVA, default IT"
-  },
-  "customer": {
-    "vat_id": "string — partita IVA cliente",
-    "tax_code": "string|null — codice fiscale cliente"
-  },
-  "causale": "string|null — causale/descrizione/riferimento",
-  "pr_code_extracted": "string|null — codice PR-YYYY-NNNNN se presente",
-  "line_items": [
-    {
-      "line_number": "number",
-      "description": "string",
-      "quantity": "number",
-      "unit_of_measure": "string|null — unità di misura (pz, kg, m, ore, etc.)",
-      "unit_price": "number",
-      "total_price": "number",
-      "vat_rate": "number — aliquota IVA in percentuale (es: 22, 10, 4)"
-    }
-  ],
-  "payment": {
-    "method": "string|null — codice metodo pagamento SDI (MP01-MP23) o descrizione",
-    "due_date": "string|null — data scadenza pagamento YYYY-MM-DD",
-    "iban": "string|null — IBAN per bonifico",
-    "terms": "string|null — condizioni di pagamento"
-  },
-  "ai_confidence": "number — 0.0-1.0, quanto sei sicuro dell'estrazione"
-}`
-
-// ---------------------------------------------------------------------------
-// Interfaccia per la risposta AI (prima del mapping a ParsedInvoice)
-// ---------------------------------------------------------------------------
-
-interface AiRawResponse {
-  invoice_number: string | null
-  invoice_date: string | null
-  document_type: string | null
-  total_amount: number | null
-  total_taxable: number | null
-  total_tax: number | null
-  currency: string | null
-  supplier: {
-    name: string | null
-    vat_id: string | null
-    tax_code: string | null
-    vat_country: string | null
-  } | null
-  customer: {
-    vat_id: string | null
-    tax_code: string | null
-  } | null
-  causale: string | null
-  pr_code_extracted: string | null
-  line_items: Array<{
-    line_number: number | null
-    description: string | null
-    quantity: number | null
-    unit_of_measure: string | null
-    unit_price: number | null
-    total_price: number | null
-    vat_rate: number | null
-  }> | null
-  payment: {
-    method: string | null
-    due_date: string | null
-    iban: string | null
-    terms: string | null
-  } | null
-  ai_confidence: number | null
-}
+- Per document_type usa codici SDI: TD01=Fattura, TD04=Nota di credito, TD06=Parcella
+- Per payment.method usa codici SDI (MP01-MP23) se identificabili`
 
 // ---------------------------------------------------------------------------
 // Funzione principale
@@ -148,6 +72,7 @@ interface AiRawResponse {
 
 /**
  * Analizza un file fattura (PDF o immagine) usando Claude Vision.
+ * Usa messages.parse() con structured output per garantire risposta tipizzata.
  * Ritorna i dati estratti nel formato ParsedInvoice.
  *
  * @throws AiParseError se l'API key mancante, timeout, o risposta non parsabile
@@ -199,25 +124,36 @@ export async function parseInvoiceWithAI(
         },
       }
 
-  // Chiama Claude Vision
-  let rawText: string
+  let parsed: InvoiceExtraction
   try {
-    const response = await client.messages.create({
+    const response = await client.messages.parse({
       model,
       max_tokens: 4096,
+      system: EXTRACTION_SYSTEM_PROMPT,
       messages: [
         {
           role: 'user',
-          content: [fileContent, { type: 'text', text: EXTRACTION_PROMPT }],
+          content: [
+            fileContent,
+            {
+              type: 'text',
+              text: 'Estrai tutti i dati da questo documento fattura.',
+            },
+          ],
         },
       ],
+      output_config: {
+        format: zodOutputFormat(InvoiceExtractionSchema),
+      },
     })
 
-    const textBlock = response.content.find((b) => b.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new AiParseError('AI_NO_RESPONSE', 'Claude non ha restituito testo')
+    if (!response.parsed_output) {
+      throw new AiParseError(
+        'AI_NO_RESPONSE',
+        'Claude non ha restituito un output strutturato',
+      )
     }
-    rawText = textBlock.text
+    parsed = response.parsed_output
   } catch (err) {
     if (err instanceof AiParseError) throw err
     if (err instanceof Anthropic.APIError) {
@@ -238,15 +174,11 @@ export async function parseInvoiceWithAI(
     )
   }
 
-  // Parsa il JSON dalla risposta
-  const aiData = parseAiJsonResponse(rawText)
-
-  // Mappa a ParsedInvoice
-  const invoice = mapAiResponseToInvoice(aiData, filename)
+  const invoice = mapParsedToInvoice(parsed, filename)
 
   return {
     invoice,
-    ai_confidence: aiData.ai_confidence ?? 0.5,
+    ai_confidence: parsed.ai_confidence,
     ai_model: model,
   }
 }
@@ -256,31 +188,117 @@ export async function parseInvoiceWithAI(
 // ---------------------------------------------------------------------------
 
 /**
- * Estrae il JSON dalla risposta di Claude.
- * Gestisce risposte con e senza code fences.
+ * Mappa l'output strutturato (già validato da Zod) al formato ParsedInvoice.
  */
-function parseAiJsonResponse(text: string): AiRawResponse {
-  // Rimuovi eventuali code fences markdown
-  let jsonStr = text.trim()
+function mapParsedToInvoice(
+  parsed: InvoiceExtraction,
+  filename: string,
+): ParsedInvoice {
+  const lineItems: readonly ParsedLineItem[] = parsed.line_items.map(
+    (item) => ({
+      line_number: item.line_number,
+      description: item.description,
+      quantity: item.quantity,
+      unit_of_measure: item.unit_of_measure ?? undefined,
+      unit_price: item.unit_price,
+      total_price: item.total_price,
+      vat_rate: item.vat_rate,
+    }),
+  )
 
-  const fenceMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)
-  if (fenceMatch) {
-    jsonStr = fenceMatch[1]!.trim()
-  }
+  const paymentMethod = parsed.payment?.method ?? ''
 
-  try {
-    return JSON.parse(jsonStr) as AiRawResponse
-  } catch {
-    throw new AiParseError(
-      'AI_INVALID_JSON',
-      'Claude ha restituito una risposta non parsabile come JSON',
-    )
+  return {
+    format: 'FPR12',
+    transmission_id: '',
+    supplier: {
+      vat_country: parsed.supplier.vat_country,
+      vat_id: parsed.supplier.vat_id,
+      tax_code: parsed.supplier.tax_code ?? undefined,
+      name: parsed.supplier.name || filename,
+    },
+    customer: {
+      vat_id: parsed.customer.vat_id,
+      tax_code: parsed.customer.tax_code ?? undefined,
+    },
+    document_type: parsed.document_type,
+    document_type_label:
+      DOCUMENT_TYPES[parsed.document_type] ?? parsed.document_type,
+    invoice_number: parsed.invoice_number,
+    invoice_date: new Date(parsed.invoice_date),
+    total_amount: parsed.total_amount,
+    causale: parsed.causale ?? undefined,
+    order_references: [],
+    pr_code_extracted: parsed.pr_code_extracted ?? undefined,
+    line_items: lineItems,
+    tax_summary: [
+      {
+        vat_rate: lineItems[0]?.vat_rate ?? 22,
+        taxable_amount: parsed.total_taxable,
+        tax_amount: parsed.total_tax,
+      },
+    ],
+    total_taxable: parsed.total_taxable,
+    total_tax: parsed.total_tax,
+    payment: parsed.payment
+      ? {
+          method: paymentMethod,
+          method_label: PAYMENT_METHODS[paymentMethod] ?? paymentMethod,
+          due_date: parsed.payment.due_date
+            ? new Date(parsed.payment.due_date)
+            : undefined,
+          amount: parsed.total_amount,
+          iban: parsed.payment.iban ?? undefined,
+          terms: parsed.payment.terms ?? undefined,
+        }
+      : undefined,
   }
 }
 
+// ---------------------------------------------------------------------------
+// Backward-compatible mapper (used by existing tests)
+// ---------------------------------------------------------------------------
+
+interface AiRawResponse {
+  invoice_number: string | null
+  invoice_date: string | null
+  document_type: string | null
+  total_amount: number | null
+  total_taxable: number | null
+  total_tax: number | null
+  currency: string | null
+  supplier: {
+    name: string | null
+    vat_id: string | null
+    tax_code: string | null
+    vat_country: string | null
+  } | null
+  customer: {
+    vat_id: string | null
+    tax_code: string | null
+  } | null
+  causale: string | null
+  pr_code_extracted: string | null
+  line_items: Array<{
+    line_number: number | null
+    description: string | null
+    quantity: number | null
+    unit_of_measure: string | null
+    unit_price: number | null
+    total_price: number | null
+    vat_rate: number | null
+  }> | null
+  payment: {
+    method: string | null
+    due_date: string | null
+    iban: string | null
+    terms: string | null
+  } | null
+  ai_confidence: number | null
+}
+
 /**
- * Mappa la risposta grezza dell'AI al formato ParsedInvoice.
- * Gestisce gracefully campi mancanti con valori di default.
+ * @deprecated Use mapParsedToInvoice instead. Kept for backward compatibility with tests.
  */
 export function mapAiResponseToInvoice(
   raw: AiRawResponse,
