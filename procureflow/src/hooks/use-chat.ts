@@ -52,7 +52,7 @@ const TOOL_LABELS: Record<string, string> = {
   search_invoices: 'Cerco fatture...',
   get_inventory_stats: 'Carico dati magazzino...',
   get_tender_stats: 'Carico dati gare...',
-  create_request: 'Creo richiesta d\'acquisto...',
+  create_request: "Creo richiesta d'acquisto...",
   update_request: 'Aggiorno richiesta...',
   submit_for_approval: 'Invio per approvazione...',
   approve_request: 'Approvo richiesta...',
@@ -221,7 +221,9 @@ export function useChat(): UseChatReturn {
             })
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === assistantId ? { ...m, isStreaming: false } : m,
+                m.id === assistantId
+                  ? { ...m, isStreaming: false, toolCalls: [] }
+                  : m,
               ),
             )
           } else if (eventType === 'error') {

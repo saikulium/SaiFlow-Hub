@@ -15,17 +15,22 @@ interface ChatMessageProps {
 
 /** Markdown base: bold, italic, code inline, liste puntate */
 function renderMarkdown(text: string): string {
-  return text
-    // Code inline
-    .replace(/`([^`]+)`/g, '<code class="rounded bg-pf-bg-hover px-1 py-0.5 text-xs font-mono">$1</code>')
-    // Bold
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    // Italic
-    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
-    // Liste puntate (linee che iniziano con "- ")
-    .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
-    // Newlines
-    .replace(/\n/g, '<br />')
+  return (
+    text
+      // Code inline
+      .replace(
+        /`([^`]+)`/g,
+        '<code class="rounded bg-pf-bg-hover px-1 py-0.5 text-xs font-mono">$1</code>',
+      )
+      // Bold
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
+      // Liste puntate (linee che iniziano con "- ")
+      .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
+      // Newlines
+      .replace(/\n/g, '<br />')
+  )
 }
 
 export function ChatMessageBubble({ message }: ChatMessageProps) {
@@ -36,10 +41,7 @@ export function ChatMessageBubble({ message }: ChatMessageProps) {
 
   return (
     <div
-      className={cn(
-        'flex w-full',
-        isUser ? 'justify-end' : 'justify-start',
-      )}
+      className={cn('flex w-full', isUser ? 'justify-end' : 'justify-start')}
     >
       <div
         className={cn(
@@ -65,20 +67,25 @@ export function ChatMessageBubble({ message }: ChatMessageProps) {
         )}
 
         {/* Message content */}
-        {message.content ? (
+        {message.content && (
           <div
             className="chat-message-content"
             dangerouslySetInnerHTML={{
               __html: renderMarkdown(message.content),
             }}
           />
-        ) : message.isStreaming ? (
-          <div className="flex items-center gap-1">
+        )}
+
+        {/* Streaming indicator — shown while waiting for next chunk */}
+        {message.isStreaming && activeTools.length === 0 && (
+          <div
+            className={cn('flex items-center gap-1', message.content && 'mt-2')}
+          >
             <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-pf-text-muted [animation-delay:0ms]" />
             <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-pf-text-muted [animation-delay:150ms]" />
             <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-pf-text-muted [animation-delay:300ms]" />
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   )
