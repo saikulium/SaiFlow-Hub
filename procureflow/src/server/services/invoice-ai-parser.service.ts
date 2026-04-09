@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getClaudeClient } from '@/lib/ai/claude-client'
+import { MODELS } from '@/lib/ai/models'
 import type { ParsedInvoice, ParsedLineItem } from '@/types/fatturapa'
 import { DOCUMENT_TYPES, PAYMENT_METHODS } from '@/types/fatturapa'
 
@@ -11,7 +12,7 @@ import { DOCUMENT_TYPES, PAYMENT_METHODS } from '@/types/fatturapa'
 // Fallback: per XML FatturaPA, usare il parser deterministico.
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929'
+const DEFAULT_MODEL = MODELS.SONNET
 
 const SUPPORTED_IMAGE_TYPES = new Set([
   'image/jpeg',

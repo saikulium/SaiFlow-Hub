@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { prisma } from '@/lib/db'
 import { extractJsonFromAiResponse } from '@/lib/ai/claude-client'
+import { MODELS } from '@/lib/ai/models'
 
 // ---------------------------------------------------------------------------
 // SmartFill — Auto-compilazione PR
@@ -10,7 +11,7 @@ import { extractJsonFromAiResponse } from '@/lib/ai/claude-client'
 // 2. Fallback Claude (single-shot JSON) → solo quando nessun match DB
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929'
+const DEFAULT_MODEL = MODELS.SONNET
 const MIN_CONFIDENCE = 0.5
 const COMPLETED_STATUSES = ['DELIVERED', 'CLOSED', 'RECONCILED'] as const
 const MIN_TOKEN_LENGTH = 3

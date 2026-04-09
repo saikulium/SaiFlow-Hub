@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getClaudeClient } from '@/lib/ai/claude-client'
+import { MODELS } from '@/lib/ai/models'
 import type { EmailIngestionPayload } from '@/lib/validations/email-ingestion'
 import type { ActionType } from '@/lib/validations/email-ingestion'
 
@@ -14,7 +15,7 @@ import type { ActionType } from '@/lib/validations/email-ingestion'
 // Usato dall'endpoint /api/webhooks/email-ingestion/classify
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929'
+const DEFAULT_MODEL = MODELS.SONNET
 
 // ---------------------------------------------------------------------------
 // Types

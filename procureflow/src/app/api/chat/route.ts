@@ -1,8 +1,9 @@
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth'
 import { requireModule } from '@/lib/modules/require-module'
-import { streamAgentResponse } from '@/server/services/agent.service'
-import type { UserRole } from '@/lib/ai/tool-registry'
+import { streamAssistantResponse } from '@/server/agents/procurement-assistant.agent'
+import type { UserRole } from '@/server/agents/procurement-assistant.agent'
 
 // ---------------------------------------------------------------------------
 // Rate limiting: max 10 messaggi per utente per minuto (in-memory)
@@ -61,24 +62,16 @@ const chatRequestSchema = z.object({
 })
 
 export async function POST(req: Request) {
+  // Auth
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   // Module guard
   const blocked = await requireModule('/api/chat')
   if (blocked) return blocked
 
-  // Auth
-  const session = await auth()
-  if (!session?.user) {
-    return Response.json(
-      {
-        success: false,
-        error: { code: 'UNAUTHORIZED', message: 'Sessione non valida' },
-      },
-      { status: 401 },
-    )
-  }
-
   // Rate limiting
-  if (!checkRateLimit(session.user.id)) {
+  if (!checkRateLimit(authResult.id)) {
     return Response.json(
       {
         success: false,
@@ -123,8 +116,8 @@ export async function POST(req: Request) {
     )
   }
 
-  const userId = session.user.id
-  const role = (session.user.role ?? 'VIEWER') as UserRole
+  const userId = authResult.id
+  const role = (authResult.role ?? 'VIEWER') as UserRole
 
   // Streaming SSE response
   const encoder = new TextEncoder()
@@ -132,7 +125,7 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const event of streamAgentResponse(
+        for await (const event of streamAssistantResponse(
           userId,
           role,
           parsed.data.messages,

@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { MODELS } from '@/lib/ai/models'
 
 // ---------------------------------------------------------------------------
 // Shared Claude client — singleton with retry and logging
@@ -24,7 +25,7 @@ interface CallClaudeOptions {
   readonly model?: string
 }
 
-const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929'
+const DEFAULT_MODEL = MODELS.SONNET
 const MAX_RETRIES = 3
 const BASE_DELAY_MS = 1000
 
