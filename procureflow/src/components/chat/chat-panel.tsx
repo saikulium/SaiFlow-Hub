@@ -37,10 +37,10 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom on new messages or when action dialog appears
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, pendingAction])
 
   // Focus input when panel opens
   useEffect(() => {
