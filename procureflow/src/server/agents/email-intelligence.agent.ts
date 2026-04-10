@@ -11,6 +11,7 @@ import {
 } from '@/server/agents/tools/procurement.tools'
 import { NOTIFICATION_TOOLS } from '@/server/agents/tools/notification.tools'
 import { COMMESSA_TOOLS } from '@/server/agents/tools/commessa.tools'
+import { ARTICLE_TOOLS } from '@/server/agents/tools/article.tools'
 import type { RawEmailData } from '@/server/services/email-ai-classifier.service'
 import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
 
@@ -55,12 +56,19 @@ VARIAZIONE_PREZZO:
   2. Crea un evento timeline con vecchio/nuovo prezzo
   3. Notifica il manager con la differenza in EUR e percentuale
 
-ORDINE_CLIENTE (il piu importante — fai TUTTI gli step):
-  1. Crea la commessa con create_commessa (client_name, client_value, deadline, items)
-  2. Per OGNI articolo nell'ordine, crea una richiesta d'acquisto con create_request:
-     - Titolo: "[codice articolo] per commessa [cliente]"
-     - Items: [{name: descrizione, quantity: quantita, unit: unita}]
-     - priority: "HIGH" se la scadenza e entro 30 giorni, altrimenti "MEDIUM"
+ORDINE_CLIENTE (il piu importante — fai TUTTI gli step in ordine):
+  1. Crea la commessa con create_commessa (client_name, client_value, deadline, items).
+     SALVA l'ID della commessa restituito (campo "id" nella risposta).
+  2. Per OGNI articolo nell'ordine:
+     a. Cerca o crea l'articolo nel catalogo con find_or_create_article
+        (passa code/manufacturer_code, name, unit_of_measure).
+        SALVA l'article_id restituito.
+     b. Crea una richiesta d'acquisto con create_request:
+        - title: "[codice articolo] per commessa [cliente]"
+        - commessa_id: l'ID della commessa creata allo step 1
+        - items: [{name: descrizione, quantity: quantita, unit: unita}]
+        - priority: "HIGH" se la scadenza e entro 30 giorni, altrimenti "MEDIUM"
+        - needed_by: la deadline dell'ordine cliente in formato ISO
   3. Cerca i fornitori che potrebbero avere gli articoli (search_vendors)
   4. Crea una notifica di riepilogo (create_notification)
 
@@ -141,6 +149,7 @@ function getEmailAgentTools(userId: string): readonly BetaRunnableTool<any>[] {
     buildCreateRequestTool(userId),
     ...NOTIFICATION_TOOLS,
     ...COMMESSA_TOOLS,
+    ...ARTICLE_TOOLS,
   ] as readonly BetaRunnableTool<any>[]
 }
 

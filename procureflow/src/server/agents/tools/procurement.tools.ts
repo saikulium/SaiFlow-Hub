@@ -513,6 +513,10 @@ export const createRequestInputSchema = z.object({
   department: z.string().optional(),
   cost_center: z.string().optional(),
   budget_code: z.string().optional(),
+  commessa_id: z
+    .string()
+    .optional()
+    .describe('ID della commessa a cui associare la richiesta'),
   items: z.array(requestItemSchema).optional().describe('Articoli'),
 })
 
@@ -654,6 +658,7 @@ async function executeCreateRequest(
       priority: params.priority ?? 'MEDIUM',
       requester_id: userId,
       vendor_id: params.vendor_id,
+      commessa_id: params.commessa_id,
       estimated_amount: estimatedAmount > 0 ? estimatedAmount : undefined,
       needed_by: params.needed_by ? new Date(params.needed_by) : undefined,
       category: params.category,
