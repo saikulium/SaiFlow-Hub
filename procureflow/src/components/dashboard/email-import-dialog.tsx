@@ -16,6 +16,8 @@ interface ImportResult {
   readonly vendor: string | null
   readonly matched_request: string | null
   readonly action_taken: boolean
+  readonly needs_review?: boolean
+  readonly actions?: readonly string[]
   readonly result?: {
     readonly action: string
     readonly request_code: string
@@ -28,10 +30,27 @@ const INTENT_LABELS: Record<string, string> = {
   VARIAZIONE_PREZZO: 'Variazione prezzo',
   RICHIESTA_INFO: 'Richiesta informazioni',
   FATTURA_ALLEGATA: 'Fattura allegata',
+  ORDINE_CLIENTE: 'Ordine cliente',
+  UPDATE_EXISTING: 'Aggiornamento richiesta',
+  NOTIFICATION: 'Notifica inviata',
+  INFO_ONLY: 'Solo informativa',
   ALTRO: 'Altro',
 }
 
-export function EmailImportDialog({ open, onOpenChange }: EmailImportDialogProps) {
+const ACTION_LABELS: Record<string, string> = {
+  search_requests: 'Cercato nelle richieste',
+  get_request_detail: 'Verificato dettaglio richiesta',
+  search_vendors: 'Cercato fornitori',
+  create_notification: 'Notifica inviata',
+  create_timeline_event: 'Timeline aggiornata',
+  create_commessa: 'Commessa creata',
+  search_commesse: 'Cercato nelle commesse',
+}
+
+export function EmailImportDialog({
+  open,
+  onOpenChange,
+}: EmailImportDialogProps) {
   const [emailFrom, setEmailFrom] = useState('')
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody, setEmailBody] = useState('')
@@ -71,19 +90,25 @@ export function EmailImportDialog({ open, onOpenChange }: EmailImportDialogProps
       const data = await res.json()
 
       if (!res.ok) {
-        toast.error(data.error?.message ?? 'Errore durante l\'importazione')
+        toast.error(data.error?.message ?? "Errore durante l'importazione")
         return
       }
 
       setResult(data.data)
 
       if (data.data.action_taken) {
-        toast.success('Email importata con successo', {
-          description: `Richiesta ${data.data.result?.request_code ?? ''} ${data.data.result?.action === 'created' ? 'creata' : 'aggiornata'}`,
+        const actionCount = data.data.actions?.length ?? 0
+        toast.success('Email processata con successo', {
+          description: `${actionCount} ${actionCount === 1 ? 'azione eseguita' : 'azioni eseguite'}`,
+        })
+      } else if (data.data.needs_review) {
+        toast.info('Email da verificare', {
+          description:
+            data.data.summary?.slice(0, 100) ?? 'Rivedi i risultati.',
         })
       } else {
         toast.info('Email analizzata', {
-          description: 'Confidence troppo bassa per azione automatica. Rivedi i risultati.',
+          description: 'Nessuna azione necessaria.',
         })
       }
     } catch {
@@ -112,7 +137,7 @@ export function EmailImportDialog({ open, onOpenChange }: EmailImportDialogProps
         {/* Header */}
         <div className="flex items-center justify-between border-b border-pf-border px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-pf-accent/10">
+            <div className="bg-pf-accent/10 flex h-9 w-9 items-center justify-center rounded-full">
               <Mail className="h-4.5 w-4.5 text-pf-accent" />
             </div>
             <div>
@@ -181,7 +206,7 @@ export function EmailImportDialog({ open, onOpenChange }: EmailImportDialogProps
           ) : (
             <div className="space-y-3">
               {/* Result */}
-              <div className="flex items-start gap-3 rounded-card border border-pf-border bg-pf-bg-primary/40 p-4">
+              <div className="bg-pf-bg-primary/40 flex items-start gap-3 rounded-card border border-pf-border p-4">
                 {result.action_taken ? (
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-400" />
                 ) : (
@@ -190,8 +215,10 @@ export function EmailImportDialog({ open, onOpenChange }: EmailImportDialogProps
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-pf-text-primary">
                     {result.action_taken
-                      ? `Richiesta ${result.result?.request_code ?? ''} ${result.result?.action === 'created' ? 'creata' : 'aggiornata'}`
-                      : 'Nessuna azione automatica'}
+                      ? 'Email processata con successo'
+                      : result.needs_review
+                        ? 'Da verificare manualmente'
+                        : 'Nessuna azione necessaria'}
                   </p>
                   <p className="mt-1 text-xs text-pf-text-secondary">
                     {result.summary}
@@ -200,20 +227,20 @@ export function EmailImportDialog({ open, onOpenChange }: EmailImportDialogProps
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-button border border-pf-border bg-pf-bg-primary/40 px-3 py-2">
+                <div className="bg-pf-bg-primary/40 rounded-button border border-pf-border px-3 py-2">
                   <p className="text-xs text-pf-text-muted">Intent</p>
                   <p className="text-sm font-medium text-pf-text-primary">
                     {INTENT_LABELS[result.intent] ?? result.intent}
                   </p>
                 </div>
-                <div className="rounded-button border border-pf-border bg-pf-bg-primary/40 px-3 py-2">
+                <div className="bg-pf-bg-primary/40 rounded-button border border-pf-border px-3 py-2">
                   <p className="text-xs text-pf-text-muted">Confidence</p>
                   <p className="text-sm font-medium text-pf-text-primary">
                     {Math.round(result.confidence * 100)}%
                   </p>
                 </div>
                 {result.vendor && (
-                  <div className="rounded-button border border-pf-border bg-pf-bg-primary/40 px-3 py-2">
+                  <div className="bg-pf-bg-primary/40 rounded-button border border-pf-border px-3 py-2">
                     <p className="text-xs text-pf-text-muted">Fornitore</p>
                     <p className="text-sm font-medium text-pf-text-primary">
                       {result.vendor}
@@ -221,7 +248,7 @@ export function EmailImportDialog({ open, onOpenChange }: EmailImportDialogProps
                   </div>
                 )}
                 {result.matched_request && (
-                  <div className="rounded-button border border-pf-border bg-pf-bg-primary/40 px-3 py-2">
+                  <div className="bg-pf-bg-primary/40 rounded-button border border-pf-border px-3 py-2">
                     <p className="text-xs text-pf-text-muted">Richiesta</p>
                     <p className="text-sm font-medium text-pf-accent">
                       {result.matched_request}
@@ -229,6 +256,25 @@ export function EmailImportDialog({ open, onOpenChange }: EmailImportDialogProps
                   </div>
                 )}
               </div>
+
+              {/* Agent actions taken */}
+              {result.actions && result.actions.length > 0 && (
+                <div className="bg-pf-bg-primary/40 rounded-button border border-pf-border px-3 py-2">
+                  <p className="mb-1 text-xs text-pf-text-muted">
+                    Azioni eseguite
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from(new Set(result.actions)).map((action) => (
+                      <span
+                        key={action}
+                        className="bg-pf-accent/10 rounded-full px-2 py-0.5 text-xs text-pf-accent"
+                      >
+                        {ACTION_LABELS[action] ?? action}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -248,8 +294,13 @@ export function EmailImportDialog({ open, onOpenChange }: EmailImportDialogProps
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isSubmitting || !emailFrom.trim() || !emailSubject.trim() || !emailBody.trim()}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pf-accent-hover disabled:opacity-60"
+                disabled={
+                  isSubmitting ||
+                  !emailFrom.trim() ||
+                  !emailSubject.trim() ||
+                  !emailBody.trim()
+                }
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pf-accent-hover disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <>
