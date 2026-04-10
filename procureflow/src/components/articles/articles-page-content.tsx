@@ -11,11 +11,15 @@ import {
   BookOpen,
   Search,
   Package,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react'
-import { useArticles } from '@/hooks/use-articles'
+import { useArticles, useUpdateArticle } from '@/hooks/use-articles'
+import { useUnverifiedArticlesCount } from '@/hooks/use-unverified-articles-count'
 import { ArticleCreateDialog } from '@/components/articles/article-create-dialog'
 import { ArticleImportDialog } from '@/components/articles/article-import-dialog'
 import { cn } from '@/lib/utils'
+import { useQueryClient } from '@tanstack/react-query'
 
 const DEFAULT_PAGE_SIZE = 20
 
@@ -35,15 +39,24 @@ export function ArticlesPageContent() {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
+  const [verifiedFilter, setVerifiedFilter] = useState<
+    'all' | 'unverified' | 'verified'
+  >('all')
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const queryClient = useQueryClient()
+
+  const { data: unverifiedCountData } = useUnverifiedArticlesCount()
+  const unverifiedCount = unverifiedCountData ?? 0
 
   const { data: response, isLoading } = useArticles({
     page,
     pageSize: DEFAULT_PAGE_SIZE,
     search: search || undefined,
     category: category || undefined,
+    ...(verifiedFilter === 'unverified' && { verified: false }),
+    ...(verifiedFilter === 'verified' && { verified: true }),
   })
 
   const articles = response?.data ?? []
@@ -60,6 +73,36 @@ export function ArticlesPageContent() {
     setCategory(value)
     setPage(1)
   }, [])
+
+  const handleVerifiedFilterChange = useCallback(
+    (filter: 'all' | 'unverified' | 'verified') => {
+      setVerifiedFilter(filter)
+      setPage(1)
+    },
+    [],
+  )
+
+  const handleVerify = useCallback(
+    async (e: React.MouseEvent, articleId: string) => {
+      e.stopPropagation()
+      try {
+        const res = await fetch(`/api/articles/${articleId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ verified: true }),
+        })
+        if (res.ok) {
+          queryClient.invalidateQueries({ queryKey: ['articles'] })
+          queryClient.invalidateQueries({
+            queryKey: ['articles-unverified-count'],
+          })
+        }
+      } catch {
+        // Silently fail — user can retry
+      }
+    },
+    [queryClient],
+  )
 
   const handlePrevPage = useCallback(() => {
     setPage((prev) => Math.max(1, prev - 1))
@@ -152,6 +195,50 @@ export function ArticlesPageContent() {
           placeholder="Filtra per categoria"
           className="w-full rounded-button border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent sm:w-48"
         />
+      </div>
+
+      {/* Verification filter tabs */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => handleVerifiedFilterChange('all')}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-button px-3 py-1.5 text-sm font-medium transition-colors',
+            verifiedFilter === 'all'
+              ? 'bg-pf-bg-tertiary text-pf-text-primary'
+              : 'text-pf-text-secondary hover:text-pf-text-primary',
+          )}
+        >
+          Tutti
+        </button>
+        <button
+          onClick={() => handleVerifiedFilterChange('unverified')}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-button px-3 py-1.5 text-sm font-medium transition-colors',
+            verifiedFilter === 'unverified'
+              ? 'bg-amber-400/10 text-amber-400'
+              : 'text-pf-text-secondary hover:text-pf-text-primary',
+          )}
+        >
+          <AlertCircle className="h-3.5 w-3.5" />
+          Da Verificare
+          {unverifiedCount > 0 && (
+            <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400/20 px-1.5 text-[11px] font-semibold text-amber-400">
+              {unverifiedCount}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => handleVerifiedFilterChange('verified')}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-button px-3 py-1.5 text-sm font-medium transition-colors',
+            verifiedFilter === 'verified'
+              ? 'bg-emerald-400/10 text-emerald-400'
+              : 'text-pf-text-secondary hover:text-pf-text-primary',
+          )}
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Verificati
+        </button>
       </div>
 
       {/* Table */}
@@ -250,16 +337,38 @@ export function ArticlesPageContent() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                        article.is_active
-                          ? 'bg-emerald-400/10 text-emerald-400'
-                          : 'bg-zinc-400/10 text-zinc-400',
+                    <div className="flex items-center gap-1.5">
+                      {!article.verified && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-2 py-0.5 text-[11px] font-medium text-amber-400"
+                          title="Da verificare"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                          Da verificare
+                        </span>
                       )}
-                    >
-                      {article.is_active ? 'Attivo' : 'Inattivo'}
-                    </span>
+                      {article.verified && (
+                        <span
+                          className={cn(
+                            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                            article.is_active
+                              ? 'bg-emerald-400/10 text-emerald-400'
+                              : 'bg-zinc-400/10 text-zinc-400',
+                          )}
+                        >
+                          {article.is_active ? 'Attivo' : 'Inattivo'}
+                        </span>
+                      )}
+                      {!article.verified && (
+                        <button
+                          onClick={(e) => handleVerify(e, article.id)}
+                          className="bg-pf-accent/10 hover:bg-pf-accent/20 inline-flex items-center gap-1 rounded-button px-2 py-0.5 text-[11px] font-medium text-pf-accent transition-colors"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          Verifica
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -107,12 +107,21 @@ export async function PATCH(
       where: { id: params.id },
       data: {
         ...(data.name !== undefined && { name: data.name }),
-        ...(data.description !== undefined && { description: data.description || null }),
+        ...(data.description !== undefined && {
+          description: data.description || null,
+        }),
         ...(data.category !== undefined && { category: data.category || null }),
-        ...(data.unit_of_measure !== undefined && { unit_of_measure: data.unit_of_measure }),
-        ...(data.manufacturer !== undefined && { manufacturer: data.manufacturer || null }),
-        ...(data.manufacturer_code !== undefined && { manufacturer_code: data.manufacturer_code || null }),
+        ...(data.unit_of_measure !== undefined && {
+          unit_of_measure: data.unit_of_measure,
+        }),
+        ...(data.manufacturer !== undefined && {
+          manufacturer: data.manufacturer || null,
+        }),
+        ...(data.manufacturer_code !== undefined && {
+          manufacturer_code: data.manufacturer_code || null,
+        }),
         ...(data.is_active !== undefined && { is_active: data.is_active }),
+        ...(data.verified !== undefined && { verified: data.verified }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
         ...(data.tags !== undefined && { tags: data.tags }),
       },
@@ -149,7 +158,10 @@ export async function DELETE(
 
     if (!existing) return notFoundResponse('Articolo non trovato')
 
-    if (existing._count.request_items > 0 || existing._count.invoice_items > 0) {
+    if (
+      existing._count.request_items > 0 ||
+      existing._count.invoice_items > 0
+    ) {
       const updated = await prisma.article.update({
         where: { id: params.id },
         data: { is_active: false },

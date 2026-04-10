@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useInvoiceBadgeCount } from '@/hooks/use-invoice-stats'
 import { useSidebarBadges } from '@/hooks/use-sidebar-badges'
+import { useUnverifiedArticlesCount } from '@/hooks/use-unverified-articles-count'
 import type { NavItem } from '@/lib/constants'
 
 interface SidebarNavItemProps {
@@ -16,6 +17,7 @@ interface SidebarNavItemProps {
 function useBadgeValue(badge: NavItem['badge']): number | null {
   const { data: invoiceData } = useInvoiceBadgeCount()
   const { data: sidebarData } = useSidebarBadges()
+  const { data: unverifiedCount } = useUnverifiedArticlesCount()
 
   if (!badge) return null
 
@@ -32,6 +34,10 @@ function useBadgeValue(badge: NavItem['badge']): number | null {
     }
     case 'requests': {
       const count = sidebarData?.actionableRequests ?? 0
+      return count > 0 ? count : null
+    }
+    case 'articles': {
+      const count = unverifiedCount ?? 0
       return count > 0 ? count : null
     }
     default:

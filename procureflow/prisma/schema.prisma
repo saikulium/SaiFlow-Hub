@@ -301,6 +301,7 @@ model Article {
   manufacturer      String?
   manufacturer_code String?
   is_active         Boolean   @default(true)
+  verified          Boolean   @default(false)
   notes             String?
   tags              String[]
   created_at        DateTime  @default(now())
@@ -316,6 +317,7 @@ model Article {
   @@index([category])
   @@index([manufacturer_code])
   @@index([is_active])
+  @@index([verified])
   @@map("articles")
 }
 

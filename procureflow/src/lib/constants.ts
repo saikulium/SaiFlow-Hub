@@ -221,7 +221,7 @@ export interface NavItem {
   label: string
   href: string
   icon: LucideIcon
-  badge?: 'requests' | 'approvals' | 'invoices'
+  badge?: 'requests' | 'approvals' | 'invoices' | 'articles'
   adminOnly?: boolean
 }
 
@@ -249,7 +249,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Budget', href: '/budgets', icon: PiggyBank },
   { label: 'Gare', href: '/tenders', icon: Gavel },
   { label: 'Magazzino', href: '/inventory', icon: Package },
-  { label: 'Articoli', href: '/articles', icon: BookOpen },
+  { label: 'Articoli', href: '/articles', icon: BookOpen, badge: 'articles' },
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Commesse', href: '/commesse', icon: Briefcase },
   { label: 'Clienti', href: '/clients', icon: Building2 },

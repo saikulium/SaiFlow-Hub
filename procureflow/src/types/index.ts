@@ -634,6 +634,7 @@ export interface ArticleListItem {
   readonly unit_of_measure: string
   readonly manufacturer: string | null
   readonly is_active: boolean
+  readonly verified: boolean
   readonly created_at: string
   readonly _count: {
     readonly aliases: number

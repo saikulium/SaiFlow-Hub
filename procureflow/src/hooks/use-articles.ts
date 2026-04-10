@@ -31,6 +31,8 @@ async function fetchArticles(
   if (params?.category) searchParams.set('category', params.category)
   if (params?.is_active !== undefined)
     searchParams.set('is_active', String(params.is_active))
+  if (params?.verified !== undefined)
+    searchParams.set('verified', String(params.verified))
   if (params?.sort) searchParams.set('sort', params.sort)
   if (params?.order) searchParams.set('order', params.order)
 

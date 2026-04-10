@@ -35,6 +35,7 @@ export const createArticleSchema = z.object({
 
 export const updateArticleSchema = createArticleSchema.partial().extend({
   is_active: z.boolean().optional(),
+  verified: z.boolean().optional(),
 })
 
 export const articleQuerySchema = z.object({
@@ -43,6 +44,10 @@ export const articleQuerySchema = z.object({
   search: z.string().optional(),
   category: z.string().optional(),
   is_active: z
+    .string()
+    .transform((v) => v === 'true')
+    .optional(),
+  verified: z
     .string()
     .transform((v) => v === 'true')
     .optional(),

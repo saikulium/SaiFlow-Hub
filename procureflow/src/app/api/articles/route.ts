@@ -28,8 +28,16 @@ export async function GET(req: NextRequest) {
       return validationErrorResponse(parsed.error.flatten())
     }
 
-    const { page, pageSize, search, category, is_active, sort, order } =
-      parsed.data
+    const {
+      page,
+      pageSize,
+      search,
+      category,
+      is_active,
+      verified,
+      sort,
+      order,
+    } = parsed.data
 
     const where: Prisma.ArticleWhereInput = {}
 
@@ -55,6 +63,9 @@ export async function GET(req: NextRequest) {
     }
     if (is_active !== undefined) {
       where.is_active = is_active
+    }
+    if (verified !== undefined) {
+      where.verified = verified
     }
 
     const [articles, total] = await Promise.all([
