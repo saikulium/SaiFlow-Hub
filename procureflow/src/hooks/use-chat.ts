@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ActionPreview } from '@/types/ai'
 
 // ---------------------------------------------------------------------------
@@ -64,6 +64,9 @@ export function getToolLabel(name: string): string {
   return TOOL_LABELS[name] ?? `Eseguo ${name}...`
 }
 
+// Safety timeout: if streaming takes longer than 90s, force reset
+const STREAMING_TIMEOUT_MS = 90_000
+
 export function useChat(): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
@@ -72,10 +75,47 @@ export function useChat(): UseChatReturn {
     null,
   )
   const abortRef = useRef<AbortController | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Use a ref for messages so streamResponse always sees the latest
+  const messagesRef = useRef<ChatMessage[]>([])
+  messagesRef.current = messages
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [])
+
+  // Safety: force-reset isStreaming if stuck
+  useEffect(() => {
+    if (isStreaming) {
+      timeoutRef.current = setTimeout(() => {
+        setIsStreaming(false)
+        setMessages((prev) =>
+          prev.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m)),
+        )
+      }, STREAMING_TIMEOUT_MS)
+    } else {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+    }
+  }, [isStreaming])
 
   const sendMessage = useCallback(
     (content: string) => {
-      if (isStreaming || !content.trim()) return
+      if (!content.trim()) return
+      // Force reset if somehow stuck
+      if (isStreaming && abortRef.current) {
+        abortRef.current.abort()
+        abortRef.current = null
+        setIsStreaming(false)
+      }
+      if (isStreaming) {
+        setIsStreaming(false)
+      }
 
       const userMsg: ChatMessage = {
         id: nextId(),
@@ -96,7 +136,8 @@ export function useChat(): UseChatReturn {
       setIsStreaming(true)
       setError(null)
 
-      const apiMessages = [...messages, userMsg].map((m) => ({
+      // Use ref to get current messages (avoids stale closure)
+      const apiMessages = [...messagesRef.current, userMsg].map((m) => ({
         role: m.role,
         content: m.content,
       }))
@@ -104,12 +145,32 @@ export function useChat(): UseChatReturn {
       const controller = new AbortController()
       abortRef.current = controller
 
-      void streamResponse(apiMessages, assistantId, controller.signal)
+      streamResponse(apiMessages, assistantId, controller.signal)
     },
-    [isStreaming, messages],
+    [isStreaming],
   )
 
-  async function streamResponse(
+  function streamResponse(
+    apiMessages: Array<{ role: string; content: string }>,
+    assistantId: string,
+    signal: AbortSignal,
+  ) {
+    doStream(apiMessages, assistantId, signal).catch((err) => {
+      if ((err as Error).name !== 'AbortError') {
+        setError(`Errore: ${String(err)}`)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: `Errore: ${String(err)}`, isStreaming: false }
+              : m,
+          ),
+        )
+      }
+      setIsStreaming(false)
+    })
+  }
+
+  async function doStream(
     apiMessages: Array<{ role: string; content: string }>,
     assistantId: string,
     signal: AbortSignal,
@@ -134,15 +195,11 @@ export function useChat(): UseChatReturn {
               : m,
           ),
         )
-        setIsStreaming(false)
         return
       }
 
       const reader = res.body?.getReader()
-      if (!reader) {
-        setIsStreaming(false)
-        return
-      }
+      if (!reader) return
 
       const decoder = new TextDecoder()
       let buffer = ''
@@ -250,10 +307,6 @@ export function useChat(): UseChatReturn {
             )
           }
         }
-      }
-    } catch (err) {
-      if ((err as Error).name !== 'AbortError') {
-        setError(`Errore di connessione: ${String(err)}`)
       }
     } finally {
       setIsStreaming(false)
