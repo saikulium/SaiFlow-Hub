@@ -23,9 +23,22 @@ export const createNotificationTool = betaZodTool({
     link: z
       .string()
       .optional()
-      .describe('Deep link alla risorsa correlata (es: /requests/PR-2025-00001)'),
+      .describe(
+        'Deep link alla risorsa correlata (es: /requests/PR-2025-00001)',
+      ),
   }),
   run: async (input) => {
+    // Verify user exists before creating notification
+    const user = await prisma.user.findUnique({
+      where: { id: input.user_id },
+      select: { id: true },
+    })
+    if (!user) {
+      return JSON.stringify({
+        error: `Utente con ID ${input.user_id} non trovato`,
+      })
+    }
+
     const notification = await prisma.notification.create({
       data: {
         user_id: input.user_id,
@@ -50,7 +63,9 @@ export const createTimelineEventTool = betaZodTool({
   inputSchema: z.object({
     request_id: z
       .string()
-      .describe("ID della richiesta d'acquisto (non il codice, ma l'ID interno)"),
+      .describe(
+        "ID della richiesta d'acquisto (non il codice, ma l'ID interno)",
+      ),
     type: z
       .string()
       .describe(
@@ -67,6 +82,17 @@ export const createTimelineEventTool = betaZodTool({
       .describe("Chi ha causato l'evento (default: 'AI Agent')"),
   }),
   run: async (input) => {
+    // Verify request exists before creating timeline event
+    const request = await prisma.purchaseRequest.findUnique({
+      where: { id: input.request_id },
+      select: { id: true },
+    })
+    if (!request) {
+      return JSON.stringify({
+        error: `Richiesta con ID ${input.request_id} non trovata`,
+      })
+    }
+
     const event = await prisma.timelineEvent.create({
       data: {
         request_id: input.request_id,

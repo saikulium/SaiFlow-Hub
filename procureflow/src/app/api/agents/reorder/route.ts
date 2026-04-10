@@ -28,7 +28,7 @@ export async function POST() {
         success: false,
         error: {
           code: 'REORDER_AGENT_ERROR',
-          message: `Errore nell'esecuzione dell'agente di riordino: ${String(err)}`,
+          message: "Errore nell'esecuzione dell'agente di riordino",
         },
       },
       { status: 500 },

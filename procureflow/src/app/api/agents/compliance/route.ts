@@ -28,7 +28,7 @@ export async function POST() {
         success: false,
         error: {
           code: 'COMPLIANCE_AGENT_ERROR',
-          message: `Errore nell'esecuzione dell'agente di compliance: ${String(err)}`,
+          message: "Errore nell'esecuzione dell'agente di compliance",
         },
       },
       { status: 500 },

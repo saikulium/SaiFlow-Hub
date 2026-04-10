@@ -684,6 +684,36 @@ async function executeApproveRequest(
   params: ApproveRequestInput,
   userId: string,
 ): Promise<unknown> {
+  // Verify request exists and is in PENDING_APPROVAL status
+  const request = await prisma.purchaseRequest.findUnique({
+    where: { id: params.request_id },
+    select: { id: true, status: true, requester_id: true },
+  })
+
+  if (!request) {
+    throw new Error('Richiesta non trovata')
+  }
+
+  if (request.status !== 'PENDING_APPROVAL') {
+    throw new Error(
+      `Richiesta non in stato PENDING_APPROVAL (stato attuale: ${request.status})`,
+    )
+  }
+
+  // Prevent self-approval
+  if (request.requester_id === userId) {
+    throw new Error('Non è possibile approvare le proprie richieste')
+  }
+
+  // Check for duplicate approval
+  const existingApproval = await prisma.approval.findFirst({
+    where: { request_id: params.request_id, approver_id: userId },
+  })
+
+  if (existingApproval) {
+    throw new Error('Questa richiesta è già stata approvata da questo utente')
+  }
+
   const [approval] = await prisma.$transaction([
     prisma.approval.create({
       data: {

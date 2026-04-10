@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -8,11 +8,15 @@ import {
 } from '@/lib/api-response'
 import { approvalDecisionSchema } from '@/lib/validations/approval'
 import { decideApproval } from '@/server/services/approval.service'
+import { requireAuth } from '@/lib/auth'
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     const body = await req.json()
     const parsed = approvalDecisionSchema.safeParse(body)
@@ -23,10 +27,19 @@ export async function POST(
 
     const existing = await prisma.approval.findUnique({
       where: { id: params.id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, approver_id: true },
     })
 
     if (!existing) return notFoundResponse('Approvazione non trovata')
+
+    // Verify the caller is the assigned approver (or ADMIN)
+    if (existing.approver_id !== authResult.id && authResult.role !== 'ADMIN') {
+      return errorResponse(
+        'FORBIDDEN',
+        'Non hai il permesso di decidere su questa approvazione',
+        403,
+      )
+    }
 
     if (existing.status !== 'PENDING') {
       return errorResponse(

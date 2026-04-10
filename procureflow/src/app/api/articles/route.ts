@@ -5,13 +5,19 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { requireRole } from '@/lib/auth'
+import { requireAuth, requireRole } from '@/lib/auth'
 import { requireModule } from '@/lib/modules/require-module'
-import { createArticleSchema, articleQuerySchema } from '@/lib/validations/article'
+import {
+  createArticleSchema,
+  articleQuerySchema,
+} from '@/lib/validations/article'
 import { Prisma } from '@prisma/client'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 
 export async function GET(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/articles')
   if (blocked) return blocked
   try {
@@ -22,7 +28,8 @@ export async function GET(req: NextRequest) {
       return validationErrorResponse(parsed.error.flatten())
     }
 
-    const { page, pageSize, search, category, is_active, sort, order } = parsed.data
+    const { page, pageSize, search, category, is_active, sort, order } =
+      parsed.data
 
     const where: Prisma.ArticleWhereInput = {}
 
@@ -31,7 +38,16 @@ export async function GET(req: NextRequest) {
         { name: { contains: search, mode: 'insensitive' } },
         { code: { contains: search, mode: 'insensitive' } },
         { manufacturer_code: { contains: search, mode: 'insensitive' } },
-        { aliases: { some: { alias_code: { contains: search.toUpperCase(), mode: 'insensitive' } } } },
+        {
+          aliases: {
+            some: {
+              alias_code: {
+                contains: search.toUpperCase(),
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
       ]
     }
     if (category) {
@@ -45,7 +61,7 @@ export async function GET(req: NextRequest) {
       prisma.article.findMany({
         where,
         include: {
-          _count: { select: { aliases: true, prices: true } },
+          _count: { select: { aliases: true, prices: true, materials: true } },
         },
         orderBy: { [sort]: order },
         skip: (page - 1) * pageSize,
@@ -75,35 +91,54 @@ export async function POST(req: NextRequest) {
       return validationErrorResponse(parsed.error.flatten())
     }
 
-    const { aliases, ...data } = parsed.data
+    const { aliases, manage_inventory, ...data } = parsed.data
 
-    const code = await generateNextCodeAtomic('ART', 'articles')
+    const article = await prisma.$transaction(async (tx) => {
+      const code = await generateNextCodeAtomic('ART', 'articles', tx)
 
-    const article = await prisma.article.create({
-      data: {
-        code,
-        name: data.name,
-        description: data.description || null,
-        category: data.category || null,
-        unit_of_measure: data.unit_of_measure,
-        manufacturer: data.manufacturer || null,
-        manufacturer_code: data.manufacturer_code || null,
-        notes: data.notes || null,
-        tags: data.tags,
-        aliases: {
-          create: aliases.map((a) => ({
-            alias_type: a.alias_type,
-            alias_code: a.alias_code,
-            alias_label: a.alias_label || null,
-            entity_id: a.entity_id || null,
-            is_primary: a.is_primary,
-          })),
+      const created = await tx.article.create({
+        data: {
+          code,
+          name: data.name,
+          description: data.description || null,
+          category: data.category || null,
+          unit_of_measure: data.unit_of_measure,
+          manufacturer: data.manufacturer || null,
+          manufacturer_code: data.manufacturer_code || null,
+          notes: data.notes || null,
+          tags: data.tags,
+          aliases: {
+            create: aliases.map((a) => ({
+              alias_type: a.alias_type,
+              alias_code: a.alias_code,
+              alias_label: a.alias_label || null,
+              entity_id: a.entity_id || null,
+              is_primary: a.is_primary,
+            })),
+          },
         },
-      },
-      include: {
-        aliases: true,
-        _count: { select: { aliases: true, prices: true } },
-      },
+        include: {
+          aliases: true,
+          _count: { select: { aliases: true, prices: true } },
+        },
+      })
+
+      // Auto-create linked Material when inventory management is enabled
+      if (manage_inventory) {
+        const matCode = await generateNextCodeAtomic('MAT', 'materials', tx)
+        await tx.material.create({
+          data: {
+            code: matCode,
+            name: data.name,
+            category: data.category || null,
+            unit_primary: data.unit_of_measure,
+            article_id: created.id,
+            tags: data.tags,
+          },
+        })
+      }
+
+      return created
     })
 
     return successResponse(article)

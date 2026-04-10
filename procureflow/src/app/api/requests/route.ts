@@ -11,9 +11,13 @@ import {
 } from '@/lib/validations/request'
 import { Prisma } from '@prisma/client'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
-import { getCurrentUser } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
+import { NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     const params = Object.fromEntries(req.nextUrl.searchParams)
     const parsed = requestQuerySchema.safeParse(params)
@@ -74,6 +78,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     const body = await req.json()
     const parsed = createRequestSchema.safeParse(body)
@@ -87,9 +94,7 @@ export async function POST(req: NextRequest) {
     // Genera codice atomico (previene duplicati sotto concorrenza)
     const code = await generateNextCodeAtomic()
 
-    // Requester da sessione auth
-    const currentUser = await getCurrentUser()
-    const requesterId = currentUser.id
+    const requesterId = authResult.id
 
     const request = await prisma.purchaseRequest.create({
       data: {
@@ -133,7 +138,7 @@ export async function POST(req: NextRequest) {
             type: 'created',
             title: 'Richiesta creata',
             description: 'La richiesta è stata creata',
-            actor: currentUser.name,
+            actor: authResult.name,
           },
         },
       },

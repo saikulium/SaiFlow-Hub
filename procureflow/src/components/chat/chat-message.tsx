@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getToolLabel } from '@/hooks/use-chat'
@@ -13,24 +14,83 @@ interface ChatMessageProps {
   readonly message: ChatMessage
 }
 
-/** Markdown base: bold, italic, code inline, liste puntate */
-function renderMarkdown(text: string): string {
-  return (
-    text
-      // Code inline
-      .replace(
-        /`([^`]+)`/g,
-        '<code class="rounded bg-pf-bg-hover px-1 py-0.5 text-xs font-mono">$1</code>',
+/**
+ * Parse basic markdown into React nodes (safe — no dangerouslySetInnerHTML).
+ * Supports: **bold**, *italic*, `code`, bullet lists, newlines.
+ */
+function renderMarkdownSafe(text: string): React.ReactNode[] {
+  const lines = text.split('\n')
+  const nodes: React.ReactNode[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    if (i > 0) nodes.push(<br key={`br-${i}`} />)
+
+    const isBullet = /^- (.+)$/.exec(line)
+    const content = isBullet ? isBullet[1]! : line
+
+    const inlineNodes = parseInlineMarkdown(content, `line-${i}`)
+
+    if (isBullet) {
+      nodes.push(
+        <li key={`li-${i}`} className="ml-4 list-disc">
+          {inlineNodes}
+        </li>,
       )
+    } else {
+      nodes.push(
+        <React.Fragment key={`frag-${i}`}>{inlineNodes}</React.Fragment>,
+      )
+    }
+  }
+
+  return nodes
+}
+
+/** Parse inline markdown: **bold**, *italic*, `code` */
+function parseInlineMarkdown(
+  text: string,
+  keyPrefix: string,
+): React.ReactNode[] {
+  const tokens: React.ReactNode[] = []
+  // Match **bold**, *italic*, or `code`
+  const regex = /(\*\*([^*]+)\*\*)|(`([^`]+)`)|(?<!\*)\*([^*]+)\*(?!\*)/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  let idx = 0
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      tokens.push(text.slice(lastIndex, match.index))
+    }
+
+    if (match[2]) {
       // Bold
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      tokens.push(<strong key={`${keyPrefix}-b-${idx}`}>{match[2]}</strong>)
+    } else if (match[4]) {
+      // Code
+      tokens.push(
+        <code
+          key={`${keyPrefix}-c-${idx}`}
+          className="rounded bg-pf-bg-hover px-1 py-0.5 font-mono text-xs"
+        >
+          {match[4]}
+        </code>,
+      )
+    } else if (match[5]) {
       // Italic
-      .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
-      // Liste puntate (linee che iniziano con "- ")
-      .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
-      // Newlines
-      .replace(/\n/g, '<br />')
-  )
+      tokens.push(<em key={`${keyPrefix}-i-${idx}`}>{match[5]}</em>)
+    }
+
+    lastIndex = match.index + match[0].length
+    idx++
+  }
+
+  if (lastIndex < text.length) {
+    tokens.push(text.slice(lastIndex))
+  }
+
+  return tokens
 }
 
 export function ChatMessageBubble({ message }: ChatMessageProps) {
@@ -68,12 +128,9 @@ export function ChatMessageBubble({ message }: ChatMessageProps) {
 
         {/* Message content */}
         {message.content && (
-          <div
-            className="chat-message-content"
-            dangerouslySetInnerHTML={{
-              __html: renderMarkdown(message.content),
-            }}
-          />
+          <div className="chat-message-content">
+            {renderMarkdownSafe(message.content)}
+          </div>
         )}
 
         {/* Streaming indicator — shown while waiting for next chunk */}

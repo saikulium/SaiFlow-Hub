@@ -22,10 +22,31 @@ export const getInvoiceDetailTool = betaZodTool({
     invoice_id: z.string().describe('ID della fattura'),
   }),
   run: async (input) => {
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: input.invoice_id },
-      include: {
-        line_items: true,
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: input.invoice_id, tenant_id: DEFAULT_TENANT },
+      select: {
+        id: true,
+        invoice_number: true,
+        invoice_date: true,
+        supplier_name: true,
+        supplier_vat_id: true,
+        total_amount: true,
+        currency: true,
+        match_status: true,
+        reconciliation_status: true,
+        reconciliation_notes: true,
+        pr_code_extracted: true,
+        received_at: true,
+        line_items: {
+          select: {
+            id: true,
+            description: true,
+            quantity: true,
+            unit_price: true,
+            total_price: true,
+            vat_rate: true,
+          },
+        },
         purchase_request: {
           select: { code: true, title: true },
         },
@@ -49,7 +70,7 @@ export const getInvoiceDetailTool = betaZodTool({
 export const getOrderForInvoiceTool = betaZodTool({
   name: 'get_order_for_invoice',
   description:
-    'Trova l\'ordine di acquisto correlato a una fattura. Cerca per codice PR oppure per nome/P.IVA fornitore tra gli ordini ORDERED/SHIPPED/DELIVERED.',
+    "Trova l'ordine di acquisto correlato a una fattura. Cerca per codice PR oppure per nome/P.IVA fornitore tra gli ordini ORDERED/SHIPPED/DELIVERED.",
   inputSchema: z.object({
     pr_code: z
       .string()
@@ -85,7 +106,12 @@ export const getOrderForInvoiceTool = betaZodTool({
     }
 
     // Strategy 2: find vendor first, then find their orders
-    const validStatuses = ['ORDERED', 'SHIPPED', 'DELIVERED', 'INVOICED'] as const
+    const validStatuses = [
+      'ORDERED',
+      'SHIPPED',
+      'DELIVERED',
+      'INVOICED',
+    ] as const
 
     if (input.supplier_vat_id) {
       const invoicesWithVendor = await prisma.invoice.findMany({
@@ -174,7 +200,7 @@ export const getVendorPriceHistoryTool = betaZodTool({
     vendor_name: z.string().describe('Nome del fornitore'),
     item_description: z
       .string()
-      .describe('Descrizione o nome dell\'articolo da cercare'),
+      .describe("Descrizione o nome dell'articolo da cercare"),
   }),
   run: async (input) => {
     const vendor = await prisma.vendor.findFirst({
@@ -250,7 +276,7 @@ const reconciliationStatusEnum = z.enum(['APPROVED', 'DISPUTED', 'PENDING'])
 export const updateReconciliationStatusTool = betaZodTool({
   name: 'update_reconciliation_status',
   description:
-    'Aggiorna lo stato di riconciliazione di una fattura. Usa dopo aver completato l\'analisi per impostare APPROVED, DISPUTED o PENDING.',
+    "Aggiorna lo stato di riconciliazione di una fattura. Usa dopo aver completato l'analisi per impostare APPROVED, DISPUTED o PENDING.",
   inputSchema: z.object({
     invoice_id: z.string().describe('ID della fattura'),
     status: reconciliationStatusEnum.describe(

@@ -102,8 +102,8 @@ export async function POST(request: Request) {
       data: result,
     })
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    const isNotFound = message.includes('non trovata')
+    const errMsg = err instanceof Error ? err.message : ''
+    const isNotFound = errMsg.includes('non trovata')
 
     return NextResponse.json(
       {
@@ -111,8 +111,8 @@ export async function POST(request: Request) {
         error: {
           code: isNotFound ? 'TENDER_NOT_FOUND' : 'TENDER_ANALYSIS_ERROR',
           message: isNotFound
-            ? message
-            : `Errore nell'analisi della gara: ${message}`,
+            ? 'Gara non trovata'
+            : "Errore nell'analisi della gara",
         },
       },
       { status: isNotFound ? 404 : 500 },

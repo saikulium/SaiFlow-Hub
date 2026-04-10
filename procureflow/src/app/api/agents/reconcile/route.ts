@@ -50,10 +50,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await reconcileInvoice(
-      parsed.data.invoice_id,
-      authResult.id,
-    )
+    const result = await reconcileInvoice(parsed.data.invoice_id, authResult.id)
 
     return NextResponse.json({
       success: true,
@@ -66,7 +63,7 @@ export async function POST(request: Request) {
         success: false,
         error: {
           code: 'RECONCILIATION_AGENT_ERROR',
-          message: `Errore nell'esecuzione dell'agente di riconciliazione: ${String(err)}`,
+          message: "Errore nell'esecuzione dell'agente di riconciliazione",
         },
       },
       { status: 500 },
