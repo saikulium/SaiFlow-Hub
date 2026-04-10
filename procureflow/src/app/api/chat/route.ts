@@ -49,16 +49,20 @@ setInterval(() => {
 // Modulo 'chatbot' deve essere attivo.
 // ---------------------------------------------------------------------------
 
+const chatMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+})
+
 const chatRequestSchema = z.object({
   messages: z
-    .array(
-      z.object({
-        role: z.enum(['user', 'assistant']),
-        content: z.string().min(1),
-      }),
-    )
+    .array(chatMessageSchema)
     .min(1)
-    .max(50),
+    .max(50)
+    .transform((msgs) =>
+      // Filter out empty assistant placeholder messages before processing
+      msgs.filter((m) => m.content.trim().length > 0),
+    ),
 })
 
 export async function POST(req: Request) {
@@ -100,16 +104,40 @@ export async function POST(req: Request) {
 
   const parsed = chatRequestSchema.safeParse(body)
   if (!parsed.success) {
+    const details = parsed.error.issues.map((i) => ({
+      path: i.path.join('.'),
+      message: i.message,
+    }))
+    console.error(
+      '[chat] Validation failed:',
+      JSON.stringify(details),
+      'Body:',
+      JSON.stringify(body),
+    )
     return Response.json(
       {
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Payload non valido',
-          details: parsed.error.issues.map((i) => ({
-            path: i.path.join('.'),
-            message: i.message,
-          })),
+          details,
+        },
+      },
+      { status: 400 },
+    )
+  }
+
+  // After transform, ensure we still have messages with at least one user message
+  if (
+    parsed.data.messages.length === 0 ||
+    parsed.data.messages[0]?.role !== 'user'
+  ) {
+    return Response.json(
+      {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Almeno un messaggio utente richiesto',
         },
       },
       { status: 400 },

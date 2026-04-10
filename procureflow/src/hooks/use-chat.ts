@@ -137,10 +137,16 @@ export function useChat(): UseChatReturn {
       setError(null)
 
       // Use ref to get current messages (avoids stale closure)
-      const apiMessages = [...messagesRef.current, userMsg].map((m) => ({
-        role: m.role,
-        content: m.content,
-      }))
+      // Filter out empty assistant messages (streaming placeholders) and error messages
+      const apiMessages = [...messagesRef.current, userMsg]
+        .filter(
+          (m) =>
+            m.content.trim().length > 0 && !m.content.startsWith('Errore:'),
+        )
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))
 
       const controller = new AbortController()
       abortRef.current = controller
