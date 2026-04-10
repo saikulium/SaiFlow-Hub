@@ -3,6 +3,9 @@ import type { ActionPreview } from '@/types/ai'
 
 // ---------------------------------------------------------------------------
 // In-memory store for pending AI agent write actions
+//
+// Uses globalThis to survive Next.js hot-reload in development
+// (same pattern as Prisma client in db.ts)
 // ---------------------------------------------------------------------------
 
 interface StoredAction {
@@ -13,7 +16,16 @@ interface StoredAction {
   readonly expiresAt: number
 }
 
-const store = new Map<string, StoredAction>()
+const globalForActions = globalThis as unknown as {
+  __pendingActionsStore: Map<string, StoredAction> | undefined
+}
+
+const store: Map<string, StoredAction> =
+  globalForActions.__pendingActionsStore ?? new Map()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForActions.__pendingActionsStore = store
+}
 
 function cleanup(): void {
   const now = Date.now()
