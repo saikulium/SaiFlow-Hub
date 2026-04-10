@@ -104,23 +104,12 @@ export async function POST(req: Request) {
 
   const parsed = chatRequestSchema.safeParse(body)
   if (!parsed.success) {
-    const details = parsed.error.issues.map((i) => ({
-      path: i.path.join('.'),
-      message: i.message,
-    }))
-    console.error(
-      '[chat] Validation failed:',
-      JSON.stringify(details),
-      'Body:',
-      JSON.stringify(body),
-    )
     return Response.json(
       {
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Payload non valido',
-          details,
         },
       },
       { status: 400 },
