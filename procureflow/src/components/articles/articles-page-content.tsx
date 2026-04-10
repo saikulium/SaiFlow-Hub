@@ -251,7 +251,7 @@ export function ArticlesPageContent() {
             <col className="hidden w-[60px] sm:table-column" />
             <col className="w-[80px]" />
             <col className="w-[80px]" />
-            <col className="w-[90px]" />
+            <col className="w-[180px]" />
           </colgroup>
           <thead>
             <tr className="border-b border-pf-border">
