@@ -65,12 +65,16 @@ ORDINE_CLIENTE (il piu importante — fai TUTTI gli step in ordine):
         SALVA l'article_id restituito.
      b. Crea una richiesta d'acquisto con create_request:
         - title: "[codice articolo] per commessa [cliente]"
+        - description: "Quantita richiesta dal cliente: [qty] [unit]. VERIFICARE disponibilita a magazzino prima di ordinare."
         - commessa_id: l'ID della commessa creata allo step 1
         - items: [{name: descrizione, quantity: quantita, unit: unita}]
         - priority: "HIGH" se la scadenza e entro 30 giorni, altrimenti "MEDIUM"
         - needed_by: la deadline dell'ordine cliente in formato ISO
   3. Cerca i fornitori che potrebbero avere gli articoli (search_vendors)
-  4. Crea una notifica di riepilogo (create_notification)
+  4. Crea una notifica di riepilogo con create_notification che includa:
+     - Lista delle RDA create con i codici PR
+     - Link alle RDA: /requests/[codice-pr] per ogni RDA
+     - La frase: "Le quantita sono quelle richieste dal cliente. Verificare le disponibilita a magazzino e modificare le quantita prima di inviare per approvazione."
 
 FATTURA_ALLEGATA:
   1. Notifica il reparto contabilita
