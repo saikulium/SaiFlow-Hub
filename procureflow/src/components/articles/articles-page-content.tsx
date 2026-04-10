@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import {
   Plus,
   Upload,
+  Download,
   ChevronLeft,
   ChevronRight,
   BookOpen,
   Search,
+  Package,
 } from 'lucide-react'
 import { useArticles } from '@/hooks/use-articles'
 import { ArticleCreateDialog } from '@/components/articles/article-create-dialog'
@@ -67,6 +69,25 @@ export function ArticlesPageContent() {
     setPage((prev) => Math.min(totalPages, prev + 1))
   }, [totalPages])
 
+  const handleDownloadTemplate = useCallback(() => {
+    const headers =
+      'codice_interno,nome,categoria,um,produttore,codice_produttore,tipo_alias,codice_alias,entita,note_alias'
+    const example1 =
+      'ART-001,Vite M8x40 zincata,Ferramenta,pz,Fischer,FIS-M8-40,vendor,FISC-M840,Fischer Italia Srl,Alias fornitore principale'
+    const example2 =
+      'ART-001,Vite M8x40 zincata,Ferramenta,pz,,,client,VIT-8-40,Rossi Costruzioni,Codice usato dal cliente'
+    const example3 =
+      'ART-002,Tubo rame 22mm,Idraulica,m,Frap,FR-T22,vendor,FRAP-22,Frap SpA,'
+    const csv = [headers, example1, example2, example3].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'template_articoli.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }, [])
+
   const handleRowClick = useCallback(
     (id: string) => {
       router.push(`/articles/${id}`)
@@ -88,6 +109,13 @@ export function ArticlesPageContent() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadTemplate}
+            className="inline-flex items-center gap-2 rounded-button border border-pf-border px-4 py-2 text-sm font-medium text-pf-text-secondary transition-colors hover:border-pf-border-hover hover:text-pf-text-primary"
+          >
+            <Download className="h-4 w-4" />
+            Download Template
+          </button>
           <button
             onClick={() => setImportOpen(true)}
             className="inline-flex items-center gap-2 rounded-button border border-pf-border px-4 py-2 text-sm font-medium text-pf-text-secondary transition-colors hover:border-pf-border-hover hover:text-pf-text-primary"
@@ -127,7 +155,7 @@ export function ArticlesPageContent() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-card border border-pf-border bg-pf-bg-secondary/60 backdrop-blur-xl">
+      <div className="bg-pf-bg-secondary/60 overflow-x-auto rounded-card border border-pf-border backdrop-blur-xl">
         <table className="w-full table-fixed">
           <colgroup>
             <col className="w-[120px]" />
@@ -165,9 +193,7 @@ export function ArticlesPageContent() {
           </thead>
           <tbody>
             {isLoading &&
-              Array.from({ length: 5 }).map((_, i) => (
-                <SkeletonRow key={i} />
-              ))}
+              Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
 
             {!isLoading && articles.length === 0 && (
               <tr>
@@ -196,9 +222,16 @@ export function ArticlesPageContent() {
                     </span>
                   </td>
                   <td className="overflow-hidden px-4 py-3">
-                    <span className="block truncate text-sm font-medium text-pf-text-primary">
-                      {article.name}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="block truncate text-sm font-medium text-pf-text-primary">
+                        {article.name}
+                      </span>
+                      {article._count.materials > 0 && (
+                        <span title="Gestito a magazzino">
+                          <Package className="h-3.5 w-3.5 shrink-0 text-pf-accent" />
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="hidden px-4 py-3 text-sm text-pf-text-secondary md:table-cell">
                     {article.category ?? '-'}
@@ -236,11 +269,10 @@ export function ArticlesPageContent() {
 
       {/* Pagination */}
       {!isLoading && total > 0 && (
-        <div className="flex items-center justify-between rounded-card border border-pf-border bg-pf-bg-secondary/60 px-4 py-3 backdrop-blur-xl">
+        <div className="bg-pf-bg-secondary/60 flex items-center justify-between rounded-card border border-pf-border px-4 py-3 backdrop-blur-xl">
           <p className="text-sm text-pf-text-secondary">
             Pagina{' '}
-            <span className="font-medium text-pf-text-primary">{page}</span>{' '}
-            di{' '}
+            <span className="font-medium text-pf-text-primary">{page}</span> di{' '}
             <span className="font-medium text-pf-text-primary">
               {totalPages}
             </span>{' '}
@@ -256,8 +288,8 @@ export function ArticlesPageContent() {
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                 page <= 1
-                  ? 'cursor-not-allowed text-pf-text-secondary/40'
-                  : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                  ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                  : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
               )}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -269,8 +301,8 @@ export function ArticlesPageContent() {
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                 page >= totalPages
-                  ? 'cursor-not-allowed text-pf-text-secondary/40'
-                  : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                  ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                  : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
               )}
             >
               Successiva

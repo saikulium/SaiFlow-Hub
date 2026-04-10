@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -9,8 +9,12 @@ import { requireModule } from '@/lib/modules/require-module'
 import { createClientSchema } from '@/lib/validations/client'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 import type { Prisma } from '@prisma/client'
+import { requireAuth } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/clients')
   if (blocked) return blocked
 
@@ -78,6 +82,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/clients')
   if (blocked) return blocked
 
@@ -92,7 +99,9 @@ export async function POST(req: NextRequest) {
     const { code: providedCode, email, ...rest } = parsed.data
 
     const client = await prisma.$transaction(async (tx) => {
-      const code = providedCode ?? await generateNextCodeAtomic('CLI', 'clients', tx, true)
+      const code =
+        providedCode ??
+        (await generateNextCodeAtomic('CLI', 'clients', tx, true))
 
       const existing = await tx.client.findUnique({ where: { code } })
       if (existing) {
@@ -111,7 +120,11 @@ export async function POST(req: NextRequest) {
     return successResponse(client)
   } catch (error) {
     if (error instanceof DuplicateCodeError) {
-      return errorResponse('DUPLICATE_CODE', `Codice cliente "${error.code}" già esistente`, 409)
+      return errorResponse(
+        'DUPLICATE_CODE',
+        `Codice cliente "${error.code}" già esistente`,
+        409,
+      )
     }
     console.error('POST /api/clients error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore creazione cliente', 500)

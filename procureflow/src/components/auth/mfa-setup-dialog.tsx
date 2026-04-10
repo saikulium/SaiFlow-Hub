@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, ShieldCheck, Copy, Check } from 'lucide-react'
+import { Loader2, ShieldCheck, Copy, Check, ArrowLeft } from 'lucide-react'
 import { useMfaSetup, useMfaVerifySetup } from '@/hooks/use-mfa'
 
 type Step = 'qr' | 'verify' | 'recovery'
@@ -24,7 +24,11 @@ export function MfaSetupDialog({
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [copied, setCopied] = useState(false)
 
-  const { startSetup, isLoading: setupLoading, error: setupError } = useMfaSetup()
+  const {
+    startSetup,
+    isLoading: setupLoading,
+    error: setupError,
+  } = useMfaSetup()
   const {
     verifySetup,
     isLoading: verifyLoading,
@@ -96,9 +100,7 @@ export function MfaSetupDialog({
               ) : null}
               Genera codice QR
             </button>
-            {setupError && (
-              <p className="text-sm text-red-400">{setupError}</p>
-            )}
+            {setupError && <p className="text-sm text-red-400">{setupError}</p>}
           </div>
         )}
 
@@ -109,7 +111,11 @@ export function MfaSetupDialog({
             </p>
             <div className="flex justify-center rounded-lg bg-white p-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qrCodeDataUrl} alt="QR Code MFA" className="h-48 w-48" />
+              <img
+                src={qrCodeDataUrl}
+                alt="QR Code MFA"
+                className="h-48 w-48"
+              />
             </div>
             <div className="rounded-badge bg-pf-bg-tertiary px-3 py-2">
               <p className="mb-1 text-xs text-pf-text-muted">
@@ -138,9 +144,7 @@ export function MfaSetupDialog({
               inputMode="numeric"
               maxLength={6}
               value={verifyCode}
-              onChange={(e) =>
-                setVerifyCode(e.target.value.replace(/\D/g, ''))
-              }
+              onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ''))}
               className="w-full rounded-button border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-center font-mono text-lg tracking-widest text-pf-text-primary focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
               placeholder="000000"
               autoFocus
@@ -157,6 +161,17 @@ export function MfaSetupDialog({
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : null}
               Verifica e attiva
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setVerifyCode('')
+                setStep('qr')
+              }}
+              className="flex w-full items-center justify-center gap-1.5 text-sm text-pf-text-secondary transition-colors hover:text-pf-text-primary"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Torna al QR code
             </button>
           </div>
         )}

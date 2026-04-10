@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -7,8 +7,12 @@ import {
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
 import { articleSearchSchema } from '@/lib/validations/article'
+import { requireAuth } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/articles')
   if (blocked) return blocked
   try {

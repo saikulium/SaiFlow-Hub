@@ -1,5 +1,6 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { requireAuth } from '@/lib/auth'
 import {
   successResponse,
   notFoundResponse,
@@ -19,6 +20,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { code: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/commesse')
   if (blocked) return blocked
 
@@ -38,6 +42,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { code: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/commesse')
   if (blocked) return blocked
 
@@ -70,7 +77,8 @@ export async function PATCH(
     }
 
     // Build update payload for non-status fields
-    const hasFieldUpdates = Object.keys(rest).length > 0 ||
+    const hasFieldUpdates =
+      Object.keys(rest).length > 0 ||
       client_value !== undefined ||
       deadline !== undefined
 
@@ -80,9 +88,8 @@ export async function PATCH(
         data: {
           ...rest,
           ...(client_value !== undefined && {
-            client_value: client_value != null
-              ? new Prisma.Decimal(client_value)
-              : null,
+            client_value:
+              client_value != null ? new Prisma.Decimal(client_value) : null,
           }),
           ...(deadline !== undefined && {
             deadline: deadline ? new Date(deadline) : null,

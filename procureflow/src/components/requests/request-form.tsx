@@ -22,7 +22,11 @@ import type { z } from 'zod'
 type CreateRequestFormValues = z.input<typeof createRequestSchema>
 import { PRIORITY_CONFIG, type PriorityKey } from '@/lib/constants'
 import { cn } from '@/lib/utils'
-import { useCreateRequest, useVendors } from '@/hooks/use-request'
+import {
+  useCreateRequest,
+  useVendors,
+  useQuickCreateVendor,
+} from '@/hooks/use-request'
 import { useAdminConfig } from '@/hooks/use-admin-config'
 import { useCommesse } from '@/hooks/use-commesse'
 import { useRequestSuggestions } from '@/hooks/use-request-suggestions'
@@ -92,9 +96,14 @@ function VendorSelect({
   error?: string
 }) {
   const { data: vendorsData, isLoading } = useVendors()
+  const quickCreate = useQuickCreateVendor()
   const [searchQuery, setSearchQuery] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [showQuickForm, setShowQuickForm] = useState(false)
+  const [quickName, setQuickName] = useState('')
+  const [quickEmail, setQuickEmail] = useState('')
+  const [quickPhone, setQuickPhone] = useState('')
   const buttonRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 })
@@ -135,6 +144,7 @@ function VendorSelect({
       )
         return
       setIsOpen(false)
+      setShowQuickForm(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -153,6 +163,33 @@ function VendorSelect({
   }, [vendors, searchQuery])
 
   const selectedVendor = vendors.find((v) => v.id === value)
+
+  const handleStartQuickCreate = useCallback(() => {
+    setQuickName(searchQuery)
+    setQuickEmail('')
+    setQuickPhone('')
+    setShowQuickForm(true)
+  }, [searchQuery])
+
+  const handleQuickCreate = useCallback(async () => {
+    if (!quickName.trim()) return
+    try {
+      const vendor = await quickCreate.mutateAsync({
+        name: quickName.trim(),
+        email: quickEmail.trim() || undefined,
+        phone: quickPhone.trim() || undefined,
+      })
+      onChange(vendor.id)
+      setIsOpen(false)
+      setSearchQuery('')
+      setShowQuickForm(false)
+      setQuickName('')
+      setQuickEmail('')
+      setQuickPhone('')
+    } catch {
+      // Error handled by mutation state
+    }
+  }, [quickName, quickEmail, quickPhone, quickCreate, onChange])
 
   return (
     <div>
@@ -198,42 +235,114 @@ function VendorSelect({
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value)
+                    setShowQuickForm(false)
+                  }}
                   placeholder="Cerca fornitore..."
                   className="placeholder:text-pf-text-secondary/50 h-8 w-full rounded-button border border-pf-border bg-pf-bg-primary pl-8 pr-3 text-sm text-pf-text-primary focus:outline-none focus:ring-1 focus:ring-pf-accent"
                   autoFocus
                 />
               </div>
             </div>
-            <div className="max-h-48 overflow-y-auto p-1">
-              {filteredVendors.length === 0 && (
-                <p className="px-3 py-2 text-xs text-pf-text-secondary">
-                  Nessun fornitore trovato
+
+            {!showQuickForm ? (
+              <div className="max-h-48 overflow-y-auto p-1">
+                {filteredVendors.map((vendor) => (
+                  <button
+                    key={vendor.id}
+                    type="button"
+                    onClick={() => {
+                      onChange(vendor.id)
+                      setIsOpen(false)
+                      setSearchQuery('')
+                    }}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-button px-3 py-2 text-left text-sm transition-colors hover:bg-pf-bg-secondary',
+                      vendor.id === value
+                        ? 'text-pf-accent'
+                        : 'text-pf-text-primary',
+                    )}
+                  >
+                    <span className="truncate">{vendor.name}</span>
+                    <span className="shrink-0 text-xs text-pf-text-secondary">
+                      {vendor.code}
+                    </span>
+                  </button>
+                ))}
+                {filteredVendors.length === 0 && searchQuery.length > 0 && (
+                  <div className="px-3 py-2">
+                    <p className="text-xs text-pf-text-muted">
+                      Nessun fornitore trovato
+                    </p>
+                  </div>
+                )}
+                {/* Quick-create button: always visible when searching */}
+                {searchQuery.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleStartQuickCreate}
+                    className="hover:bg-pf-accent/10 flex w-full items-center gap-2 rounded-button border-t border-pf-border px-3 py-2.5 text-left text-sm font-medium text-pf-accent transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Crea &ldquo;{searchQuery}&rdquo;
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3 p-3">
+                <p className="text-xs font-medium text-pf-text-secondary">
+                  Nuovo fornitore (da completare)
                 </p>
-              )}
-              {filteredVendors.map((vendor) => (
-                <button
-                  key={vendor.id}
-                  type="button"
-                  onClick={() => {
-                    onChange(vendor.id)
-                    setIsOpen(false)
-                    setSearchQuery('')
-                  }}
-                  className={cn(
-                    'flex w-full items-center gap-2 rounded-button px-3 py-2 text-left text-sm transition-colors hover:bg-pf-bg-secondary',
-                    vendor.id === value
-                      ? 'text-pf-accent'
-                      : 'text-pf-text-primary',
-                  )}
-                >
-                  <span className="truncate">{vendor.name}</span>
-                  <span className="shrink-0 text-xs text-pf-text-secondary">
-                    {vendor.code}
-                  </span>
-                </button>
-              ))}
-            </div>
+                <input
+                  type="text"
+                  value={quickName}
+                  onChange={(e) => setQuickName(e.target.value)}
+                  placeholder="Nome fornitore *"
+                  className="h-8 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:outline-none focus:ring-1 focus:ring-pf-accent"
+                  autoFocus
+                />
+                <input
+                  type="email"
+                  value={quickEmail}
+                  onChange={(e) => setQuickEmail(e.target.value)}
+                  placeholder="Email (opzionale)"
+                  className="h-8 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:outline-none focus:ring-1 focus:ring-pf-accent"
+                />
+                <input
+                  type="tel"
+                  value={quickPhone}
+                  onChange={(e) => setQuickPhone(e.target.value)}
+                  placeholder="Telefono (opzionale)"
+                  className="h-8 w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:outline-none focus:ring-1 focus:ring-pf-accent"
+                />
+                {quickCreate.isError && (
+                  <p className="text-xs text-red-400">
+                    {quickCreate.error?.message ?? 'Errore creazione'}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickForm(false)}
+                    className="h-8 flex-1 rounded-button border border-pf-border text-xs font-medium text-pf-text-secondary transition-colors hover:text-pf-text-primary"
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleQuickCreate}
+                    disabled={!quickName.trim() || quickCreate.isPending}
+                    className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-button bg-pf-accent text-xs font-medium text-white transition-colors hover:bg-pf-accent-hover disabled:opacity-50"
+                  >
+                    {quickCreate.isPending && (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    )}
+                    Crea
+                  </button>
+                </div>
+              </div>
+            )}
           </div>,
           document.body,
         )}

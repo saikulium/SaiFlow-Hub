@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { requireModule } from '@/lib/modules/require-module'
 import {
   successResponse,
@@ -7,8 +7,12 @@ import {
 } from '@/lib/api-response'
 import { suggestRequestSchema } from '@/lib/validations/suggest'
 import { getSuggestions } from '@/server/services/suggest.service'
+import { requireAuth } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/requests/suggest')
   if (blocked) return blocked
 

@@ -31,6 +31,35 @@ export function LoginForm() {
     setError(null)
     setErrorType('generic')
 
+    // Step 1: pre-check credentials + MFA status before calling NextAuth signIn.
+    // This bypasses NextAuth v5's unreliable error code propagation for custom errors.
+    if (!mfaRequired) {
+      const pre = await fetch('/api/auth/preflight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email, password: data.password }),
+      }).then((r) => r.json()).catch(() => ({ ok: false, reason: 'network' }))
+
+      if (!pre.ok) {
+        if (pre.reason === 'locked') {
+          setError(`Account bloccato. Riprova tra ${pre.lockMinutes ?? 15} minuti.`)
+          setErrorType('lockout')
+        } else {
+          setError('Credenziali non valide')
+          setErrorType('generic')
+        }
+        return
+      }
+
+      if (pre.needsMfa) {
+        setMfaRequired(true)
+        setError(null)
+        setTimeout(() => totpInputRef.current?.focus(), 100)
+        return
+      }
+    }
+
+    // Step 2: call NextAuth signIn with full credentials (including TOTP if needed)
     const result = await signIn('credentials', {
       email: data.email,
       password: data.password,
@@ -39,18 +68,8 @@ export function LoginForm() {
     })
 
     if (result?.error) {
-      const errorMsg = result.error
-
-      if (errorMsg.includes('ACCOUNT_LOCKED')) {
-        const minutes = errorMsg.split(':')[1] ?? '15'
-        setError(`Account bloccato. Riprova tra ${minutes} minuti.`)
-        setErrorType('lockout')
-      } else if (errorMsg.includes('MFA_REQUIRED')) {
-        setMfaRequired(true)
-        setError(null)
-        // Focus TOTP input after render
-        setTimeout(() => totpInputRef.current?.focus(), 100)
-      } else if (errorMsg.includes('INVALID_TOTP')) {
+      const errorMsg = result.code ?? result.error
+      if (errorMsg.includes('INVALID_TOTP')) {
         setError('Codice non valido')
         setErrorType('mfa')
         setTotpCode('')

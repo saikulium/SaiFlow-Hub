@@ -1,8 +1,9 @@
 'use client'
 
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X } from 'lucide-react'
+import { X, Search, BookOpen, Unlink } from 'lucide-react'
 import {
   createMaterialSchema,
   type CreateMaterialInput,
@@ -10,6 +11,16 @@ import {
 import { useCreateMaterial, useUpdateMaterial } from '@/hooks/use-materials'
 import { cn } from '@/lib/utils'
 import type { MaterialDetail } from '@/types'
+
+interface ArticleSearchResult {
+  id: string
+  code: string
+  name: string
+  category: string | null
+  unit_of_measure: string
+  matched_via: string
+  matched_value: string
+}
 
 interface MaterialFormDialogProps {
   open: boolean
@@ -46,6 +57,7 @@ function buildDefaults(data?: MaterialDetail | null): CreateMaterialInput {
     max_stock_level: data?.maxStockLevel ?? undefined,
     barcode: data?.barcode ?? undefined,
     preferred_vendor_id: undefined,
+    article_id: data?.article?.id ?? undefined,
     tags: data?.tags ?? undefined,
     notes: data?.notes ?? undefined,
   }
@@ -65,6 +77,7 @@ export function MaterialFormDialog({
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateMaterialInput>({
     resolver: zodResolver(createMaterialSchema),
@@ -72,6 +85,85 @@ export function MaterialFormDialog({
   })
 
   const unitSecondary = watch('unit_secondary')
+
+  // Article search state
+  const [articleQuery, setArticleQuery] = useState('')
+  const [articleResults, setArticleResults] = useState<ArticleSearchResult[]>(
+    [],
+  )
+  const [selectedArticle, setSelectedArticle] = useState<{
+    id: string
+    code: string
+    name: string
+  } | null>(initialData?.article ?? null)
+  const [articleSearchOpen, setArticleSearchOpen] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setArticleSearchOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Debounced article search
+  const handleArticleSearch = useCallback((query: string) => {
+    setArticleQuery(query)
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+
+    if (query.trim().length < 2) {
+      setArticleResults([])
+      setArticleSearchOpen(false)
+      return
+    }
+
+    setIsSearching(true)
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/articles/search?q=${encodeURIComponent(query.trim())}&limit=8`,
+        )
+        const json = await res.json()
+        if (json.success) {
+          setArticleResults(json.data)
+          setArticleSearchOpen(true)
+        }
+      } catch {
+        // silently fail search
+      } finally {
+        setIsSearching(false)
+      }
+    }, 300)
+  }, [])
+
+  const handleSelectArticle = useCallback(
+    (article: ArticleSearchResult) => {
+      setSelectedArticle({
+        id: article.id,
+        code: article.code,
+        name: article.name,
+      })
+      setValue('article_id', article.id)
+      setArticleSearchOpen(false)
+      setArticleQuery('')
+      setArticleResults([])
+    },
+    [setValue],
+  )
+
+  const handleUnlinkArticle = useCallback(() => {
+    setSelectedArticle(null)
+    setValue('article_id', null)
+  }, [setValue])
 
   const onSubmit = async (data: CreateMaterialInput) => {
     if (isEdit && initialData) {
@@ -115,7 +207,10 @@ export function MaterialFormDialog({
         </div>
 
         {/* Scrollable content */}
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-1 flex-col overflow-hidden">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
           <div className="flex-1 space-y-6 overflow-y-auto px-6 py-4">
             {/* Informazioni Generali */}
             <section className="space-y-3">
@@ -127,11 +222,16 @@ export function MaterialFormDialog({
                   <label className={labelClassName}>Nome *</label>
                   <input
                     {...register('name')}
-                    className={cn(inputClassName, errors.name && 'border-red-500')}
+                    className={cn(
+                      inputClassName,
+                      errors.name && 'border-red-500',
+                    )}
                     placeholder="Nome del materiale"
                   />
                   {errors.name && (
-                    <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>
+                    <p className="mt-1 text-xs text-red-400">
+                      {errors.name.message}
+                    </p>
                   )}
                 </div>
                 <div className="sm:col-span-2">
@@ -194,7 +294,10 @@ export function MaterialFormDialog({
                 </div>
                 <div>
                   <label className={labelClassName}>UM Secondaria</label>
-                  <select {...register('unit_secondary')} className={inputClassName}>
+                  <select
+                    {...register('unit_secondary')}
+                    className={inputClassName}
+                  >
                     <option value="">Nessuna</option>
                     {UNIT_OPTIONS.map((u) => (
                       <option key={u.value} value={u.value}>
@@ -205,12 +308,16 @@ export function MaterialFormDialog({
                 </div>
                 {unitSecondary && (
                   <div>
-                    <label className={labelClassName}>Fattore Conversione</label>
+                    <label className={labelClassName}>
+                      Fattore Conversione
+                    </label>
                     <input
                       type="number"
                       step="0.001"
                       min="0"
-                      {...register('conversion_factor', { valueAsNumber: true })}
+                      {...register('conversion_factor', {
+                        valueAsNumber: true,
+                      })}
                       className={inputClassName}
                       placeholder="es. 1000"
                     />
@@ -221,7 +328,9 @@ export function MaterialFormDialog({
 
             {/* Scorte */}
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-pf-text-primary">Scorte</h3>
+              <h3 className="text-sm font-semibold text-pf-text-primary">
+                Scorte
+              </h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className={labelClassName}>Scorta Minima</label>
@@ -253,6 +362,95 @@ export function MaterialFormDialog({
                     placeholder="EAN / UPC"
                   />
                 </div>
+              </div>
+            </section>
+
+            {/* Articolo Collegato */}
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-pf-text-primary">
+                <BookOpen className="mr-1.5 inline-block h-4 w-4" />
+                Articolo Collegato
+              </h3>
+              <div ref={dropdownRef} className="relative">
+                {selectedArticle ? (
+                  <div className="border-pf-accent/30 flex items-center gap-2 rounded-button border bg-pf-accent-subtle px-3 py-2">
+                    <BookOpen className="h-4 w-4 shrink-0 text-pf-accent" />
+                    <div className="min-w-0 flex-1">
+                      <span className="font-mono text-xs text-pf-accent">
+                        {selectedArticle.code}
+                      </span>
+                      <span className="ml-2 text-sm text-pf-text-primary">
+                        {selectedArticle.name}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleUnlinkArticle}
+                      className="rounded-button p-1 text-pf-text-secondary transition-colors hover:text-red-400"
+                      title="Scollega articolo"
+                    >
+                      <Unlink className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search className="text-pf-text-secondary/60 absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={articleQuery}
+                        onChange={(e) => handleArticleSearch(e.target.value)}
+                        onFocus={() => {
+                          if (articleResults.length > 0)
+                            setArticleSearchOpen(true)
+                        }}
+                        className={cn(inputClassName, 'pl-9')}
+                        placeholder="Cerca articolo per codice o nome..."
+                      />
+                      {isSearching && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-pf-accent border-t-transparent" />
+                        </div>
+                      )}
+                    </div>
+                    {articleSearchOpen && articleResults.length > 0 && (
+                      <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-button border border-pf-border bg-pf-bg-secondary shadow-lg">
+                        {articleResults.map((article) => (
+                          <button
+                            key={article.id}
+                            type="button"
+                            onClick={() => handleSelectArticle(article)}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-pf-bg-hover"
+                          >
+                            <span className="shrink-0 font-mono text-xs text-pf-accent">
+                              {article.code}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-pf-text-primary">
+                              {article.name}
+                            </span>
+                            {article.category && (
+                              <span className="shrink-0 text-xs text-pf-text-secondary">
+                                {article.category}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {articleSearchOpen &&
+                      articleResults.length === 0 &&
+                      articleQuery.trim().length >= 2 &&
+                      !isSearching && (
+                        <div className="absolute z-10 mt-1 w-full rounded-button border border-pf-border bg-pf-bg-secondary px-3 py-2 text-center text-sm text-pf-text-secondary shadow-lg">
+                          Nessun articolo trovato
+                        </div>
+                      )}
+                  </>
+                )}
+                <p className="mt-1 text-xs text-pf-text-muted">
+                  Collega questo materiale a un articolo del catalogo
+                  procurement
+                </p>
               </div>
             </section>
 

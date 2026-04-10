@@ -22,5 +22,13 @@ export const updateVendorSchema = createVendorSchema.partial().extend({
     .optional(),
 })
 
+// Quick-create: minimal fields, code auto-generated, status PENDING_REVIEW
+export const quickCreateVendorSchema = z.object({
+  name: z.string().min(1, 'Nome obbligatorio').max(200),
+  email: z.string().email('Email non valida').optional().or(z.literal('')),
+  phone: z.string().optional(),
+})
+
 export type CreateVendorInput = z.infer<typeof createVendorSchema>
 export type UpdateVendorInput = z.infer<typeof updateVendorSchema>
+export type QuickCreateVendorInput = z.infer<typeof quickCreateVendorSchema>

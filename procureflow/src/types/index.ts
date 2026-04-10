@@ -323,6 +323,11 @@ export interface MaterialListItem {
   stockStatus: 'OK' | 'LOW' | 'OUT'
   isActive: boolean
   preferredVendor: string | null
+  article: {
+    readonly id: string
+    readonly code: string
+    readonly name: string
+  } | null
 }
 
 export interface MaterialDetail extends MaterialListItem {
@@ -633,6 +638,7 @@ export interface ArticleListItem {
   readonly _count: {
     readonly aliases: number
     readonly prices: number
+    readonly materials: number
   }
 }
 
@@ -683,6 +689,45 @@ export interface ArticleDetail {
     readonly invoice_items: number
     readonly materials: number
   }
+}
+
+// --- Article Stock Types ---
+
+export interface ArticleStockLastMovement {
+  readonly id: string
+  readonly code: string
+  readonly type: string
+  readonly reason: string
+  readonly quantity: number
+  readonly notes: string | null
+  readonly actor: string | null
+  readonly date: string
+}
+
+export interface ArticleStockWarehouse {
+  readonly warehouseId: string
+  readonly warehouseName: string
+  readonly physical: number
+  readonly available: number
+  readonly reserved: number
+  readonly zones: readonly {
+    readonly zoneId: string
+    readonly zoneName: string
+    readonly physical: number
+  }[]
+}
+
+export interface ArticleStockInfo {
+  readonly hasInventory: boolean
+  readonly materialId: string | null
+  readonly materialCode: string | null
+  readonly physical: number
+  readonly reserved: number
+  readonly available: number
+  readonly status: string
+  readonly unit: string
+  readonly byWarehouse: readonly ArticleStockWarehouse[]
+  readonly lastMovement: ArticleStockLastMovement | null
 }
 
 export interface ArticleSearchResult {

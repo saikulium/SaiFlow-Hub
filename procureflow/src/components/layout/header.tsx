@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Menu, Search, MessageSquare } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Menu, Search, MessageSquare, LogOut } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { useSidebar } from './sidebar-context'
 import { Breadcrumbs } from './breadcrumbs'
@@ -16,11 +16,26 @@ export function Header() {
   const { setMobileOpen } = useSidebar()
   const [searchOpen, setSearchOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
   const { isModuleEnabled } = useModules()
 
   const { data: session } = useSession()
   const user = session?.user
   const chatEnabled = isModuleEnabled('chatbot')
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      ) {
+        setUserMenuOpen(false)
+      }
+    }
+    if (userMenuOpen) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [userMenuOpen])
 
   return (
     <>
@@ -67,15 +82,36 @@ export function Header() {
           {/* Theme toggle */}
           <ThemeToggle />
 
-          {/* User avatar */}
+          {/* User avatar + dropdown */}
           {user && (
-            <button
-              onClick={() => signOut({ callbackUrl: '/login' })}
-              title="Esci"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-pf-accent text-xs font-bold text-white transition-opacity hover:opacity-80"
-            >
-              {getInitials(user.name ?? '')}
-            </button>
+            <div ref={userMenuRef} className="relative">
+              <button
+                onClick={() => setUserMenuOpen((o) => !o)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-pf-accent text-xs font-bold text-white transition-opacity hover:opacity-80"
+              >
+                {getInitials(user.name ?? '')}
+              </button>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-52 rounded-card border border-pf-border bg-pf-bg-secondary py-1 shadow-lg">
+                  <div className="border-b border-pf-border px-4 py-3">
+                    <p className="truncate text-sm font-medium text-pf-text-primary">
+                      {user.name}
+                    </p>
+                    <p className="truncate text-xs text-pf-text-muted">
+                      {user.email}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-pf-text-secondary transition-colors hover:bg-pf-bg-hover hover:text-red-400"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Esci
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </header>

@@ -13,6 +13,7 @@ export const createMaterialSchema = z.object({
   barcode: z.string().max(100).optional(),
   qr_code: z.string().max(200).optional(),
   preferred_vendor_id: z.string().optional(),
+  article_id: z.string().nullable().optional(),
   tags: z.array(z.string()).optional(),
   notes: z.string().max(2000).optional(),
 })
@@ -25,21 +26,29 @@ export const createWarehouseSchema = z.object({
   code: z.string().min(1).max(20),
   name: z.string().min(1).max(200),
   address: z.string().max(500).optional(),
-  zones: z.array(z.object({
-    code: z.string().min(1).max(20),
-    name: z.string().min(1).max(200),
-  })).optional(),
+  zones: z
+    .array(
+      z.object({
+        code: z.string().min(1).max(20),
+        name: z.string().min(1).max(200),
+      }),
+    )
+    .optional(),
 })
 
 export const updateWarehouseSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   address: z.string().max(500).optional(),
   is_active: z.boolean().optional(),
-  zones: z.array(z.object({
-    id: z.string().optional(),
-    code: z.string().min(1).max(20),
-    name: z.string().min(1).max(200),
-  })).optional(),
+  zones: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        code: z.string().min(1).max(20),
+        name: z.string().min(1).max(200),
+      }),
+    )
+    .optional(),
 })
 
 export const createMovementSchema = z.object({
@@ -47,11 +56,26 @@ export const createMovementSchema = z.object({
   lot_id: z.string().optional(),
   warehouse_id: z.string().min(1),
   zone_id: z.string().optional(),
-  movement_type: z.enum(['INBOUND', 'OUTBOUND', 'TRANSFER', 'ADJUSTMENT', 'RETURN']),
+  movement_type: z.enum([
+    'INBOUND',
+    'OUTBOUND',
+    'TRANSFER',
+    'ADJUSTMENT',
+    'RETURN',
+  ]),
   reason: z.enum([
-    'ACQUISTO', 'RESO_CLIENTE', 'PRODUZIONE', 'TRASFERIMENTO_IN', 'RETTIFICA_POSITIVA',
-    'VENDITA', 'RESO_FORNITORE', 'TRASFERIMENTO_OUT', 'RETTIFICA_NEGATIVA', 'SCARTO',
-    'INVENTARIO', 'CORREZIONE_MANUALE',
+    'ACQUISTO',
+    'RESO_CLIENTE',
+    'PRODUZIONE',
+    'TRASFERIMENTO_IN',
+    'RETTIFICA_POSITIVA',
+    'VENDITA',
+    'RESO_FORNITORE',
+    'TRASFERIMENTO_OUT',
+    'RETTIFICA_NEGATIVA',
+    'SCARTO',
+    'INVENTARIO',
+    'CORREZIONE_MANUALE',
   ]),
   quantity: z.number().positive('Quantità deve essere positiva'),
   quantity_secondary: z.number().positive().optional(),
@@ -94,7 +118,9 @@ export const movementQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   material_id: z.string().optional(),
   warehouse_id: z.string().optional(),
-  movement_type: z.enum(['INBOUND', 'OUTBOUND', 'TRANSFER', 'ADJUSTMENT', 'RETURN']).optional(),
+  movement_type: z
+    .enum(['INBOUND', 'OUTBOUND', 'TRANSFER', 'ADJUSTMENT', 'RETURN'])
+    .optional(),
   date_from: z.string().datetime().optional(),
   date_to: z.string().datetime().optional(),
 })
@@ -105,10 +131,12 @@ export const createInventorySchema = z.object({
 })
 
 export const updateInventoryLineSchema = z.object({
-  lines: z.array(z.object({
-    id: z.string(),
-    counted_quantity: z.number().min(0),
-  })),
+  lines: z.array(
+    z.object({
+      id: z.string(),
+      counted_quantity: z.number().min(0),
+    }),
+  ),
 })
 
 // Export inferred types

@@ -45,8 +45,8 @@ async function main() {
     prisma.stockLot.deleteMany(),
     prisma.warehouseZone.deleteMany(),
     prisma.warehouse.deleteMany(),
-    prisma.material.deleteMany(),
     prisma.materialAlert.deleteMany(),
+    prisma.material.deleteMany(),
     // AI / Analytics
     prisma.aiInsight.deleteMany(),
     // Invoices
@@ -71,6 +71,10 @@ async function main() {
     prisma.commessaTimeline.deleteMany(),
     prisma.commessa.deleteMany(),
     prisma.client.deleteMany(),
+    // Articles (must come before vendor due to FK on article_prices.vendor_id)
+    prisma.articlePrice.deleteMany(),
+    prisma.articleAlias.deleteMany(),
+    prisma.article.deleteMany(),
     // Vendors
     prisma.vendorContact.deleteMany(),
     prisma.vendor.deleteMany(),

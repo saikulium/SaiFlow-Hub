@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -6,6 +6,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
+import { requireAuth } from '@/lib/auth'
 import { createCommessaSchema } from '@/lib/validations/commesse'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 import { computeMargin } from '@/server/services/commessa.service'
@@ -16,6 +17,9 @@ type SortField = 'created_at' | 'deadline'
 const VALID_SORT_FIELDS: readonly string[] = ['created_at', 'deadline']
 
 export async function GET(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/commesse')
   if (blocked) return blocked
 
@@ -33,11 +37,16 @@ export async function GET(req: NextRequest) {
       ? (sortBy as SortField)
       : 'created_at'
 
+    const statusValues = status
+      ? (status.split(',').map((s) => s.trim()) as CommessaStatus[])
+      : undefined
+
     const where: Prisma.CommessaWhereInput = {
-      ...(status && {
-        status: {
-          equals: status as CommessaStatus,
-        },
+      ...(statusValues && {
+        status:
+          statusValues.length === 1
+            ? { equals: statusValues[0] }
+            : { in: statusValues },
       }),
       ...(clientId && { client_id: clientId }),
       ...(search && {
@@ -120,6 +129,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/commesse')
   if (blocked) return blocked
 
@@ -154,7 +166,8 @@ export async function POST(req: NextRequest) {
           ...rest,
           code,
           client_id,
-          client_value: client_value != null ? new Prisma.Decimal(client_value) : null,
+          client_value:
+            client_value != null ? new Prisma.Decimal(client_value) : null,
           deadline: deadline ? new Date(deadline) : null,
         },
       })

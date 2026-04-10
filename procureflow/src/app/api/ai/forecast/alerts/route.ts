@@ -1,14 +1,13 @@
-import { auth } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { getActiveAlerts } from '@/server/services/forecast.service'
 
 export async function GET() {
-  try {
-    const session = await auth()
-    if (!session?.user) {
-      return errorResponse('UNAUTHORIZED', 'Non autorizzato', 401)
-    }
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
 
+  try {
     const raw = await getActiveAlerts()
     const alerts = raw.map((a) => ({
       id: a.id,

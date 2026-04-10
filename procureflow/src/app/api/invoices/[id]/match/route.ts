@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import {
@@ -10,6 +10,7 @@ import { performThreeWayMatch } from '@/server/services/three-way-matching.servi
 import { canTransition } from '@/lib/state-machine'
 import type { RequestStatus } from '@prisma/client'
 import { requireModule } from '@/lib/modules/require-module'
+import { requireAuth } from '@/lib/auth'
 
 // ---------------------------------------------------------------------------
 // POST /api/invoices/[id]/match — Associazione manuale fattura ↔ ordine
@@ -19,6 +20,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/invoices')
   if (blocked) return blocked
   try {

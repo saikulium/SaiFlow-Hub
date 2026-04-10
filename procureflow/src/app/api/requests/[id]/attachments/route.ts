@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -10,11 +10,15 @@ import { createAttachmentRecord } from '@/server/services/attachment.service'
 import crypto from 'crypto'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
+import { requireAuth } from '@/lib/auth'
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     const request = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
@@ -39,6 +43,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     const request = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
@@ -86,6 +93,10 @@ export async function POST(
     return successResponse(attachment)
   } catch (error) {
     console.error('POST /api/requests/[id]/attachments error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore nel caricamento del file', 500)
+    return errorResponse(
+      'INTERNAL_ERROR',
+      'Errore nel caricamento del file',
+      500,
+    )
   }
 }

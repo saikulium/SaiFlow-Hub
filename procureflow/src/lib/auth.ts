@@ -207,11 +207,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.onboardingCompleted =
         (token.onboardingCompleted as boolean) ?? false
 
-      // MFA enforcement: ADMIN/MANAGER must have TOTP enabled (skip in dev)
+      // MFA enforcement: ADMIN/MANAGER must have TOTP enabled
       const role = token.role as string
       const totpEnabled = (token.totpEnabled as boolean) ?? false
-      const isDev = process.env.NODE_ENV === 'development'
-      if (!isDev && (role === 'ADMIN' || role === 'MANAGER') && !totpEnabled) {
+      if ((role === 'ADMIN' || role === 'MANAGER') && !totpEnabled) {
         session.user.mfaSetupRequired = true
       } else {
         session.user.mfaSetupRequired = false

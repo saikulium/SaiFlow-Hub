@@ -1,8 +1,12 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { successResponse, errorResponse } from '@/lib/api-response'
+import { requireAuth } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     const query = req.nextUrl.searchParams.get('q')
 

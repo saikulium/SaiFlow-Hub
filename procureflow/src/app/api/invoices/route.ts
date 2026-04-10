@@ -1,13 +1,17 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
+import { requireAuth } from '@/lib/auth'
 
 // ---------------------------------------------------------------------------
 // GET /api/invoices — Lista fatture paginata con filtri
 // ---------------------------------------------------------------------------
 
 export async function GET(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/invoices')
   if (blocked) return blocked
   try {

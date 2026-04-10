@@ -1,5 +1,5 @@
-import { NextRequest } from 'next/server'
-import { auth } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
 import {
@@ -8,10 +8,8 @@ import {
 } from '@/server/services/insight.service'
 
 export async function GET() {
-  const session = await auth()
-  if (!session?.user) {
-    return errorResponse('UNAUTHORIZED', 'Non autorizzato', 401)
-  }
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
 
   const insights = await getActiveInsights()
   return successResponse(insights)

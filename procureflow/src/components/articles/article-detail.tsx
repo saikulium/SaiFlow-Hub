@@ -6,15 +6,17 @@ import { ArrowLeft, Plus, X, Star } from 'lucide-react'
 import { useArticle, useDeleteAlias } from '@/hooks/use-articles'
 import { ArticleAliasForm } from '@/components/articles/article-alias-form'
 import { ArticlePriceDialog } from '@/components/articles/article-price-dialog'
+import { ArticleStockPanel } from '@/components/articles/article-stock-panel'
 import { ALIAS_TYPE_CONFIG, PRICE_SOURCE_CONFIG } from '@/lib/constants/article'
 import type { AliasTypeKey, PriceSourceKey } from '@/lib/constants/article'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 
-type TabKey = 'alias' | 'prezzi' | 'dove-usato' | 'dettagli'
+type TabKey = 'alias' | 'prezzi' | 'magazzino' | 'dove-usato' | 'dettagli'
 
 const TABS: readonly { readonly key: TabKey; readonly label: string }[] = [
   { key: 'alias', label: 'Alias' },
   { key: 'prezzi', label: 'Prezzi' },
+  { key: 'magazzino', label: 'Magazzino' },
   { key: 'dove-usato', label: 'Dove Usato' },
   { key: 'dettagli', label: 'Dettagli' },
 ] as const
@@ -147,6 +149,8 @@ export function ArticleDetailView({ articleId }: ArticleDetailViewProps) {
           articleId={articleId}
         />
       )}
+
+      {activeTab === 'magazzino' && <ArticleStockPanel articleId={articleId} />}
 
       {activeTab === 'dove-usato' && <UsageTab counts={article._count} />}
 

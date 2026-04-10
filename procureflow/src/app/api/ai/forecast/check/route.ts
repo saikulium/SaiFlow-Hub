@@ -1,9 +1,13 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
 import { checkReorderAlerts } from '@/server/services/forecast.service'
+import { requireAuth } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     const rawBody = await req.text()
     const isAuthed = verifyWebhookAuth(

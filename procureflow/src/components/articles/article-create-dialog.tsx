@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { X, Loader2 } from 'lucide-react'
+import { X, Loader2, Package } from 'lucide-react'
 import { useCreateArticle } from '@/hooks/use-articles'
 import type { CreateArticleInput } from '@/lib/validations/article'
 
@@ -19,6 +19,7 @@ const INITIAL_FORM: CreateArticleInput = {
   notes: undefined,
   tags: [],
   aliases: [],
+  manage_inventory: false,
 }
 
 export function ArticleCreateDialog({
@@ -30,7 +31,10 @@ export function ArticleCreateDialog({
   const createMutation = useCreateArticle()
 
   const updateField = useCallback(
-    <K extends keyof CreateArticleInput>(key: K, value: CreateArticleInput[K]) => {
+    <K extends keyof CreateArticleInput>(
+      key: K,
+      value: CreateArticleInput[K],
+    ) => {
       setForm((prev) => ({ ...prev, [key]: value }))
     },
     [],
@@ -180,6 +184,35 @@ export function ArticleCreateDialog({
               placeholder="Note aggiuntive"
               className="w-full rounded-button border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
             />
+          </div>
+
+          {/* Gestione Magazzino */}
+          <div className="flex items-center gap-3 rounded-lg border border-pf-border p-3">
+            <label className="flex flex-1 cursor-pointer items-center gap-3">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={form.manage_inventory ?? false}
+                  onChange={(e) =>
+                    updateField('manage_inventory', e.target.checked)
+                  }
+                  className="peer sr-only"
+                />
+                <div className="h-5 w-9 rounded-full bg-pf-bg-hover transition-colors peer-checked:bg-pf-accent" />
+                <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-pf-text-secondary" />
+                  <span className="text-sm font-medium text-pf-text-primary">
+                    Gestisci a magazzino
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-pf-text-muted">
+                  Crea automaticamente la scheda magazzino collegata
+                </p>
+              </div>
+            </label>
           </div>
 
           {/* Tags */}

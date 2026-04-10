@@ -243,3 +243,46 @@ export function useVendors() {
     queryFn: fetchVendors,
   })
 }
+
+// Quick vendor creation (minimal fields, auto-code, PENDING_REVIEW)
+
+interface QuickVendorInput {
+  readonly name: string
+  readonly email?: string
+  readonly phone?: string
+}
+
+interface QuickVendorResult {
+  readonly id: string
+  readonly code: string
+  readonly name: string
+  readonly email: string | null
+  readonly phone: string | null
+  readonly status: string
+}
+
+async function quickCreateVendor(
+  data: QuickVendorInput,
+): Promise<QuickVendorResult> {
+  const res = await fetch('/api/vendors/quick', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.error?.message ?? 'Errore creazione fornitore')
+  }
+  const json = await res.json()
+  return json.data
+}
+
+export function useQuickCreateVendor() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: quickCreateVendor,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] })
+    },
+  })
+}

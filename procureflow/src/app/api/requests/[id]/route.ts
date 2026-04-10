@@ -159,6 +159,11 @@ export async function PATCH(
       updateData.tracking_number = data.tracking_number
     if (data.external_ref !== undefined)
       updateData.external_ref = data.external_ref
+    if ('commessa_id' in data) {
+      updateData.commessa = data.commessa_id
+        ? { connect: { id: data.commessa_id } }
+        : { disconnect: true }
+    }
 
     if (status && status !== existing.status) {
       // Fase 4: Enforcement transizioni di stato

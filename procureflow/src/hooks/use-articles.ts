@@ -5,6 +5,7 @@ import type {
   ArticleListItem,
   ArticleDetail,
   ArticleImportResult,
+  ArticleStockInfo,
 } from '@/types'
 import type {
   ArticleQuery,
@@ -46,7 +47,9 @@ async function fetchArticle(id: string): Promise<ArticleDetail> {
   return json.data
 }
 
-async function createArticle(data: CreateArticleInput): Promise<ApiResponse<ArticleDetail>> {
+async function createArticle(
+  data: CreateArticleInput,
+): Promise<ApiResponse<ArticleDetail>> {
   const res = await fetch('/api/articles', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -72,7 +75,9 @@ async function updateArticle({
   return res.json()
 }
 
-async function deleteArticle(id: string): Promise<ApiResponse<{ deleted: boolean }>> {
+async function deleteArticle(
+  id: string,
+): Promise<ApiResponse<{ deleted: boolean }>> {
   const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error('Errore eliminazione articolo')
   return res.json()
@@ -132,7 +137,11 @@ async function importArticlesApi(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rows }),
   })
-  if (!res.ok) throw new Error('Errore import')
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    const msg = body?.error?.message ?? `Errore import (${res.status})`
+    throw new Error(msg)
+  }
   return res.json()
 }
 
@@ -218,6 +227,65 @@ export function useImportArticles() {
     mutationFn: importArticlesApi,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['articles'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Stock hooks
+// ---------------------------------------------------------------------------
+
+async function fetchArticleStock(articleId: string): Promise<ArticleStockInfo> {
+  const res = await fetch(`/api/articles/${articleId}/stock`)
+  if (!res.ok) throw new Error('Errore caricamento stock')
+  const json: ApiResponse<ArticleStockInfo> = await res.json()
+  if (!json.success) throw new Error('Errore dati stock')
+  return json.data!
+}
+
+interface StockMovementInput {
+  readonly type: 'INBOUND' | 'OUTBOUND'
+  readonly quantity: number
+  readonly unit_cost?: number
+  readonly notes?: string
+}
+
+async function postStockMovement({
+  articleId,
+  data,
+}: {
+  articleId: string
+  data: StockMovementInput
+}): Promise<ApiResponse<unknown>> {
+  const res = await fetch(`/api/articles/${articleId}/stock`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.error?.message ?? 'Errore movimento stock')
+  }
+  return res.json()
+}
+
+export function useArticleStock(articleId: string) {
+  return useQuery({
+    queryKey: ['article-stock', articleId],
+    queryFn: () => fetchArticleStock(articleId),
+    enabled: Boolean(articleId),
+  })
+}
+
+export function useStockMovement(articleId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: StockMovementInput) =>
+      postStockMovement({ articleId, data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['article-stock', articleId] })
+      queryClient.invalidateQueries({ queryKey: ['article', articleId] })
+      queryClient.invalidateQueries({ queryKey: ['materials'] })
     },
   })
 }

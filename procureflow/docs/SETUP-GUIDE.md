@@ -1,8 +1,8 @@
 # ProcureFlow — Guida Completa di Installazione e Test
 
-> Questa guida spiega passo-passo come installare ProcureFlow sul tuo computer,
+> Questa guida spiega passo-passo come installare ProcureFlow su un server VPS Aruba Cloud,
 > caricare i dati demo, e testare tutte le funzionalita del sistema.
-> Non serve esperienza tecnica — basta seguire i passaggi nell'ordine.
+> Non serve esperienza tecnica avanzata — basta seguire i passaggi nell'ordine.
 
 ---
 
@@ -34,7 +34,16 @@
    - [7.7 Auto-approvazione per soglia importo](#77-auto-approvazione-per-soglia-importo)
    - [7.8 Protezione duplicati (idempotenza)](#78-protezione-duplicati-idempotenza)
    - [7.9 Health check](#79-health-check)
+   - [7.10 Creazione automatica commessa da email cliente](#710-creazione-automatica-commessa-da-email-cliente)
+   - [7.11 Classificazione AI email con creazione commessa](#711-classificazione-ai-email-con-creazione-commessa)
+   - [7.12 Associazione automatica RdA a commessa](#712-associazione-automatica-rda-a-commessa)
+   - [7.13 Associazione manuale RdA a commessa](#713-associazione-manuale-rda-a-commessa)
+   - [7.14 Creazione automatica clienti](#714-creazione-automatica-clienti)
+   - [7.15 Creazione e gestione articoli](#715-creazione-e-gestione-articoli)
+   - [7.16 Import massivo articoli da CSV](#716-import-massivo-articoli-da-csv)
 8. [Test end-to-end: flusso completo ordine](#8-test-end-to-end-flusso-completo-ordine)
+   - [8a. Flusso acquisto (RdA → Fattura)](#8a-flusso-acquisto-rda--fattura)
+   - [8b. Flusso commessa (Email cliente → Commessa → RdA)](#8b-flusso-commessa-email-cliente--commessa--rda)
 9. [Spegnere e riavviare](#9-spegnere-e-riavviare)
 10. [Problemi comuni](#10-problemi-comuni)
 
@@ -42,76 +51,369 @@
 
 ## 1. Cosa ti serve
 
+### 1a. Il VPS Aruba Cloud
+
+Vai su [cloud.aruba.it](https://cloud.aruba.it) e crea un VPS con queste specifiche minime:
+
+| Caratteristica | Valore consigliato |
+|----------------|-------------------|
+| **Piano** | VPS Smart o Cloud VPS Small |
+| **Sistema operativo** | Ubuntu 22.04 LTS |
+| **RAM** | 4 GB (minimo) |
+| **vCPU** | 2 core |
+| **Disco** | 80 GB SSD |
+| **Data center** | Italia (Arezzo o Roma) |
+| **Costo** | ~8-12 EUR/mese |
+
+Dopo la creazione, Aruba ti fornisce un **indirizzo IP** e una **password root**. Annotali.
+
+### 1b. Dal tuo computer
+
 | Requisito | Come verificare | Come installare |
 |-----------|----------------|-----------------|
-| **Docker Desktop** | Apri il Terminale e scrivi `docker --version` | Scarica da [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) |
-| **Git** | `git --version` | Su Mac: `xcode-select --install`. Su Windows: [git-scm.com](https://git-scm.com/) |
+| **Terminale SSH** | Gia incluso su Mac/Linux. Su Windows: PowerShell o [PuTTY](https://putty.org/) | Gia installato |
 | **Un browser** | Chrome, Firefox, Safari, Edge | Gia installato |
 
-**Spazio disco necessario:** circa 2 GB per le immagini Docker.
+### Come connettersi al server
 
-**RAM consigliata:** almeno 4 GB disponibili (Docker ne usa circa 1.5 GB).
+Dal tuo Terminale locale:
 
-### Come aprire il Terminale
+```bash
+ssh root@INDIRIZZO_IP_DEL_SERVER
+```
 
-- **Mac:** Cerca "Terminale" in Spotlight (Cmd + Spazio) oppure vai in Applicazioni > Utility > Terminale
-- **Windows:** Cerca "PowerShell" nel menu Start, oppure "cmd"
-- **Linux:** Ctrl + Alt + T
+Inserisci la password fornita da Aruba. Sei dentro.
 
 ---
 
-## 2. Installazione
+## 2. Installazione sul VPS
 
-### Passo 1: Scarica il progetto
+> **Tutti i comandi di questa sezione vanno eseguiti sul server**, dopo essersi connessi via SSH.
 
-Apri il Terminale e copia-incolla questi comandi uno alla volta, premendo Invio dopo ciascuno:
+### Passo 1: Installa Docker Engine sul server
+
+Docker Engine e il motore che fa girare l'applicazione, il database e l'automazione in container isolati. A differenza di Docker Desktop (che si usa sui PC), Docker Engine gira direttamente sul server Linux senza interfaccia grafica.
 
 ```bash
-cd ~/Desktop
-git clone <URL-del-repository> procureflow
+# Aggiorna il sistema
+sudo apt update && sudo apt upgrade -y
+
+# Installa le dipendenze necessarie
+sudo apt install -y ca-certificates curl gnupg
+
+# Aggiungi il repository ufficiale Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Installa Docker Engine + Docker Compose
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Verifica che funzioni
+docker --version
+docker compose version
+```
+
+Dovresti vedere qualcosa come `Docker version 24.x` e `Docker Compose version v2.x`.
+
+### Passo 2: Installa Git e scarica il progetto
+
+```bash
+sudo apt install -y git
+cd /opt
+sudo git clone <URL-del-repository> procureflow
 cd procureflow/procureflow
 ```
 
-> Se hai gia il progetto, vai direttamente nella cartella:
-> ```bash
-> cd ~/Desktop/procureflow/procureflow
-> ```
+> Il progetto vive in `/opt/procureflow/procureflow` — questa e la cartella di lavoro per tutti i comandi successivi.
 
-### Passo 2: Crea il file di configurazione
+### Passo 3: Crea il file di configurazione
 
 ```bash
 cp .env.production.example .env
+nano .env
 ```
 
-### Passo 3: Modifica le password
-
-Apri il file `.env` con un editor di testo (TextEdit su Mac, Blocco Note su Windows, oppure `nano .env` da Terminale) e cambia queste righe:
+Modifica queste righe con **password robuste** (almeno 20 caratteri, mescola lettere, numeri e simboli):
 
 ```
-POSTGRES_PASSWORD=una-password-a-tua-scelta
-NEXTAUTH_SECRET=una-stringa-lunga-qualsiasi-di-almeno-32-caratteri
-N8N_WEBHOOK_SECRET=un-segreto-qualsiasi
-N8N_PASSWORD=una-password-per-n8n
+POSTGRES_PASSWORD=una-password-robusta-per-il-database
+NEXTAUTH_SECRET=una-stringa-lunga-e-casuale-di-almeno-32-caratteri
+NEXTAUTH_URL=https://procurement.tuodominio.it
+N8N_WEBHOOK_SECRET=un-segreto-robusto-per-i-webhook
+N8N_PASSWORD=una-password-robusta-per-n8n
 ```
 
-**Suggerimento rapido:** se non vuoi pensarci, usa queste password di test (NON usarle in produzione):
+> **Importante:** `NEXTAUTH_URL` deve essere l'URL pubblico della piattaforma (con `https://`).
+> Se non hai ancora un dominio, usa temporaneamente `http://INDIRIZZO_IP_DEL_SERVER:3000`.
 
+**Per generare password sicure velocemente:**
+
+```bash
+# Genera una password casuale di 32 caratteri
+openssl rand -base64 32
 ```
-POSTGRES_PASSWORD=procureflow-test-2026
-NEXTAUTH_SECRET=procureflow-nextauth-secret-test-2026-very-long
-N8N_WEBHOOK_SECRET=procureflow-webhook-secret-test
-N8N_PASSWORD=n8n-test-2026
+
+Eseguilo 4 volte e usa i risultati per le 4 password sopra.
+
+### Passo 4: Configura Docker per ascoltare solo su localhost
+
+Questo impedisce che i servizi interni (database, n8n) siano raggiungibili da internet. Solo l'applicazione web sara esposta tramite il reverse proxy HTTPS (configurato nella sezione Hardening).
+
+```bash
+nano docker-compose.yml
 ```
 
-### Passo 4: Abilita i dati demo
+Cambia le porte da:
 
-Assicurati che nel file `.env` ci sia questa riga:
+```yaml
+ports:
+  - "5432:5432"   # PostgreSQL
+  - "3000:3000"   # App
+  - "5678:5678"   # n8n
+```
+
+A:
+
+```yaml
+ports:
+  - "127.0.0.1:5432:5432"   # PostgreSQL — solo locale
+  - "127.0.0.1:3000:3000"   # App — solo locale (Caddy fara da proxy)
+  - "127.0.0.1:5678:5678"   # n8n — solo locale
+```
+
+Salva con `Ctrl+O`, poi `Ctrl+X` per uscire.
+
+### Passo 5: Abilita i dati demo (opzionale)
+
+Se vuoi caricare dati di esempio per testare, assicurati che nel file `.env` ci sia:
 
 ```
 SEED_ON_STARTUP=true
 ```
 
+> **Per la produzione del cliente:** imposta `SEED_ON_STARTUP=false` per partire con un database vuoto.
+
 Questo carichera automaticamente utenti, fornitori, richieste e fatture di esempio al primo avvio.
+
+---
+
+## 2b. Hardening del server
+
+Questa sezione protegge il server da accessi non autorizzati, attacchi brute-force, e intrusioni.
+Ogni passaggio spiega **cosa fa** e **perche serve**. Esegui tutti i passi prima di avviare l'applicazione.
+
+### Passo 1: Accesso SSH solo con chiave (disabilita password)
+
+**Cosa fa:** Invece di accedere al server con una password (indovinabile), usi una coppia di chiavi crittografiche. Solo chi possiede la chiave privata (tu) puo entrare.
+
+**Perche serve:** I bot su internet provano continuamente combinazioni di password sui server esposti. Con la chiave SSH, anche miliardi di tentativi non possono entrare.
+
+**Dal tuo PC** (non dal server):
+
+```bash
+# 1. Genera la coppia di chiavi (se non ne hai gia una)
+ssh-keygen -t ed25519 -C "procureflow-server"
+# Premi Invio per accettare il percorso default (~/.ssh/id_ed25519)
+# Inserisci una passphrase (consigliato) oppure lascia vuoto
+
+# 2. Copia la chiave pubblica sul server
+ssh-copy-id root@INDIRIZZO_IP_DEL_SERVER
+# Ti chiedera la password del server — e l'ultima volta che la usi
+```
+
+**Ora sul server** (connettiti con `ssh root@INDIRIZZO_IP_DEL_SERVER`):
+
+```bash
+# 3. Disabilita il login con password
+sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+
+# 4. Disabilita il login root diretto (userai un utente dedicato)
+sudo sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+
+# 5. Riavvia il servizio SSH
+sudo systemctl restart sshd
+```
+
+> **Attenzione:** Prima di chiudere la sessione, apri un **secondo terminale** e verifica
+> che riesci ad accedere con la chiave. Se ti chiudi fuori, dovrai usare la console
+> di emergenza del provider (Aruba/Hetzner).
+
+### Passo 2: Crea un utente dedicato (non usare root)
+
+**Cosa fa:** Crea un utente separato per gestire il server, cosi non lavori mai come root (l'utente con poteri illimitati).
+
+**Perche serve:** Se un attaccante riesce a compromettere la sessione, il danno e limitato ai permessi dell'utente, non dell'intero sistema. E una best practice universale.
+
+```bash
+# 1. Crea l'utente
+sudo adduser procureflow
+# Scegli una password robusta, il resto puoi lasciare vuoto
+
+# 2. Dagli i permessi di amministrazione (solo quando serve)
+sudo usermod -aG sudo procureflow
+
+# 3. Aggiungi Docker al gruppo dell'utente (per usare docker senza sudo)
+sudo usermod -aG docker procureflow
+
+# 4. Copia le chiavi SSH anche per il nuovo utente
+sudo mkdir -p /home/procureflow/.ssh
+sudo cp ~/.ssh/authorized_keys /home/procureflow/.ssh/
+sudo chown -R procureflow:procureflow /home/procureflow/.ssh
+sudo chmod 700 /home/procureflow/.ssh
+sudo chmod 600 /home/procureflow/.ssh/authorized_keys
+```
+
+Da ora in poi, accedi con: `ssh procureflow@INDIRIZZO_IP_DEL_SERVER`
+
+### Passo 3: Firewall (blocca tutto tranne HTTPS e SSH)
+
+**Cosa fa:** Chiude tutte le porte del server tranne quelle strettamente necessarie: la 443 (HTTPS, per la piattaforma) e la 22 (SSH, per la manutenzione).
+
+**Perche serve:** Un server espone di default decine di porte. Ogni porta aperta e un potenziale punto di ingresso. Il firewall blocca tutto il resto — il database (5432) e n8n (5678) restano invisibili dall'esterno.
+
+```bash
+# 1. Installa e attiva UFW (Uncomplicated Firewall)
+sudo apt update && sudo apt install -y ufw
+
+# 2. Regola base: blocca tutto in entrata, permetti tutto in uscita
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# 3. Apri solo SSH (22) e HTTPS (443)
+sudo ufw allow 22/tcp comment 'SSH'
+sudo ufw allow 443/tcp comment 'HTTPS'
+
+# 4. Attiva il firewall
+sudo ufw enable
+
+# 5. Verifica le regole
+sudo ufw status verbose
+```
+
+Dovresti vedere:
+
+```
+Status: active
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW IN    Anywhere    # SSH
+443/tcp                    ALLOW IN    Anywhere    # HTTPS
+```
+
+> **Nota:** Non apriamo la porta 3000 (Next.js) ne la 5432 (PostgreSQL) ne la 5678 (n8n).
+> La piattaforma sara raggiungibile solo tramite il reverse proxy HTTPS sulla porta 443.
+
+### Passo 4: Fail2ban (blocca chi tenta di entrare)
+
+**Cosa fa:** Monitora i log del server e blocca automaticamente gli indirizzi IP che falliscono troppi tentativi di accesso SSH (3 tentativi sbagliati → ban di 1 ora).
+
+**Perche serve:** Anche con la chiave SSH obbligatoria, i bot continuano a provare. Fail2ban li blocca a livello di IP, riducendo il rumore nei log e prevenendo attacchi distribuiti.
+
+```bash
+# 1. Installa
+sudo apt install -y fail2ban
+
+# 2. Crea configurazione personalizzata
+sudo tee /etc/fail2ban/jail.local > /dev/null << 'EOF'
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 3
+
+[sshd]
+enabled = true
+port = 22
+logpath = /var/log/auth.log
+EOF
+
+# 3. Avvia e abilita all'avvio
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+
+# 4. Verifica che funzioni
+sudo fail2ban-client status sshd
+```
+
+Parametri:
+- `bantime = 3600` → IP bloccato per 1 ora (3600 secondi)
+- `findtime = 600` → Finestra di osservazione: 10 minuti
+- `maxretry = 3` → Dopo 3 tentativi falliti in 10 minuti → ban
+
+### Passo 5: Aggiornamenti di sicurezza automatici
+
+**Cosa fa:** Installa automaticamente le patch di sicurezza del sistema operativo senza intervento manuale.
+
+**Perche serve:** Le vulnerabilita di sicurezza vengono scoperte continuamente. Se non aggiorni, il server diventa vulnerabile a exploit noti. Gli aggiornamenti automatici coprono le patch critiche senza che tu debba ricordarti di farlo.
+
+```bash
+# 1. Installa
+sudo apt install -y unattended-upgrades
+
+# 2. Abilita gli aggiornamenti automatici di sicurezza
+sudo dpkg-reconfigure -plow unattended-upgrades
+# Seleziona "Si" quando chiede se abilitare gli aggiornamenti automatici
+```
+
+### Passo 6: Reverse proxy con Caddy (HTTPS automatico)
+
+**Cosa fa:** Caddy si mette davanti all'applicazione e gestisce due cose:
+1. Prende il traffico sulla porta 443 (HTTPS) e lo inoltra a Docker sulla porta 3000
+2. Ottiene e rinnova automaticamente il certificato SSL da Let's Encrypt
+
+**Perche serve:** Senza HTTPS, le password e i dati viaggiano in chiaro su internet. Caddy rende tutto cifrato automaticamente — non devi configurare certificati a mano ne ricordarti di rinnovarli.
+
+```bash
+# 1. Installa Caddy
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy
+
+# 2. Configura il reverse proxy
+sudo tee /etc/caddy/Caddyfile > /dev/null << 'EOF'
+procurement.tuodominio.it {
+    reverse_proxy localhost:3000
+}
+EOF
+# Sostituisci "procurement.tuodominio.it" con il tuo dominio reale
+
+# 3. Riavvia Caddy
+sudo systemctl restart caddy
+```
+
+> **Prerequisito:** Il dominio deve puntare all'IP del server (record DNS di tipo A).
+> Caddy ottiene il certificato SSL automaticamente al primo avvio — ci mette circa 30 secondi.
+
+> **Se non hai ancora un dominio** e vuoi solo testare, puoi usare l'IP direttamente.
+> In quel caso, configura Caddy cosi:
+> ```
+> :443 {
+>     tls internal
+>     reverse_proxy localhost:3000
+> }
+> ```
+> Questo crea un certificato auto-firmato (il browser mostrera un avviso, ma la connessione e cifrata).
+
+### Riepilogo sicurezza
+
+> **Nota:** Il passo "Docker solo localhost" e gia stato configurato nella sezione 2, Passo 4.
+
+| Protezione | Cosa blocca |
+|------------|------------|
+| **SSH con chiave** | Login con password rubata/indovinata |
+| **Utente dedicato** | Danni da compromissione (no root) |
+| **Firewall UFW** | Accesso a porte non necessarie |
+| **Fail2ban** | Attacchi brute-force ripetuti |
+| **Aggiornamenti auto** | Exploit su vulnerabilita note del sistema |
+| **Caddy HTTPS** | Intercettazione dati in transito (man-in-the-middle) |
+| **Docker solo localhost** | Accesso diretto ai servizi bypassando il firewall |
+
+Con queste 7 protezioni attive, il server e significativamente piu sicuro della media dei VPS in circolazione.
 
 ---
 
@@ -119,9 +421,10 @@ Questo carichera automaticamente utenti, fornitori, richieste e fatture di esemp
 
 ### Avvia tutti i servizi
 
-Da Terminale, nella cartella `procureflow/procureflow`:
+Dal server (via SSH), nella cartella `/opt/procureflow/procureflow`:
 
 ```bash
+cd /opt/procureflow/procureflow
 docker compose up --build -d
 ```
 
@@ -151,13 +454,21 @@ procureflow-n8n-1     Up
 
 ### Verifica la salute dell'applicazione
 
-Apri il browser e vai a:
+Dal server, verifica che l'app risponda:
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+Se vedi `{"status":"ok",...}` tutto funziona. Se vedi un errore, aspetta ancora 30 secondi e riprova.
+
+Dal tuo browser, se hai gia configurato il dominio e Caddy (sezione 2b):
 
 ```
-http://localhost:3000/api/health
+https://procurement.tuodominio.it/api/health
 ```
 
-Se vedi `{"status":"ok",...}` tutto funziona. Se vedi `error` o la pagina non carica, aspetta ancora 30 secondi e riprova.
+Se non hai ancora il dominio, l'app e raggiungibile solo dal server (localhost). Configura Caddy per esporla al pubblico.
 
 ---
 
@@ -165,7 +476,7 @@ Se vedi `{"status":"ok",...}` tutto funziona. Se vedi `error` o la pagina non ca
 
 ### Apri ProcureFlow
 
-Vai nel browser a: **http://localhost:3000**
+Vai nel browser a: **https://procurement.tuodominio.it** (oppure `http://IP_DEL_SERVER:3000` se non hai ancora configurato il dominio)
 
 ### Utenti demo disponibili
 
@@ -951,7 +1262,451 @@ curl http://localhost:3000/api/health
 
 ---
 
+### 7.10 Creazione automatica commessa da email cliente
+
+**Cosa testa:** Quando un cliente invia un ordine via email, ProcureFlow crea automaticamente una **commessa** (job order) con le richieste d'acquisto suggerite dall'AI.
+
+**Come funziona in produzione:** L'email del cliente arriva e n8n la analizza con l'AI. Se l'AI riconosce un ordine cliente (intent `ORDINE_CLIENTE`), il sistema:
+1. Crea (o trova) il **cliente** nella rubrica
+2. Crea una **commessa** con codice COM-YYYY-NNNNN
+3. Crea una o piu **richieste d'acquisto suggerite** (in stato DRAFT) collegate alla commessa
+4. Registra un evento nella timeline della commessa
+5. Notifica i manager
+
+```bash
+curl -X POST http://localhost:3000/api/webhooks/email-ingestion \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email_from": "ordini@clienterossi.it",
+    "email_subject": "Ordine per fornitura scaffalature magazzino",
+    "email_body": "Buongiorno, vi inviamo ordine per: 20 scaffalature industriali 200x100cm, 50 ripiani aggiuntivi in acciaio, 10 kit montaggio con bulloneria. Consegna entro 2025-06-15. Budget indicativo 15000 EUR. Rif. Cliente: CLI-ROSSI-001",
+    "email_date": "2025-04-05",
+    "email_message_id": "<ordine-001@clienterossi.it>",
+    "action": "create_commessa",
+    "ai_title": "Fornitura scaffalature magazzino Rossi",
+    "ai_description": "Ordine cliente per scaffalature industriali e accessori per magazzino",
+    "ai_priority": "HIGH",
+    "ai_category": "Arredamento industriale",
+    "ai_department": "Logistica",
+    "ai_client_name": "Rossi & C. Srl",
+    "ai_client_code": "CLI-ROSSI-001",
+    "ai_client_value": 15000,
+    "ai_client_deadline": "2025-06-15",
+    "ai_client_order_items": [
+      { "description": "Scaffalature industriali 200x100cm", "quantity": 20, "unit": "pz" },
+      { "description": "Ripiani aggiuntivi acciaio", "quantity": 50, "unit": "pz" },
+      { "description": "Kit montaggio con bulloneria", "quantity": 10, "unit": "kit" }
+    ],
+    "ai_confidence": 0.93,
+    "ai_summary": "Ordine cliente Rossi per fornitura scaffalature magazzino: 20 scaffalature, 50 ripiani, 10 kit montaggio. Budget 15000 EUR, consegna entro 15/06/2025.",
+    "ai_tags": ["ai-classified", "ai-intent:ORDINE_CLIENTE", "cliente:rossi"],
+    "ai_currency": "EUR",
+    "ai_items": [],
+    "attachments": []
+  }'
+```
+
+**Risultato atteso (JSON):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "action": "create_commessa",
+    "commessa_id": "...",
+    "commessa_code": "COM-2025-00001",
+    "suggested_prs_created": 3,
+    "timeline_event_id": "...",
+    "ai_confidence": 0.93,
+    "deduplicated": false
+  }
+}
+```
+
+**Verifica nell'interfaccia:**
+
+1. Vai alla pagina **Commesse** → trovi la commessa "COM-2025-00001" con stato **PLANNING**
+2. Aprila → il cliente e "Rossi & C. Srl", il valore e 15.000 EUR, la deadline e 15/06/2025
+3. Nella sezione "Richieste suggerite" trovi 3 RdA in stato DRAFT:
+   - "Scaffalature industriali 200x100cm" (20 pz)
+   - "Ripiani aggiuntivi acciaio" (50 pz)
+   - "Kit montaggio con bulloneria" (10 kit)
+4. Nella timeline della commessa c'e l'evento "Commessa creata da email cliente"
+5. Il campanello notifiche mostra "Nuova commessa da email: COM-2025-00001"
+
+> **Nota:** Le RdA suggerite hanno il tag `ai-suggested` e sono collegate alla commessa. Il responsabile puo accettarle (cambiano stato a SUBMITTED) o modificarle prima di procedere.
+
+---
+
+### 7.11 Classificazione AI email con creazione commessa
+
+**Cosa testa:** L'endpoint di classificazione AI (`/classify`) riceve un'email grezza, la classifica automaticamente come ordine cliente, e crea la commessa senza pre-classificazione manuale.
+
+**Come funziona in produzione:** A differenza del test 7.10 (dove l'AI ha gia classificato i dati), qui l'email arriva **grezza** — senza campi `ai_*`. L'AI di ProcureFlow (Claude) analizza il testo, estrae i dati del cliente e degli articoli, e poi crea la commessa automaticamente.
+
+> **Prerequisito:** Serve la chiave API Anthropic configurata (variabile `ANTHROPIC_API_KEY` nel file `.env`). Se non e configurata, questo test restituira un errore 503.
+
+```bash
+curl -X POST http://localhost:3000/api/webhooks/email-ingestion/classify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email_from": "acquisti@bianchi-srl.it",
+    "email_to": "vendite@miazienda.it",
+    "email_subject": "Ordine materiale elettrico - rif. progetto capannone",
+    "email_body": "Spett.le Ditta,\n\ncon la presente vi ordiniamo il seguente materiale per il progetto capannone industriale:\n\n- 100 metri di cavo elettrico 3x2.5mm\n- 50 plafoniere LED 60W\n- 20 quadri elettrici 12 moduli\n- 30 interruttori differenziali 30mA\n\nPrezzo concordato: 8.500 EUR + IVA\nConsegna richiesta entro: 30/05/2025\n\nCodice cliente: BIANCHI-IND\n\nCordiali saluti,\nUfficio Acquisti\nBianchi Srl",
+    "email_date": "2025-04-05",
+    "email_message_id": "<ordine-bianchi-002@bianchi-srl.it>"
+  }'
+```
+
+**Risultato atteso (JSON):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "classification": {
+      "intent": "ORDINE_CLIENTE",
+      "confidence": 0.90
+    },
+    "action_taken": true,
+    "ingestion_result": {
+      "action": "create_commessa",
+      "commessa_code": "COM-2025-00002",
+      "suggested_prs_created": 4
+    }
+  }
+}
+```
+
+**Cosa ha fatto il sistema automaticamente:**
+1. Claude ha letto l'email e identificato l'intent come ORDINE_CLIENTE
+2. Ha estratto: nome cliente (Bianchi Srl), codice (BIANCHI-IND), 4 articoli, importo (8500 EUR), deadline (30/05/2025)
+3. Ha creato la commessa COM-2025-00002 collegata al cliente Bianchi Srl
+4. Ha creato 4 richieste d'acquisto suggerite (una per ogni riga dell'ordine)
+
+> **Se non hai la chiave Anthropic:** Questo test e facoltativo. Il test 7.10 copre la stessa funzionalita ma con dati gia pre-classificati (non serve l'AI).
+
+---
+
+### 7.12 Associazione automatica RdA a commessa
+
+**Cosa testa:** Quando una commessa viene creata da email (test 7.10), le RdA suggerite nascono **gia collegate** alla commessa. Qui verifichiamo come accettare o rifiutare i suggerimenti dell'AI.
+
+**Prerequisito:** Esegui prima il test 7.10. Annota il `commessa_code` dalla risposta (es: `COM-2025-00001`).
+
+#### Accettare un suggerimento
+
+L'accettazione cambia lo stato della RdA da DRAFT a SUBMITTED e la conferma come richiesta reale:
+
+```bash
+curl -X POST http://localhost:3000/api/commesse/COM-2025-00001/accept-suggestion \
+  -H "Content-Type: application/json" \
+  -d '{ "suggestion_id": "ID_DELLA_RDA_SUGGERITA" }'
+```
+
+> **Come trovare l'ID:** Apri la commessa nell'interfaccia → sezione "Suggerimenti AI" → clicca sulla RdA → l'ID e nell'URL o nei dettagli.
+
+**Risultato atteso:**
+
+```json
+{
+  "success": true,
+  "data": { "accepted": true, "request_id": "..." }
+}
+```
+
+**Verifica:** La RdA passa da DRAFT a **SUBMITTED**. Nella timeline della commessa appare "Suggerimento accettato".
+
+#### Modificare un suggerimento prima di accettarlo
+
+Puoi cambiare titolo, importo stimato, fornitore o priorita di una RdA suggerita:
+
+```bash
+curl -X PATCH http://localhost:3000/api/commesse/COM-2025-00001/suggestions/ID_SUGGERIMENTO \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Scaffalature industriali 200x100cm (modificato)",
+    "estimated_amount": 5500,
+    "priority": "URGENT"
+  }'
+```
+
+**Risultato atteso:** La RdA viene aggiornata mantenendo il collegamento alla commessa.
+
+#### Rifiutare un suggerimento
+
+Se l'AI ha suggerito una RdA non necessaria:
+
+```bash
+curl -X DELETE http://localhost:3000/api/commesse/COM-2025-00001/suggestions/ID_SUGGERIMENTO
+```
+
+**Risultato atteso:** `{ "success": true, "data": { "deleted": true } }`. La RdA viene eliminata. Nella timeline: "Suggerimento rifiutato".
+
+---
+
+### 7.13 Associazione manuale RdA a commessa
+
+**Cosa testa:** Collegare una RdA esistente a una commessa manualmente, oppure creare una nuova RdA gia collegata.
+
+#### Creare una RdA collegata a una commessa
+
+```bash
+curl -X POST http://localhost:3000/api/requests \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Vernice industriale per scaffalature",
+    "description": "Vernice antiruggine per trattamento scaffalature commessa Rossi",
+    "priority": "MEDIUM",
+    "category": "Materiali di consumo",
+    "department": "Produzione",
+    "estimated_amount": 800,
+    "commessa_id": "ID_DELLA_COMMESSA"
+  }'
+```
+
+> **Come trovare l'ID commessa:** Vai alla pagina Commesse → apri la commessa → l'ID e nell'URL (es: `/commesse/clxyz123...`).
+
+**Risultato atteso:** La RdA viene creata con stato DRAFT e appare nella sezione "Richieste collegate" della commessa.
+
+#### Collegare una RdA esistente a una commessa
+
+```bash
+curl -X PATCH http://localhost:3000/api/requests/ID_DELLA_RDA \
+  -H "Content-Type: application/json" \
+  -d '{ "commessa_id": "ID_DELLA_COMMESSA" }'
+```
+
+**Risultato atteso:** La RdA viene collegata alla commessa. Il margine della commessa si aggiorna automaticamente.
+
+#### Scollegare una RdA da una commessa
+
+```bash
+curl -X PATCH http://localhost:3000/api/requests/ID_DELLA_RDA \
+  -H "Content-Type: application/json" \
+  -d '{ "commessa_id": null }'
+```
+
+**Risultato atteso:** La RdA torna indipendente. Il margine della commessa viene ricalcolato senza quella RdA.
+
+---
+
+### 7.14 Creazione automatica clienti
+
+**Cosa testa:** I clienti vengono creati automaticamente quando arriva un ordine via email da un cliente sconosciuto, oppure manualmente tramite API.
+
+#### Creazione automatica (da email)
+
+Questo avviene gia nel test 7.10: quando l'email contiene `ai_client_name` e `ai_client_code`, il sistema:
+1. Cerca un cliente con quel codice
+2. Se non lo trova, cerca per nome (fuzzy match)
+3. Se non trova nulla, lo crea con stato **PENDING_REVIEW**
+
+Per verificare che il cliente sia stato creato:
+
+```bash
+curl http://localhost:3000/api/clients
+```
+
+**Risultato atteso:** Nella lista trovi "Rossi & C. Srl" con `status: "PENDING_REVIEW"` e nota "Cliente creato automaticamente da email ingestion. Verificare i dati."
+
+#### Creazione manuale
+
+```bash
+curl -X POST http://localhost:3000/api/clients \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Verdi Costruzioni SpA",
+    "tax_id": "IT12345678901",
+    "email": "info@verdicostruzioni.it",
+    "phone": "+39 02 1234567",
+    "address": "Via Roma 42, 20100 Milano",
+    "contact_person": "Ing. Marco Verdi",
+    "notes": "Cliente settore edile, pagamento 60gg DFFM"
+  }'
+```
+
+**Risultato atteso:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "...",
+    "code": "CLI-0004",
+    "name": "Verdi Costruzioni SpA",
+    "status": "ACTIVE",
+    "tax_id": "IT12345678901",
+    "email": "info@verdicostruzioni.it"
+  }
+}
+```
+
+**Verifica:** Il cliente appare nella pagina Clienti con codice auto-generato `CLI-NNNN` e stato **ACTIVE**.
+
+#### Modificare un cliente (es. confermare uno auto-creato)
+
+```bash
+curl -X PATCH http://localhost:3000/api/clients/ID_DEL_CLIENTE \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "ACTIVE",
+    "tax_id": "IT98765432101",
+    "notes": "Dati verificati, cliente confermato"
+  }'
+```
+
+**Risultato atteso:** Lo stato passa da PENDING_REVIEW ad **ACTIVE**.
+
+---
+
+### 7.15 Creazione e gestione articoli
+
+**Cosa testa:** L'anagrafica articoli permette di creare codici interni, associare alias fornitore/cliente, e registrare prezzi storici.
+
+#### Creare un articolo con alias
+
+```bash
+curl -X POST http://localhost:3000/api/articles \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Scaffalatura industriale 200x100cm",
+    "unit_of_measure": "pz",
+    "category": "Arredamento industriale",
+    "manufacturer": "MetalRack Srl",
+    "manufacturer_code": "MR-SHELF-200100",
+    "tags": ["scaffalature", "magazzino"],
+    "aliases": [
+      {
+        "alias_type": "VENDOR",
+        "alias_code": "SHELF-200-100",
+        "alias_label": "Codice fornitore TechSupply"
+      },
+      {
+        "alias_type": "CLIENT",
+        "alias_code": "SCAF-IND-001",
+        "alias_label": "Codice cliente Rossi"
+      }
+    ]
+  }'
+```
+
+**Risultato atteso:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "...",
+    "code": "ART-0001",
+    "name": "Scaffalatura industriale 200x100cm",
+    "unit_of_measure": "pz",
+    "aliases_count": 2
+  }
+}
+```
+
+**Verifica:** Vai alla pagina Articoli → trovi "ART-0001" con 2 alias (uno fornitore, uno cliente).
+
+#### Aggiungere un prezzo fornitore
+
+```bash
+curl -X POST http://localhost:3000/api/articles/ID_ARTICOLO/prices \
+  -H "Content-Type: application/json" \
+  -d '{
+    "vendor_id": "ID_DEL_FORNITORE",
+    "unit_price": 420.00,
+    "currency": "EUR",
+    "min_quantity": 5,
+    "source": "quote",
+    "notes": "Prezzo da preventivo del 01/04/2025"
+  }'
+```
+
+**Risultato atteso:** Il prezzo viene registrato. Nella scheda articolo appare lo storico prezzi per fornitore.
+
+#### Cercare un articolo (per nome, codice o alias)
+
+```bash
+curl "http://localhost:3000/api/articles/search?q=scaffalatura&limit=5"
+```
+
+**Risultato atteso:** Restituisce gli articoli che corrispondono, indicando anche **come** sono stati trovati (`matched_via: "name"`, `"alias"`, `"code"`, o `"manufacturer_code"`).
+
+---
+
+### 7.16 Import massivo articoli da CSV
+
+**Cosa testa:** L'importazione di centinaia di articoli da un file CSV, con creazione automatica di alias e risoluzione dei fornitori per nome.
+
+> **Prerequisito:** Devi essere loggato come ADMIN.
+
+```bash
+curl -X POST http://localhost:3000/api/articles/import \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rows": [
+      {
+        "codice_interno": "TRAVE-HEA200",
+        "nome": "Trave HEA 200",
+        "um": "m",
+        "categoria": "Strutture metalliche",
+        "produttore": "ArcelorMittal",
+        "codice_produttore": "AM-HEA200",
+        "tipo_alias": "vendor",
+        "codice_alias": "HEA200-6M",
+        "entita": "TechSupply Srl"
+      },
+      {
+        "codice_interno": "TRAVE-HEA200",
+        "nome": "Trave HEA 200",
+        "um": "m",
+        "tipo_alias": "client",
+        "codice_alias": "TR-HEA-200",
+        "entita": "Rossi & C. Srl"
+      },
+      {
+        "codice_interno": "PIASTRA-ANC",
+        "nome": "Piastra di ancoraggio 200x200mm",
+        "um": "pz",
+        "categoria": "Ferramenta",
+        "produttore": "FerroItalia",
+        "codice_produttore": "FI-PA-200"
+      }
+    ]
+  }'
+```
+
+**Come funziona:**
+- Le righe con lo stesso `codice_interno` vengono raggruppate: si crea un solo articolo con piu alias
+- Il campo `entita` viene risolto cercando il fornitore/cliente per nome (fuzzy match)
+- Se l'articolo esiste gia (stesso `codice_produttore`), vengono aggiunti solo i nuovi alias
+- Massimo 10.000 righe per importazione
+
+**Risultato atteso:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "articles_created": 2,
+    "aliases_created": 2,
+    "skipped": 0,
+    "errors": []
+  }
+}
+```
+
+**Verifica:** Nella pagina Articoli trovi "ART-0002 - Trave HEA 200" con 2 alias (vendor TechSupply + client Rossi) e "ART-0003 - Piastra di ancoraggio" senza alias.
+
+---
+
 ## 8. Test end-to-end: flusso completo ordine
+
+Due scenari completi che puoi testare in sequenza. Il primo copre il flusso classico di acquisto, il secondo il flusso commessa (ordine da cliente).
+
+### 8a. Flusso acquisto (RdA → Fattura)
 
 Questo test simula un **ciclo di vita completo** di un ordine, dall'email del fornitore fino alla riconciliazione della fattura. Eseguilo nell'ordine — ogni passo dipende dal precedente.
 
@@ -1137,12 +1892,107 @@ Questo e il flusso che nella vita reale richiederebbe settimane di lavoro manual
 
 ---
 
-## 9. Spegnere e riavviare
+### 8b. Flusso commessa (Email cliente → Commessa → RdA)
+
+Questo test simula il flusso quando un **cliente** invia un ordine: ProcureFlow crea la commessa, le richieste d'acquisto suggerite, e il responsabile le approva.
+
+### Passo 1: Arriva l'ordine del cliente → Creazione commessa
+
+Un cliente invia un ordine via email. L'AI lo classifica e crea automaticamente la commessa con le RdA suggerite.
+
+```bash
+curl -X POST http://localhost:3000/api/webhooks/email-ingestion \
+  -H "Content-Type: application/json" \
+  -H "x-webhook-id: e2e-commessa-step1-$(date +%s)" \
+  -d '{
+    "email_from": "acquisti@metalworks.it",
+    "email_subject": "Ordine strutture metalliche per capannone",
+    "email_body": "Ordiniamo: 10 travi HEA 200 da 6m, 30 piastre di ancoraggio, 5 colonne HEB 240 da 4m. Consegna entro 20/07/2025. Budget 22000 EUR.",
+    "email_date": "2025-04-05",
+    "email_message_id": "<e2e-commessa-001@metalworks.it>",
+    "action": "create_commessa",
+    "ai_title": "Strutture metalliche capannone MetalWorks",
+    "ai_priority": "HIGH",
+    "ai_category": "Strutture metalliche",
+    "ai_department": "Produzione",
+    "ai_client_name": "MetalWorks Srl",
+    "ai_client_code": "CLI-METALWORKS",
+    "ai_client_value": 22000,
+    "ai_client_deadline": "2025-07-20",
+    "ai_client_order_items": [
+      { "description": "Travi HEA 200 da 6m", "quantity": 10, "unit": "pz" },
+      { "description": "Piastre di ancoraggio", "quantity": 30, "unit": "pz" },
+      { "description": "Colonne HEB 240 da 4m", "quantity": 5, "unit": "pz" }
+    ],
+    "ai_confidence": 0.95,
+    "ai_summary": "Ordine cliente MetalWorks per strutture metalliche capannone industriale.",
+    "ai_tags": ["ai-classified", "ai-intent:ORDINE_CLIENTE"],
+    "ai_currency": "EUR",
+    "ai_items": [],
+    "attachments": []
+  }'
+```
+
+**Risultato atteso:** La commessa viene creata con codice COM-YYYY-NNNNN. Annota il `commessa_code` dalla risposta (ti servira ai passi successivi).
+
+**Verifica:** Vai alla pagina Commesse → trovi la commessa con stato PLANNING e 3 RdA suggerite collegate.
+
+### Passo 2: Accetta le RdA suggerite
+
+Il responsabile esamina le richieste suggerite dall'AI e le accetta. Questo le porta dallo stato DRAFT a SUBMITTED, pronte per approvazione.
+
+Usa il codice commessa ricevuto al Passo 1 (esempio: `COM-2025-00003`):
+
+```bash
+curl -X POST http://localhost:3000/api/commesse/COM-2025-00003/accept-suggestion \
+  -H "Content-Type: application/json"
+```
+
+**Verifica:** Le 3 RdA nella commessa ora hanno stato **SUBMITTED** (non piu DRAFT). Nella timeline della commessa c'e un nuovo evento "Suggerimenti accettati".
+
+### Passo 3: Approva le RdA collegate
+
+Il manager approva le richieste d'acquisto per procedere con gli ordini ai fornitori. Usa gli `approval_id` delle RdA create:
+
+```bash
+# Approva le RdA — sostituisci APPROVAL_ID con l'ID reale dall'interfaccia
+curl -X POST http://localhost:3000/api/webhooks/approval-response \
+  -H "Content-Type: application/json" \
+  -H "x-webhook-id: e2e-commessa-step3-$(date +%s)" \
+  -d '{
+    "approval_id": "APPROVAL_ID",
+    "action": "APPROVED",
+    "comment": "Approvato — materiale necessario per commessa MetalWorks"
+  }'
+```
+
+**Verifica:** Le RdA passano a stato **APPROVED**. Nella commessa il progresso mostra le richieste approvate.
+
+### Passo 4: Verifica il riepilogo completo
+
+Apri la commessa nell'interfaccia e controlla:
+
+| Elemento | Valore atteso |
+|----------|---------------|
+| **Stato commessa** | PLANNING |
+| **Cliente** | MetalWorks Srl |
+| **Valore cliente** | 22.000 EUR |
+| **Deadline** | 20/07/2025 |
+| **RdA collegate** | 3 (tutte APPROVED) |
+| **Timeline** | 3+ eventi (creazione, accettazione suggerimenti, approvazioni) |
+
+> **Differenza chiave rispetto al flusso 8a:** Nel flusso acquisto il sistema riceve email dal fornitore e crea RdA interne. Nel flusso commessa il sistema riceve un ordine dal **cliente** e genera la commessa con le RdA necessarie per evaderlo. La commessa aggrega piu richieste, traccia il margine e la deadline verso il cliente.
+
+---
+
+## 9. Gestione del server
+
+> Tutti i comandi vanno eseguiti via SSH sul server: `ssh procureflow@IP_DEL_SERVER`
 
 ### Spegnere tutto
 
 ```bash
-cd ~/Desktop/procureflow/procureflow
+cd /opt/procureflow/procureflow
 docker compose down
 ```
 
@@ -1151,10 +2001,25 @@ I dati nel database vengono **mantenuti** (salvati nel volume Docker).
 ### Riavviare
 
 ```bash
+cd /opt/procureflow/procureflow
 docker compose up -d
 ```
 
 Non serve `--build` a meno che tu non abbia modificato il codice.
+
+> **Nota:** Grazie a `restart: unless-stopped` nel docker-compose, se il server viene riavviato (es. dopo un aggiornamento di sistema), i servizi ripartono automaticamente con Docker.
+
+### Aggiornare l'applicazione
+
+Quando c'e una nuova versione:
+
+```bash
+cd /opt/procureflow/procureflow
+git pull origin main
+docker compose up --build -d
+```
+
+L'applicazione sara offline per 2-3 minuti durante la build. I dati nel database non vengono toccati.
 
 ### Ripartire da zero (cancella tutti i dati)
 
@@ -1163,6 +2028,20 @@ docker compose down -v
 ```
 
 Il flag `-v` cancella i volumi (database). Al prossimo avvio, se `SEED_ON_STARTUP=true`, i dati demo vengono ricaricati.
+
+> **Attenzione:** In produzione, `docker compose down -v` cancella TUTTI i dati del cliente. Usalo solo in ambiente di test.
+
+### Backup manuale del database
+
+```bash
+docker compose exec db pg_dump -U procureflow procureflow > backup-$(date +%Y%m%d).sql
+```
+
+Per ripristinare un backup:
+
+```bash
+docker compose exec -T db psql -U procureflow procureflow < backup-20260407.sql
+```
 
 ### Vedere i log in tempo reale
 
@@ -1188,33 +2067,58 @@ Premi `Ctrl + C` per uscire dai log.
 
 | Problema | Causa | Soluzione |
 |----------|-------|-----------|
-| **La pagina non carica** (localhost:3000) | L'app non e ancora pronta | Aspetta 1-2 minuti. Controlla con `docker compose logs app` |
+| **Il sito non si apre** (https://dominio) | Caddy non e configurato o il DNS non punta al server | Verifica: `sudo systemctl status caddy` e che il record DNS A punti all'IP del server |
 | **Errore "Set NEXTAUTH_SECRET"** | Manca la variabile nel `.env` | Apri `.env` e aggiungi `NEXTAUTH_SECRET=una-stringa-lunga` |
 | **Login fallisce con credenziali corrette** | Il seed non e stato eseguito | Controlla i log: `docker compose logs app`. Se dice "Seed failed", prova `docker compose down -v` e riavvia |
 | **"Database connection failed"** su /api/health | PostgreSQL non e pronto | Aspetta 30 secondi. Se persiste: `docker compose restart db` |
-| **n8n non si apre** (localhost:5678) | Il servizio non e partito | `docker compose logs n8n` per vedere l'errore |
 | **Webhook restituisce 401** | Secret non corrispondente | Verifica che `N8N_WEBHOOK_SECRET` nel `.env` corrisponda al Bearer token usato nel curl |
 | **"Module not enabled"** su una pagina | Il modulo e disattivato | Vai su Impostazioni > Moduli e attivalo |
 | **AI Agent non risponde** | Manca `ANTHROPIC_API_KEY` | Aggiungi la chiave API Anthropic nel `.env` e riavvia: `docker compose restart app` |
 | **Fattura PDF rifiutata** | Manca `ANTHROPIC_API_KEY` | Il parsing AI delle fatture non-XML richiede Claude. Usa fatture XML come alternativa |
-| **Docker dice "port already in use"** | Un altro servizio usa la porta 3000/5432/5678 | Chiudi l'altro servizio oppure cambia le porte nel `docker-compose.yml` |
 | **Build Docker fallisce** | Cache corrotta | Prova: `docker compose build --no-cache` |
 | **Tutto funzionava, ora non parte** | Aggiornamento Docker o spazio disco | Libera spazio: `docker system prune` (attenzione: cancella container fermi) |
+| **Non riesco a connettermi via SSH** | IP bloccato da Fail2ban o chiave SSH sbagliata | Usa la console di emergenza dal pannello Aruba. Verifica: `sudo fail2ban-client status sshd` |
+| **Certificato HTTPS non funziona** | DNS non ancora propagato | Aspetta fino a 24 ore. Verifica: `dig procurement.tuodominio.it` deve restituire l'IP del server |
+| **Spazio disco esaurito** | Log o immagini Docker accumulate | `docker system prune` per pulire. `df -h` per verificare lo spazio |
 
 ### Serve aiuto?
 
+- Connettiti al server: `ssh procureflow@IP_DEL_SERVER`
 - Controlla i log: `docker compose logs -f` mostra cosa succede in tempo reale
 - Riparti da zero: `docker compose down -v && docker compose up --build -d`
-- Apri un issue su GitHub con il testo dell'errore dai log
+- Verifica lo stato di Caddy: `sudo systemctl status caddy`
+- Verifica il firewall: `sudo ufw status`
 
 ---
 
 ## Riepilogo URL
 
-| Servizio | URL | Note |
-|----------|-----|------|
-| **ProcureFlow** | http://localhost:3000 | Applicazione principale |
-| **Health Check** | http://localhost:3000/api/health | Stato del sistema |
-| **n8n** | http://localhost:5678 | Automazione workflow |
-| **PostgreSQL** | localhost:5432 | Database (non ha interfaccia web) |
-| **Prisma Studio** | `npx prisma studio` (da terminale, in dev) | Esplora il database visualmente |
+| Servizio | URL pubblico | URL interno (dal server) | Note |
+|----------|-------------|-------------------------|------|
+| **ProcureFlow** | https://procurement.tuodominio.it | http://localhost:3000 | Applicazione principale |
+| **Health Check** | https://procurement.tuodominio.it/api/health | http://localhost:3000/api/health | Stato del sistema |
+| **n8n** | Non esposto (solo dal server) | http://localhost:5678 | Automazione workflow — accessibile solo via SSH tunnel |
+| **PostgreSQL** | Non esposto | localhost:5432 | Database — accessibile solo dal server |
+
+### Accedere a n8n da remoto (SSH tunnel)
+
+n8n non e esposto su internet per sicurezza. Per accedervi dal tuo browser:
+
+```bash
+# Dal tuo PC locale, crea un tunnel SSH
+ssh -L 5678:localhost:5678 procureflow@IP_DEL_SERVER
+```
+
+Poi apri nel browser: `http://localhost:5678` — il traffico passa attraverso il tunnel cifrato SSH.
+
+### Costi infrastruttura
+
+| Voce | Costo |
+|------|-------|
+| VPS Aruba Cloud (4GB RAM, 2 vCPU, 80GB SSD) | ~8-12 EUR/mese |
+| Backup automatico (snapshot giornaliero) | ~2-3 EUR/mese |
+| Dominio (opzionale) | ~10-15 EUR/anno |
+| Certificato SSL (Let's Encrypt via Caddy) | Gratuito |
+| AI (Anthropic API, opzionale) | 0-25 EUR/mese (a consumo) |
+| **Totale senza AI** | **~12-16 EUR/mese** |
+| **Totale con AI** | **~20-40 EUR/mese** |

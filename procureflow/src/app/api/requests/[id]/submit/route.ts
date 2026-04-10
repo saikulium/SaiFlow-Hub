@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -11,6 +11,7 @@ import {
   sendBudgetAlerts,
   refreshSnapshotsForCostCenter,
 } from '@/server/services/budget.service'
+import { requireAuth } from '@/lib/auth'
 
 // ---------------------------------------------------------------------------
 // POST /api/requests/[id]/submit
@@ -25,6 +26,9 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     const request = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },

@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -8,11 +8,15 @@ import {
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
 import { updateClientSchema } from '@/lib/validations/client'
+import { requireAuth } from '@/lib/auth'
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/clients')
   if (blocked) return blocked
 
@@ -79,6 +83,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/clients')
   if (blocked) return blocked
 
@@ -117,6 +124,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/clients')
   if (blocked) return blocked
 

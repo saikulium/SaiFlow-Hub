@@ -1,8 +1,13 @@
+import { NextResponse } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
 import { getCommessaDashboardStats } from '@/server/services/commessa.service'
+import { requireAuth } from '@/lib/auth'
 
 export async function GET() {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/commesse')
   if (blocked) return blocked
 

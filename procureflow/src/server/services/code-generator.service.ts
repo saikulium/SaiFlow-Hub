@@ -14,6 +14,8 @@ const ALLOWED_TABLES = [
   'commesse',
   'clients',
   'articles',
+  'materials',
+  'vendors',
 ] as const
 type AllowedTable = (typeof ALLOWED_TABLES)[number]
 type TxClient = Prisma.TransactionClient

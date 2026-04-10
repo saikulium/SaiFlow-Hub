@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { Prisma } from '@prisma/client'
@@ -9,6 +9,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
+import { requireAuth } from '@/lib/auth'
 
 const modifySuggestionSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -21,6 +22,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { code: string; id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/commesse')
   if (blocked) return blocked
 
@@ -74,6 +78,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { code: string; id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/commesse')
   if (blocked) return blocked
 

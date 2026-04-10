@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import {
@@ -8,6 +8,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
+import { requireAuth } from '@/lib/auth'
 
 const acceptSchema = z.object({
   suggestion_id: z.string().min(1, 'ID suggerimento obbligatorio'),
@@ -17,6 +18,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { code: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   const blocked = await requireModule('/api/commesse')
   if (blocked) return blocked
 
@@ -70,6 +74,10 @@ export async function POST(
     return successResponse({ accepted: true, request_id: suggestion_id })
   } catch (error) {
     console.error('POST /api/commesse/[code]/accept-suggestion error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore accettazione suggerimento', 500)
+    return errorResponse(
+      'INTERNAL_ERROR',
+      'Errore accettazione suggerimento',
+      500,
+    )
   }
 }
