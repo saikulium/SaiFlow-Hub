@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Use the Email Intelligence Agent (multi-step: classify → search → act)
-    const agentResult = await processEmail(emailData)
+    const agentResult = await processEmail(emailData, authResult.id)
 
     // Map agent result to the format the frontend expects
     return successResponse({

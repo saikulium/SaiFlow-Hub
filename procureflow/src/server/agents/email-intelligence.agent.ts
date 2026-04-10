@@ -1,9 +1,13 @@
 import { getClaudeClient } from '@/lib/ai/claude-client'
 import { MODELS } from '@/lib/ai/models'
+import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
 import {
   searchRequestsTool,
   getRequestDetailTool,
   searchVendorsTool,
+  getBudgetOverviewTool,
+  createRequestInputSchema,
+  executeWriteTool,
 } from '@/server/agents/tools/procurement.tools'
 import { NOTIFICATION_TOOLS } from '@/server/agents/tools/notification.tools'
 import { COMMESSA_TOOLS } from '@/server/agents/tools/commessa.tools'
@@ -27,24 +31,52 @@ const MAX_TOKENS = 4096
 // System Prompt
 // ---------------------------------------------------------------------------
 
-const EMAIL_AGENT_SYSTEM_PROMPT = `Sei un agente di procurement per PMI italiane. Ricevi email commerciali e devi:
+const EMAIL_AGENT_SYSTEM_PROMPT = `Sei un agente di procurement per PMI italiane. Ricevi email commerciali e devi analizzarle ed eseguire TUTTE le azioni necessarie.
 
-1. CLASSIFICARE l'intent (conferma ordine, ritardo, variazione prezzo, ordine cliente, fattura, etc.)
-2. CERCARE nel database se esiste una richiesta d'acquisto correlata
-3. AGIRE in base all'intent:
-   - CONFERMA_ORDINE: cerca la PR correlata con search_requests o get_request_detail, crea un timeline event
-   - RITARDO_CONSEGNA: cerca la PR, notifica il richiedente con la nuova data
-   - VARIAZIONE_PREZZO: cerca la PR, notifica il manager con la differenza
-   - ORDINE_CLIENTE: crea una nuova commessa con gli articoli estratti
-   - FATTURA_ALLEGATA: segnala con notifica per il reparto contabilita
-   - RICHIESTA_INFO: notifica il richiedente della PR correlata
+PROCEDURA:
+1. CLASSIFICA l'intent dell'email
+2. CERCA nel database se esistono risorse correlate (PR, fornitori, commesse)
+3. AGISCI in base all'intent — esegui TUTTE le azioni, non solo la prima:
+
+AZIONI PER INTENT:
+
+CONFERMA_ORDINE:
+  1. Cerca la PR correlata (search_requests o get_request_detail)
+  2. Crea un evento timeline sulla PR (create_timeline_event)
+  3. Crea una notifica per il richiedente (create_notification)
+
+RITARDO_CONSEGNA:
+  1. Cerca la PR correlata
+  2. Crea un evento timeline con la nuova data
+  3. Notifica il richiedente con urgenza
+
+VARIAZIONE_PREZZO:
+  1. Cerca la PR correlata
+  2. Crea un evento timeline con vecchio/nuovo prezzo
+  3. Notifica il manager con la differenza in EUR e percentuale
+
+ORDINE_CLIENTE (il piu importante — fai TUTTI gli step):
+  1. Crea la commessa con create_commessa (client_name, client_value, deadline, items)
+  2. Per OGNI articolo nell'ordine, crea una richiesta d'acquisto con create_request:
+     - Titolo: "[codice articolo] per commessa [cliente]"
+     - Items: [{name: descrizione, quantity: quantita, unit: unita}]
+     - priority: "HIGH" se la scadenza e entro 30 giorni, altrimenti "MEDIUM"
+  3. Cerca i fornitori che potrebbero avere gli articoli (search_vendors)
+  4. Crea una notifica di riepilogo (create_notification)
+
+FATTURA_ALLEGATA:
+  1. Notifica il reparto contabilita
+
+RICHIESTA_INFO:
+  1. Cerca la PR correlata se presente
+  2. Notifica il richiedente
 
 REGOLE:
-- Se non trovi una PR correlata, NON inventare un codice. Metti un flag "da verificare".
-- Se un codice articolo e sconosciuto, includi una nota "codice non trovato nel catalogo".
-- Se un importo e ambiguo, segnalalo nella notifica.
+- Esegui TUTTE le azioni elencate per l'intent, non fermarti dopo la prima.
+- Se non trovi una PR correlata, NON inventare un codice — segnala "da verificare".
+- Se un codice articolo e sconosciuto, includilo comunque nella RDA con una nota.
 - Rispondi SEMPRE in italiano.
-- Per le date usa formato italiano (gg/mm/aaaa) nelle notifiche, ISO nelle operazioni.
+- Per le date usa formato italiano (gg/mm/aaaa) nelle notifiche, ISO nei tool.
 
 FORMATO RISPOSTA FINALE:
 Dopo aver eseguito tutte le azioni necessarie, concludi con un riepilogo JSON:
@@ -71,14 +103,42 @@ export interface EmailProcessingResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Combine all tools available to the email agent.
- * READ tools from procurement + notification tools + commessa tools.
+ * Build a create_request tool that executes writes directly for the given userId.
  */
-function getEmailAgentTools(): readonly BetaRunnableTool<any>[] {
+function buildCreateRequestTool(userId: string): BetaRunnableTool<any> {
+  return betaZodTool({
+    name: 'create_request',
+    description:
+      "Crea una nuova richiesta d'acquisto in stato DRAFT. Usa per ogni articolo da ordinare.",
+    inputSchema: createRequestInputSchema,
+    run: async (input) => {
+      try {
+        const result = await executeWriteTool(
+          'create_request',
+          { ...input, _userId: userId } as Record<string, unknown>,
+          userId,
+        )
+        return typeof result === 'string' ? result : JSON.stringify(result)
+      } catch (err) {
+        return JSON.stringify({
+          error: `Errore nella creazione della richiesta: ${String(err)}`,
+        })
+      }
+    },
+  }) as BetaRunnableTool<any>
+}
+
+/**
+ * Combine all tools available to the email agent.
+ * Includes READ tools, notification, commessa, budget, and create_request (WRITE).
+ */
+function getEmailAgentTools(userId: string): readonly BetaRunnableTool<any>[] {
   return [
     searchRequestsTool,
     getRequestDetailTool,
     searchVendorsTool,
+    getBudgetOverviewTool,
+    buildCreateRequestTool(userId),
     ...NOTIFICATION_TOOLS,
     ...COMMESSA_TOOLS,
   ] as readonly BetaRunnableTool<any>[]
@@ -128,9 +188,7 @@ function parseAgentResult(text: string): EmailProcessingResult {
           ? (parsed.actions_taken as string[])
           : [],
         needs_review:
-          typeof parsed.needs_review === 'boolean'
-            ? parsed.needs_review
-            : true,
+          typeof parsed.needs_review === 'boolean' ? parsed.needs_review : true,
         summary:
           typeof parsed.summary === 'string'
             ? parsed.summary
@@ -164,8 +222,9 @@ function parseAgentResult(text: string): EmailProcessingResult {
  */
 export async function processEmail(
   email: RawEmailData,
+  userId?: string,
 ): Promise<EmailProcessingResult> {
-  const tools = getEmailAgentTools()
+  const tools = getEmailAgentTools(userId ?? 'system')
   const client = getClaudeClient()
 
   const emailContent = formatEmailContent(email)
@@ -201,10 +260,7 @@ export async function processEmail(
     const parsed = parseAgentResult(lastTextContent)
     return {
       ...parsed,
-      actions_taken: [
-        ...toolCalls,
-        ...parsed.actions_taken,
-      ],
+      actions_taken: [...toolCalls, ...parsed.actions_taken],
     }
   } catch (err) {
     return {
