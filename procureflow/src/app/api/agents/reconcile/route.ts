@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/auth'
+import {
+  successResponse,
+  errorResponse,
+  validationErrorResponse,
+} from '@/lib/api-response'
 import { reconcileInvoice } from '@/server/agents/invoice-reconciliation.agent'
 
 // ---------------------------------------------------------------------------
@@ -23,50 +28,28 @@ export async function POST(request: Request) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'INVALID_JSON',
-          message: 'Corpo della richiesta non valido',
-        },
-      },
-      { status: 400 },
+    return errorResponse(
+      'INVALID_JSON',
+      'Corpo della richiesta non valido',
+      400,
     )
   }
 
   const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: parsed.error.issues[0]?.message ?? 'Dati non validi',
-        },
-      },
-      { status: 400 },
-    )
+    return validationErrorResponse(parsed.error.flatten())
   }
 
   try {
     const result = await reconcileInvoice(parsed.data.invoice_id, authResult.id)
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    })
+    return successResponse(result)
   } catch (err) {
     console.error('[api/agents/reconcile] Error:', err)
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'RECONCILIATION_AGENT_ERROR',
-          message: "Errore nell'esecuzione dell'agente di riconciliazione",
-        },
-      },
-      { status: 500 },
+    return errorResponse(
+      'RECONCILIATION_AGENT_ERROR',
+      "Errore nell'esecuzione dell'agente di riconciliazione",
+      500,
     )
   }
 }

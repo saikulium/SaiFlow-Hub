@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth'
+import { successResponse, errorResponse } from '@/lib/api-response'
 import { runComplianceCheck } from '@/server/agents/compliance-monitor.agent'
 
 // ---------------------------------------------------------------------------
@@ -17,21 +18,13 @@ export async function POST() {
   try {
     const result = await runComplianceCheck(authResult.id)
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    })
+    return successResponse(result)
   } catch (err) {
     console.error('[api/agents/compliance] Error:', err)
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'COMPLIANCE_AGENT_ERROR',
-          message: "Errore nell'esecuzione dell'agente di compliance",
-        },
-      },
-      { status: 500 },
+    return errorResponse(
+      'COMPLIANCE_AGENT_ERROR',
+      "Errore nell'esecuzione dell'agente di compliance",
+      500,
     )
   }
 }

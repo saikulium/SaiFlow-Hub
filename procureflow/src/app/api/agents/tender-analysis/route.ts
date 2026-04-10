@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { successResponse, errorResponse } from '@/lib/api-response'
 import { analyzeTender } from '@/server/agents/tender-analysis.agent'
 
 // ---------------------------------------------------------------------------
@@ -24,15 +25,10 @@ export async function POST(request: Request) {
   try {
     formData = await request.formData()
   } catch {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'INVALID_FORM_DATA',
-          message: 'La richiesta deve contenere dati multipart/form-data',
-        },
-      },
-      { status: 400 },
+    return errorResponse(
+      'INVALID_FORM_DATA',
+      'La richiesta deve contenere dati multipart/form-data',
+      400,
     )
   }
 
@@ -43,16 +39,7 @@ export async function POST(request: Request) {
     typeof tenderId !== 'string' ||
     tenderId.trim().length === 0
   ) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'tender_id is required',
-        },
-      },
-      { status: 400 },
-    )
+    return errorResponse('VALIDATION_ERROR', 'tender_id is required', 400)
   }
 
   // Extract optional PDF file
@@ -64,29 +51,19 @@ export async function POST(request: Request) {
     // Validate MIME type
     const mimeType = pdfFile.type || ''
     if (mimeType !== 'application/pdf' && !pdfFile.name.endsWith('.pdf')) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'INVALID_FILE_TYPE',
-            message: 'Il file deve essere un PDF',
-          },
-        },
-        { status: 400 },
+      return errorResponse(
+        'INVALID_FILE_TYPE',
+        'Il file deve essere un PDF',
+        400,
       )
     }
 
     // Validate file size
     if (pdfFile.size > MAX_PDF_SIZE_BYTES) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'FILE_TOO_LARGE',
-            message: `File troppo grande (${(pdfFile.size / 1024 / 1024).toFixed(1)} MB). Massimo consentito: 32 MB`,
-          },
-        },
-        { status: 400 },
+      return errorResponse(
+        'FILE_TOO_LARGE',
+        `File troppo grande (${(pdfFile.size / 1024 / 1024).toFixed(1)} MB). Massimo consentito: 32 MB`,
+        400,
       )
     }
 
@@ -97,25 +74,18 @@ export async function POST(request: Request) {
   try {
     const result = await analyzeTender(tenderId, pdfBuffer, pdfFilename)
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    })
+    return successResponse(result)
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : ''
     const isNotFound = errMsg.includes('non trovata')
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: isNotFound ? 'TENDER_NOT_FOUND' : 'TENDER_ANALYSIS_ERROR',
-          message: isNotFound
-            ? 'Gara non trovata'
-            : "Errore nell'analisi della gara",
-        },
-      },
-      { status: isNotFound ? 404 : 500 },
+    if (isNotFound) {
+      return errorResponse('TENDER_NOT_FOUND', 'Gara non trovata', 404)
+    }
+    return errorResponse(
+      'TENDER_ANALYSIS_ERROR',
+      "Errore nell'analisi della gara",
+      500,
     )
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth'
+import { successResponse, errorResponse } from '@/lib/api-response'
 import { runReorderAgent } from '@/server/agents/smart-reorder.agent'
 
 // ---------------------------------------------------------------------------
@@ -17,21 +18,13 @@ export async function POST() {
   try {
     const result = await runReorderAgent(authResult.id)
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    })
+    return successResponse(result)
   } catch (err) {
     console.error('[api/agents/reorder] Error:', err)
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'REORDER_AGENT_ERROR',
-          message: "Errore nell'esecuzione dell'agente di riordino",
-        },
-      },
-      { status: 500 },
+    return errorResponse(
+      'REORDER_AGENT_ERROR',
+      "Errore nell'esecuzione dell'agente di riordino",
+      500,
     )
   }
 }
