@@ -1,19 +1,10 @@
-import { NextRequest } from 'next/server'
+import { successResponse, errorResponse, notFoundResponse } from '@/lib/api-response'
+import { withApiHandler } from '@/lib/api-handler'
 import { prisma } from '@/lib/db'
-import {
-  successResponse,
-  errorResponse,
-  notFoundResponse,
-} from '@/lib/api-response'
-import { getCurrentUserId } from '@/lib/auth'
 
-export async function PATCH(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  try {
-    const userId = await getCurrentUserId()
-
+export const PATCH = withApiHandler(
+  { auth: true, errorMessage: "Errore nell'aggiornamento notifica" },
+  async ({ params, user }) => {
     const existing = await prisma.notification.findUnique({
       where: { id: params.id },
       select: { id: true, user_id: true },
@@ -21,7 +12,7 @@ export async function PATCH(
 
     if (!existing) return notFoundResponse('Notifica non trovata')
 
-    if (existing.user_id !== userId) {
+    if (existing.user_id !== user.id) {
       return errorResponse('FORBIDDEN', 'Non autorizzato', 403)
     }
 
@@ -31,8 +22,5 @@ export async function PATCH(
     })
 
     return successResponse(notification)
-  } catch (error) {
-    console.error('PATCH /api/notifications/[id] error:', error)
-    return errorResponse('INTERNAL_ERROR', "Errore nell'aggiornamento", 500)
-  }
-}
+  },
+)

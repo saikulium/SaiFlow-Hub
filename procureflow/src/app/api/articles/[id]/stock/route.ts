@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -6,27 +6,21 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { requireModule } from '@/lib/modules/require-module'
+import { withApiHandler } from '@/lib/api-handler'
 import { getStockLevels } from '@/server/services/inventory-db.service'
 import {
   recordInboundMovement,
   recordOutboundMovement,
 } from '@/server/services/inventory-db.service'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
-import { z } from 'zod'
 
 // ---------------------------------------------------------------------------
 // GET /api/articles/[id]/stock — Stock levels for an article's linked material
 // ---------------------------------------------------------------------------
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const blocked = await requireModule('/api/articles')
-  if (blocked) return blocked
-
-  try {
+export const GET = withApiHandler(
+  { auth: true, errorMessage: 'Errore nel recupero stock' },
+  async ({ params }) => {
     const article = await prisma.article.findUnique({
       where: { id: params.id },
       select: {
@@ -100,14 +94,12 @@ export async function GET(
           }
         : null,
     })
-  } catch (error) {
-    console.error('GET /api/articles/[id]/stock error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore interno', 500)
-  }
-}
+  },
+)
 
 // ---------------------------------------------------------------------------
 // POST /api/articles/[id]/stock — Quick stock movement (Carico/Scarico)
+// Only MANAGER and ADMIN can register stock movements.
 // ---------------------------------------------------------------------------
 
 const stockMovementSchema = z.object({
@@ -117,22 +109,14 @@ const stockMovementSchema = z.object({
   notes: z.string().optional(),
 })
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const blocked = await requireModule('/api/articles')
-  if (blocked) return blocked
-
-  try {
-    const body = await req.json()
-    const parsed = stockMovementSchema.safeParse(body)
-
-    if (!parsed.success) {
-      return validationErrorResponse(parsed.error.flatten())
-    }
-
-    const { type, quantity, unit_cost, notes } = parsed.data
+export const POST = withApiHandler(
+  {
+    auth: ['ADMIN', 'MANAGER'],
+    bodySchema: stockMovementSchema,
+    errorMessage: 'Errore nel movimento di stock',
+  },
+  async ({ params, body }) => {
+    const { type, quantity, unit_cost, notes } = body
 
     // Find the article's linked material
     const article = await prisma.article.findUnique({
@@ -229,10 +213,5 @@ export async function POST(
     })
 
     return successResponse({ movement: result.movement })
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Errore nel movimento'
-    console.error('POST /api/articles/[id]/stock error:', error)
-    return errorResponse('INTERNAL_ERROR', message, 500)
-  }
-}
+  },
+)

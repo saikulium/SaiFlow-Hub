@@ -8,10 +8,11 @@ export const loginSchema = z.object({
     .max(72, 'Password troppo lunga'),
 })
 
-/** Password policy: min 8 chars, 1 uppercase, 1 lowercase, 1 number */
+/** Password policy: min 8, max 72 chars (bcrypt limit), 1 uppercase, 1 lowercase, 1 number */
 export const passwordSchema = z
   .string()
   .min(8, 'Minimo 8 caratteri')
+  .max(72, 'Password troppo lunga')
   .regex(/[A-Z]/, 'Almeno una lettera maiuscola')
   .regex(/[a-z]/, 'Almeno una lettera minuscola')
   .regex(/[0-9]/, 'Almeno un numero')
