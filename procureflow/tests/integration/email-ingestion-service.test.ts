@@ -100,9 +100,45 @@ const baseNewRequest: EmailIngestionPayload = {
   action: 'new_request',
   ai_title: 'Materiali ufficio',
   ai_currency: 'EUR',
-  ai_items: [{ name: 'Carta A4', quantity: 10, unit: 'risma' }],
+  ai_items: [
+    {
+      name: 'Carta A4',
+      quantity: 10,
+      unit: 'risma',
+      description: undefined,
+      unit_price: undefined,
+      total_price: undefined,
+      sku: undefined,
+    },
+  ],
   ai_tags: [],
   attachments: [],
+  email_to: undefined,
+  email_date: undefined,
+  email_message_id: undefined,
+  ai_matched_request_code: undefined,
+  ai_matched_external_ref: undefined,
+  ai_vendor_code: undefined,
+  ai_vendor_name: undefined,
+  ai_description: undefined,
+  ai_priority: undefined,
+  ai_category: undefined,
+  ai_department: undefined,
+  ai_needed_by: undefined,
+  ai_estimated_amount: undefined,
+  ai_actual_amount: undefined,
+  ai_status_update: undefined,
+  ai_tracking_number: undefined,
+  ai_external_ref: undefined,
+  ai_external_url: undefined,
+  ai_expected_delivery: undefined,
+  ai_summary: undefined,
+  ai_confidence: undefined,
+  ai_client_name: undefined,
+  ai_client_code: undefined,
+  ai_client_order_items: undefined,
+  ai_client_deadline: undefined,
+  ai_client_value: undefined,
 }
 
 const baseUpdateExisting: EmailIngestionPayload = {
@@ -116,6 +152,31 @@ const baseUpdateExisting: EmailIngestionPayload = {
   ai_items: [],
   ai_tags: [],
   attachments: [],
+  email_to: undefined,
+  email_date: undefined,
+  email_message_id: undefined,
+  ai_matched_external_ref: undefined,
+  ai_vendor_code: undefined,
+  ai_vendor_name: undefined,
+  ai_title: undefined,
+  ai_description: undefined,
+  ai_priority: undefined,
+  ai_category: undefined,
+  ai_department: undefined,
+  ai_needed_by: undefined,
+  ai_estimated_amount: undefined,
+  ai_actual_amount: undefined,
+  ai_tracking_number: undefined,
+  ai_external_ref: undefined,
+  ai_external_url: undefined,
+  ai_expected_delivery: undefined,
+  ai_summary: undefined,
+  ai_confidence: undefined,
+  ai_client_name: undefined,
+  ai_client_code: undefined,
+  ai_client_order_items: undefined,
+  ai_client_deadline: undefined,
+  ai_client_value: undefined,
 }
 
 const baseCommessa: EmailIngestionPayload = {
@@ -133,6 +194,30 @@ const baseCommessa: EmailIngestionPayload = {
   ai_items: [],
   ai_tags: ['ai-created'],
   attachments: [],
+  email_to: undefined,
+  email_date: undefined,
+  email_message_id: undefined,
+  ai_matched_request_code: undefined,
+  ai_matched_external_ref: undefined,
+  ai_vendor_code: undefined,
+  ai_vendor_name: undefined,
+  ai_title: undefined,
+  ai_description: undefined,
+  ai_priority: undefined,
+  ai_category: undefined,
+  ai_department: undefined,
+  ai_needed_by: undefined,
+  ai_estimated_amount: undefined,
+  ai_actual_amount: undefined,
+  ai_status_update: undefined,
+  ai_tracking_number: undefined,
+  ai_external_ref: undefined,
+  ai_external_url: undefined,
+  ai_expected_delivery: undefined,
+  ai_summary: undefined,
+  ai_confidence: undefined,
+  ai_client_deadline: undefined,
+  ai_client_value: undefined,
 }
 
 // ---------------------------------------------------------------------------
@@ -171,9 +256,9 @@ describe('processEmailIngestion', () => {
       const result = await processEmailIngestion(baseNewRequest)
 
       expect(result.action).toBe('new_request')
-      expect(result.request_code).toBe('PR-2026-00001')
-      expect(result.items_created).toBe(1)
-      expect(result.status_updated).toBe(false)
+      expect((result as any).request_code).toBe('PR-2026-00001')
+      expect((result as any).items_created).toBe(1)
+      expect((result as any).status_updated).toBe(false)
       expect(result.deduplicated).toBe(false)
       expect(mockPrisma.purchaseRequest.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -198,7 +283,7 @@ describe('processEmailIngestion', () => {
       })
 
       expect(result.deduplicated).toBe(true)
-      expect(result.request_code).toBe('PR-2026-00000')
+      expect((result as any).request_code).toBe('PR-2026-00000')
       expect(mockPrisma.purchaseRequest.create).not.toHaveBeenCalled()
     })
 
@@ -276,7 +361,7 @@ describe('processEmailIngestion', () => {
 
       const result = await processEmailIngestion(baseNewRequest)
 
-      expect(result.status_updated).toBe(true)
+      expect((result as any).status_updated).toBe(true)
       expect(mockInitiateApprovalWorkflow).toHaveBeenCalledWith(
         'req-4',
         expect.any(Number),
@@ -304,7 +389,7 @@ describe('processEmailIngestion', () => {
 
       const result = await processEmailIngestion(baseNewRequest)
 
-      expect(result.status_updated).toBe(false)
+      expect((result as any).status_updated).toBe(false)
       expect(mockInitiateApprovalWorkflow).not.toHaveBeenCalled()
       expect(mockCreateNotification).toHaveBeenCalledTimes(2)
     })
@@ -331,7 +416,7 @@ describe('processEmailIngestion', () => {
       const result = await processEmailIngestion(baseUpdateExisting)
 
       expect(result.action).toBe('update_existing')
-      expect(result.status_updated).toBe(true)
+      expect((result as any).status_updated).toBe(true)
       expect(result.deduplicated).toBe(false)
       expect(mockPrisma.purchaseRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -361,7 +446,7 @@ describe('processEmailIngestion', () => {
       })
 
       expect(result.action).toBe('update_existing')
-      expect(result.request_code).toBe('PR-2026-00042')
+      expect((result as any).request_code).toBe('PR-2026-00042')
     })
 
     it('fa fallback a new_request con tag "match-non-trovato" se la PR non esiste', async () => {
@@ -434,7 +519,7 @@ describe('processEmailIngestion', () => {
         ai_status_update: 'DELIVERED',
       })
 
-      expect(result.status_updated).toBe(false)
+      expect((result as any).status_updated).toBe(false)
       // update non deve essere chiamato per il campo status
       const updateCall = mockPrisma.purchaseRequest.update.mock.calls[0]
       if (updateCall) {
@@ -459,12 +544,28 @@ describe('processEmailIngestion', () => {
         ...baseUpdateExisting,
         ai_status_update: undefined,
         ai_items: [
-          { name: 'Nuovo articolo A', quantity: 5 },
-          { name: 'Nuovo articolo B', quantity: 3 },
+          {
+            name: 'Nuovo articolo A',
+            quantity: 5,
+            description: undefined,
+            unit: undefined,
+            unit_price: undefined,
+            total_price: undefined,
+            sku: undefined,
+          },
+          {
+            name: 'Nuovo articolo B',
+            quantity: 3,
+            description: undefined,
+            unit: undefined,
+            unit_price: undefined,
+            total_price: undefined,
+            sku: undefined,
+          },
         ],
       })
 
-      expect(result.items_created).toBe(2)
+      expect((result as any).items_created).toBe(2)
       expect(mockPrisma.requestItem.createMany).toHaveBeenCalledTimes(1)
     })
   })
@@ -484,10 +585,11 @@ describe('processEmailIngestion', () => {
       mockPrisma.timelineEvent.create.mockResolvedValue({ id: 'tl-1' })
 
       const result = await processEmailIngestion({
+        ...baseNewRequest,
+        action: 'info_only',
         email_from: 'vendor@acme.it',
         email_subject: 'Info spedizione PR-2026-00001',
         email_body: 'Il corriere passerà domani mattina.',
-        action: 'info_only',
         ai_matched_request_code: 'PR-2026-00001',
         ai_currency: 'EUR',
         ai_items: [],
@@ -496,8 +598,8 @@ describe('processEmailIngestion', () => {
       })
 
       expect(result.action).toBe('info_only')
-      expect(result.items_created).toBe(0)
-      expect(result.status_updated).toBe(false)
+      expect((result as any).items_created).toBe(0)
+      expect((result as any).status_updated).toBe(false)
       expect(mockPrisma.timelineEvent.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ type: 'email_info' }),
@@ -524,10 +626,11 @@ describe('processEmailIngestion', () => {
       mockCreateNotification.mockResolvedValue(undefined)
 
       const result = await processEmailIngestion({
+        ...baseNewRequest,
+        action: 'info_only',
         email_from: 'vendor@acme.it',
         email_subject: 'Notizia generica senza riferimento',
         email_body: 'Solo per informazione.',
-        action: 'info_only',
         ai_currency: 'EUR',
         ai_items: [],
         ai_tags: [],
@@ -575,8 +678,8 @@ describe('processEmailIngestion', () => {
       const result = await processEmailIngestion(baseCommessa)
 
       expect(result.action).toBe('create_commessa')
-      expect(result.commessa_code).toBe('COM-2026-00001')
-      expect(result.suggested_prs_created).toBe(2)
+      expect((result as any).commessa_code).toBe('COM-2026-00001')
+      expect((result as any).suggested_prs_created).toBe(2)
       expect(result.deduplicated).toBe(false)
       expect(mockPrisma.purchaseRequest.create).toHaveBeenCalledTimes(2)
       expect(mockPrisma.client.create).toHaveBeenCalledWith(
@@ -625,7 +728,7 @@ describe('processEmailIngestion', () => {
       })
 
       expect(result.deduplicated).toBe(true)
-      expect(result.commessa_code).toBe('COM-2026-00000')
+      expect((result as any).commessa_code).toBe('COM-2026-00000')
       expect(mockPrisma.$transaction).not.toHaveBeenCalled()
     })
 
@@ -655,7 +758,7 @@ describe('processEmailIngestion', () => {
         ],
       })
 
-      expect(result.suggested_prs_created).toBe(3)
+      expect((result as any).suggested_prs_created).toBe(3)
       expect(mockPrisma.purchaseRequest.create).toHaveBeenCalledTimes(3)
     })
 
@@ -680,7 +783,7 @@ describe('processEmailIngestion', () => {
         ai_client_order_items: [],
       })
 
-      expect(result.suggested_prs_created).toBe(0)
+      expect((result as any).suggested_prs_created).toBe(0)
       expect(mockPrisma.purchaseRequest.create).not.toHaveBeenCalled()
     })
   })
