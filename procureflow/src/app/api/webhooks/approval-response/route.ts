@@ -1,6 +1,11 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { prisma } from '@/lib/db'
-import { successResponse, errorResponse } from '@/lib/api-response'
+import {
+  successResponse,
+  errorResponse,
+  validationErrorResponse,
+} from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
 import {
   checkWebhookProcessed,
@@ -8,16 +13,16 @@ import {
 } from '@/server/services/webhook-idempotency.service'
 
 // ---------------------------------------------------------------------------
-// Tipi
+// Validazione
 // ---------------------------------------------------------------------------
 
-interface ApprovalPayload {
-  approval_id: string
-  action: 'APPROVED' | 'REJECTED'
-  comment?: string
-}
-
-const VALID_ACTIONS = new Set<string>(['APPROVED', 'REJECTED'])
+const approvalResponseSchema = z.object({
+  approval_id: z.string().min(1, 'approval_id obbligatorio'),
+  action: z.enum(['APPROVED', 'REJECTED'], {
+    error: 'action deve essere "APPROVED" o "REJECTED"',
+  }),
+  comment: z.string().optional(),
+})
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/approval-response
@@ -46,17 +51,21 @@ export async function POST(req: NextRequest) {
     if (webhookId) {
       const existing = await checkWebhookProcessed(webhookId)
       if (existing.processed && existing.response) {
-        console.log(`[approval-response] Idempotency hit: webhook_id=${webhookId}`)
-        return Response.json(existing.response, { status: 200 })
+        console.log(
+          `[approval-response] Idempotency hit: webhook_id=${webhookId}`,
+        )
+        return NextResponse.json(existing.response)
       }
     } else {
-      console.warn('[approval-response] Webhook ricevuto senza x-webhook-id — idempotency disattivata')
+      console.warn(
+        '[approval-response] Webhook ricevuto senza x-webhook-id — idempotency disattivata',
+      )
     }
 
     // --- Parsing e validazione body ---
-    let body: ApprovalPayload
+    let rawJson: unknown
     try {
-      body = JSON.parse(rawBody) as ApprovalPayload
+      rawJson = JSON.parse(rawBody)
     } catch {
       return errorResponse(
         'INVALID_PAYLOAD',
@@ -65,21 +74,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!body.approval_id || !body.action) {
-      return errorResponse(
-        'VALIDATION_ERROR',
-        'I campi approval_id e action sono obbligatori',
-        400,
-      )
+    const parsed = approvalResponseSchema.safeParse(rawJson)
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map((i) => ({
+        path: i.path.join('.'),
+        message: i.message,
+      }))
+      return validationErrorResponse(issues)
     }
 
-    if (!VALID_ACTIONS.has(body.action)) {
-      return errorResponse(
-        'VALIDATION_ERROR',
-        'Il campo action deve essere "APPROVED" o "REJECTED"',
-        400,
-      )
-    }
+    const body = parsed.data
 
     // --- Recupero approvazione ---
     const existing = await prisma.approval.findUnique({
@@ -88,11 +92,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (!existing) {
-      return errorResponse(
-        'NOT_FOUND',
-        'Approvazione non trovata',
-        404,
-      )
+      return errorResponse('NOT_FOUND', 'Approvazione non trovata', 404)
     }
 
     if (existing.status !== 'PENDING') {
@@ -156,10 +156,15 @@ export async function POST(req: NextRequest) {
 
     // Registra idempotency
     if (webhookId) {
-      await recordWebhookProcessed(webhookId, 'approval-response', 200, responseData)
+      await recordWebhookProcessed(
+        webhookId,
+        'approval-response',
+        200,
+        responseData,
+      )
     }
 
-    return Response.json(responseData, { status: 200 })
+    return successResponse(updatedApproval)
   } catch (error) {
     console.error('POST /api/webhooks/approval-response error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)

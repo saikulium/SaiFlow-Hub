@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
 import { emailIngestionSchema } from '@/lib/validations/email-ingestion'
@@ -40,11 +40,15 @@ export async function POST(req: NextRequest) {
     if (webhookId) {
       const existing = await checkWebhookProcessed(webhookId)
       if (existing.processed && existing.response) {
-        console.log(`[email-ingestion] Idempotency hit: webhook_id=${webhookId}`)
-        return Response.json(existing.response, { status: 200 })
+        console.log(
+          `[email-ingestion] Idempotency hit: webhook_id=${webhookId}`,
+        )
+        return NextResponse.json(existing.response)
       }
     } else {
-      console.warn('[email-ingestion] Webhook ricevuto senza x-webhook-id — idempotency disattivata')
+      console.warn(
+        '[email-ingestion] Webhook ricevuto senza x-webhook-id — idempotency disattivata',
+      )
     }
 
     // --- Parsing JSON ---
@@ -104,10 +108,15 @@ export async function POST(req: NextRequest) {
 
     // Registra idempotency
     if (webhookId) {
-      await recordWebhookProcessed(webhookId, 'email-ingestion', 200, responseData)
+      await recordWebhookProcessed(
+        webhookId,
+        'email-ingestion',
+        200,
+        responseData,
+      )
     }
 
-    return Response.json(responseData, { status: 200 })
+    return successResponse(result)
   } catch (error) {
     console.error('POST /api/webhooks/email-ingestion error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)

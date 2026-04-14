@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { errorResponse } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
 import { streamAssistantResponse } from '@/server/agents/procurement-assistant.agent'
 import type { UserRole } from '@/server/agents/procurement-assistant.agent'
@@ -76,15 +77,10 @@ export async function POST(req: Request) {
 
   // Rate limiting
   if (!checkRateLimit(authResult.id)) {
-    return Response.json(
-      {
-        success: false,
-        error: {
-          code: 'RATE_LIMITED',
-          message: `Massimo ${RATE_LIMIT_MAX} messaggi al minuto`,
-        },
-      },
-      { status: 429 },
+    return errorResponse(
+      'RATE_LIMITED',
+      `Massimo ${RATE_LIMIT_MAX} messaggi al minuto`,
+      429,
     )
   }
 
@@ -93,27 +89,12 @@ export async function POST(req: Request) {
   try {
     body = await req.json()
   } catch {
-    return Response.json(
-      {
-        success: false,
-        error: { code: 'INVALID_PAYLOAD', message: 'JSON non valido' },
-      },
-      { status: 400 },
-    )
+    return errorResponse('INVALID_PAYLOAD', 'JSON non valido', 400)
   }
 
   const parsed = chatRequestSchema.safeParse(body)
   if (!parsed.success) {
-    return Response.json(
-      {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Payload non valido',
-        },
-      },
-      { status: 400 },
-    )
+    return errorResponse('VALIDATION_ERROR', 'Payload non valido', 400)
   }
 
   // After transform, ensure we still have messages with at least one user message
@@ -121,15 +102,10 @@ export async function POST(req: Request) {
     parsed.data.messages.length === 0 ||
     parsed.data.messages[0]?.role !== 'user'
   ) {
-    return Response.json(
-      {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Almeno un messaggio utente richiesto',
-        },
-      },
-      { status: 400 },
+    return errorResponse(
+      'VALIDATION_ERROR',
+      'Almeno un messaggio utente richiesto',
+      400,
     )
   }
 

@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       const existing = await checkWebhookProcessed(webhookId)
       if (existing.processed && existing.response) {
         console.log(`[email-classify] Idempotency hit: webhook_id=${webhookId}`)
-        return Response.json(existing.response, { status: 200 })
+        return NextResponse.json(existing.response)
       }
     } else {
       console.warn(
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return Response.json(responseData, { status: 200 })
+    return successResponse(responseData.data)
   } catch (error) {
     console.error('POST /api/webhooks/email-ingestion/classify error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)

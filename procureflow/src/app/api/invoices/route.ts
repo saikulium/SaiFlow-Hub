@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
 import { requireAuth } from '@/lib/auth'
+
+// ---------------------------------------------------------------------------
+// Validazione query params
+// ---------------------------------------------------------------------------
+
+const invoiceQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  match_status: z.string().optional(),
+  reconciliation_status: z.string().optional(),
+  vendor_id: z.string().optional(),
+  date_from: z.string().optional(),
+  date_to: z.string().optional(),
+  search: z.string().optional(),
+})
 
 // ---------------------------------------------------------------------------
 // GET /api/invoices — Lista fatture paginata con filtri
@@ -16,17 +32,16 @@ export async function GET(req: NextRequest) {
   if (blocked) return blocked
   try {
     const url = req.nextUrl
-    const page = Math.max(1, Number(url.searchParams.get('page') ?? 1))
-    const pageSize = Math.min(
-      100,
-      Math.max(1, Number(url.searchParams.get('pageSize') ?? 20)),
-    )
-    const matchStatus = url.searchParams.get('match_status')
-    const reconciliationStatus = url.searchParams.get('reconciliation_status')
-    const vendorId = url.searchParams.get('vendor_id')
-    const dateFrom = url.searchParams.get('date_from')
-    const dateTo = url.searchParams.get('date_to')
-    const search = url.searchParams.get('search')
+    const queryParams = Object.fromEntries(url.searchParams.entries())
+    const query = invoiceQuerySchema.parse(queryParams)
+
+    const { page, pageSize } = query
+    const matchStatus = query.match_status
+    const reconciliationStatus = query.reconciliation_status
+    const vendorId = query.vendor_id
+    const dateFrom = query.date_from
+    const dateTo = query.date_to
+    const search = query.search
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {}

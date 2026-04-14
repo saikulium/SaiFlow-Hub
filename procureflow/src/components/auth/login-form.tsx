@@ -38,11 +38,13 @@ export function LoginForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: data.email, password: data.password }),
-      }).then((r) => r.json()).catch(() => ({ ok: false, reason: 'network' }))
+      })
+        .then((r) => r.json())
+        .catch(() => ({ success: false, error: { code: 'NETWORK_ERROR' } }))
 
-      if (!pre.ok) {
-        if (pre.reason === 'locked') {
-          setError(`Account bloccato. Riprova tra ${pre.lockMinutes ?? 15} minuti.`)
+      if (!pre.success) {
+        if (pre.error?.code === 'ACCOUNT_LOCKED') {
+          setError(pre.error.message ?? 'Account bloccato. Riprova più tardi.')
           setErrorType('lockout')
         } else {
           setError('Credenziali non valide')
@@ -51,7 +53,7 @@ export function LoginForm() {
         return
       }
 
-      if (pre.needsMfa) {
+      if (pre.data?.needsMfa) {
         setMfaRequired(true)
         setError(null)
         setTimeout(() => totpInputRef.current?.focus(), 100)

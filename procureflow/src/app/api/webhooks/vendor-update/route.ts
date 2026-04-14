@@ -1,6 +1,11 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { prisma } from '@/lib/db'
-import { successResponse, errorResponse } from '@/lib/api-response'
+import {
+  successResponse,
+  errorResponse,
+  validationErrorResponse,
+} from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
 import {
   checkWebhookProcessed,
@@ -8,19 +13,28 @@ import {
 } from '@/server/services/webhook-idempotency.service'
 
 // ---------------------------------------------------------------------------
-// Tipi
+// Validazione
 // ---------------------------------------------------------------------------
 
-interface VendorUpdatePayload {
-  vendor_code: string
-  updates: {
-    name?: string
-    email?: string
-    phone?: string
-    rating?: number
-    status?: string
-  }
-}
+const vendorUpdateSchema = z.object({
+  vendor_code: z.string().min(1, 'vendor_code obbligatorio'),
+  updates: z
+    .object({
+      name: z.string().optional(),
+      email: z.string().email('Email non valida').optional(),
+      phone: z.string().optional(),
+      rating: z.number().min(0).max(5).optional(),
+      status: z
+        .enum(['ACTIVE', 'INACTIVE', 'BLACKLISTED', 'PENDING_REVIEW'], {
+          error:
+            'Stato non valido. Valori ammessi: ACTIVE, INACTIVE, BLACKLISTED, PENDING_REVIEW',
+        })
+        .optional(),
+    })
+    .refine((u) => Object.values(u).some((v) => v !== undefined), {
+      message: 'Nessun campo valido da aggiornare fornito',
+    }),
+})
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/vendor-update
@@ -50,16 +64,18 @@ export async function POST(req: NextRequest) {
       const existing = await checkWebhookProcessed(webhookId)
       if (existing.processed && existing.response) {
         console.log(`[vendor-update] Idempotency hit: webhook_id=${webhookId}`)
-        return Response.json(existing.response, { status: 200 })
+        return NextResponse.json(existing.response)
       }
     } else {
-      console.warn('[vendor-update] Webhook ricevuto senza x-webhook-id — idempotency disattivata')
+      console.warn(
+        '[vendor-update] Webhook ricevuto senza x-webhook-id — idempotency disattivata',
+      )
     }
 
     // --- Parsing e validazione body ---
-    let body: VendorUpdatePayload
+    let rawJson: unknown
     try {
-      body = JSON.parse(rawBody) as VendorUpdatePayload
+      rawJson = JSON.parse(rawBody)
     } catch {
       return errorResponse(
         'INVALID_PAYLOAD',
@@ -68,21 +84,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!body.vendor_code || !body.updates) {
-      return errorResponse(
-        'VALIDATION_ERROR',
-        'I campi vendor_code e updates sono obbligatori',
-        400,
-      )
+    const parsed = vendorUpdateSchema.safeParse(rawJson)
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map((i) => ({
+        path: i.path.join('.'),
+        message: i.message,
+      }))
+      return validationErrorResponse(issues)
     }
 
-    if (typeof body.updates !== 'object' || Array.isArray(body.updates)) {
-      return errorResponse(
-        'VALIDATION_ERROR',
-        'Il campo updates deve essere un oggetto',
-        400,
-      )
-    }
+    const body = parsed.data
 
     // --- Recupero fornitore ---
     const existing = await prisma.vendor.findUnique({
@@ -100,50 +111,13 @@ export async function POST(req: NextRequest) {
 
     // --- Costruzione dati aggiornamento (solo campi forniti) ---
     const updateData: Record<string, unknown> = {}
+    const { updates } = body
 
-    if (body.updates.name !== undefined) {
-      updateData.name = body.updates.name
-    }
-    if (body.updates.email !== undefined) {
-      updateData.email = body.updates.email
-    }
-    if (body.updates.phone !== undefined) {
-      updateData.phone = body.updates.phone
-    }
-    if (body.updates.rating !== undefined) {
-      if (typeof body.updates.rating !== 'number') {
-        return errorResponse(
-          'VALIDATION_ERROR',
-          'Il campo rating deve essere un numero',
-          400,
-        )
-      }
-      updateData.rating = body.updates.rating
-    }
-    if (body.updates.status !== undefined) {
-      const validStatuses = new Set([
-        'ACTIVE',
-        'INACTIVE',
-        'BLACKLISTED',
-        'PENDING_REVIEW',
-      ])
-      if (!validStatuses.has(body.updates.status)) {
-        return errorResponse(
-          'VALIDATION_ERROR',
-          `Stato non valido: "${body.updates.status}". Valori ammessi: ACTIVE, INACTIVE, BLACKLISTED, PENDING_REVIEW`,
-          400,
-        )
-      }
-      updateData.status = body.updates.status
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return errorResponse(
-        'VALIDATION_ERROR',
-        'Nessun campo valido da aggiornare fornito',
-        400,
-      )
-    }
+    if (updates.name !== undefined) updateData.name = updates.name
+    if (updates.email !== undefined) updateData.email = updates.email
+    if (updates.phone !== undefined) updateData.phone = updates.phone
+    if (updates.rating !== undefined) updateData.rating = updates.rating
+    if (updates.status !== undefined) updateData.status = updates.status
 
     // --- Aggiornamento fornitore ---
     const updatedVendor = await prisma.vendor.update({
@@ -155,10 +129,15 @@ export async function POST(req: NextRequest) {
 
     // Registra idempotency
     if (webhookId) {
-      await recordWebhookProcessed(webhookId, 'vendor-update', 200, responseData)
+      await recordWebhookProcessed(
+        webhookId,
+        'vendor-update',
+        200,
+        responseData,
+      )
     }
 
-    return Response.json(responseData, { status: 200 })
+    return successResponse(updatedVendor)
   } catch (error) {
     console.error('POST /api/webhooks/vendor-update error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)
