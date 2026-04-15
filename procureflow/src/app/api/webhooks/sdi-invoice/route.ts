@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
       const existing = await checkWebhookProcessed(webhookId)
       if (existing.processed && existing.response) {
         console.log(`[sdi-invoice] Idempotency hit: webhook_id=${webhookId}`)
+        // Replay the exact stored response for idempotency
         return NextResponse.json(existing.response)
       }
     } else {

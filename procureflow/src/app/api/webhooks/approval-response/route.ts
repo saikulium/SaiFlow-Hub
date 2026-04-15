@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
         console.log(
           `[approval-response] Idempotency hit: webhook_id=${webhookId}`,
         )
+        // Replay the exact stored response for idempotency
         return NextResponse.json(existing.response)
       }
     } else {

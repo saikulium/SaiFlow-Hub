@@ -10,7 +10,8 @@ import { requireAuth } from '@/lib/auth'
 import { createCommessaSchema } from '@/lib/validations/commesse'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 import { computeMargin } from '@/server/services/commessa.service'
-import { Prisma, type CommessaStatus } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+import { z } from 'zod'
 import type { CommessaListItem } from '@/types'
 
 type SortField = 'created_at' | 'deadline'
@@ -37,9 +38,22 @@ export async function GET(req: NextRequest) {
       ? (sortBy as SortField)
       : 'created_at'
 
-    const statusValues = status
-      ? (status.split(',').map((s) => s.trim()) as CommessaStatus[])
+    const commessaStatusEnum = z.enum([
+      'DRAFT',
+      'PLANNING',
+      'ACTIVE',
+      'ON_HOLD',
+      'COMPLETED',
+      'CANCELLED',
+    ])
+
+    const rawStatuses = status
+      ? status.split(',').map((s) => s.trim())
       : undefined
+    const statusValues = rawStatuses?.filter(
+      (s): s is z.infer<typeof commessaStatusEnum> =>
+        commessaStatusEnum.safeParse(s).success,
+    )
 
     const where: Prisma.CommessaWhereInput = {
       ...(statusValues && {

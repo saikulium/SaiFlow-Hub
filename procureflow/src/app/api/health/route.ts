@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { successResponse, errorResponse } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
 
@@ -6,19 +7,16 @@ export async function GET() {
   try {
     await prisma.$queryRaw`SELECT 1`
 
-    return Response.json({
+    return successResponse({
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     })
   } catch {
-    return Response.json(
-      {
-        status: 'error',
-        timestamp: new Date().toISOString(),
-        message: 'Database connection failed',
-      },
-      { status: 503 },
+    return errorResponse(
+      'DB_CONNECTION_FAILED',
+      'Database connection failed',
+      503,
     )
   }
 }
