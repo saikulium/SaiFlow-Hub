@@ -1,8 +1,17 @@
 'use client'
 
-import { useCallback, useState } from 'react'
-import { Mail, Loader2, X, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { useCallback, useRef, useState } from 'react'
+import {
+  Mail,
+  Loader2,
+  X,
+  CheckCircle2,
+  AlertTriangle,
+  Paperclip,
+  FileText,
+} from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 interface EmailImportDialogProps {
   readonly open: boolean
@@ -47,6 +56,9 @@ const ACTION_LABELS: Record<string, string> = {
   search_commesse: 'Cercato nelle commesse',
 }
 
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024 // 10 MB
+const MAX_ATTACHMENTS = 5
+
 export function EmailImportDialog({
   open,
   onOpenChange,
@@ -54,8 +66,10 @@ export function EmailImportDialog({
   const [emailFrom, setEmailFrom] = useState('')
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody, setEmailBody] = useState('')
+  const [attachments, setAttachments] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleClose = useCallback(() => {
     if (!isSubmitting) {
@@ -64,8 +78,44 @@ export function EmailImportDialog({
       setEmailFrom('')
       setEmailSubject('')
       setEmailBody('')
+      setAttachments([])
     }
   }, [isSubmitting, onOpenChange])
+
+  const handleFilesChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? [])
+      const valid: File[] = []
+
+      for (const file of files) {
+        if (file.type !== 'application/pdf') {
+          toast.error(`${file.name}: solo file PDF sono supportati`)
+          continue
+        }
+        if (file.size > MAX_ATTACHMENT_SIZE) {
+          toast.error(`${file.name}: file troppo grande (max 10MB)`)
+          continue
+        }
+        valid.push(file)
+      }
+
+      setAttachments((prev) => {
+        const combined = [...prev, ...valid].slice(0, MAX_ATTACHMENTS)
+        if (prev.length + valid.length > MAX_ATTACHMENTS) {
+          toast.info(`Massimo ${MAX_ATTACHMENTS} allegati`)
+        }
+        return combined
+      })
+
+      // Reset input so user can re-select same file
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    },
+    [],
+  )
+
+  const handleRemoveAttachment = useCallback((index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index))
+  }, [])
 
   const handleSubmit = useCallback(async () => {
     if (!emailFrom.trim() || !emailSubject.trim() || !emailBody.trim()) {
@@ -77,15 +127,33 @@ export function EmailImportDialog({
     setResult(null)
 
     try {
-      const res = await fetch('/api/email-import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email_from: emailFrom.trim(),
-          email_subject: emailSubject.trim(),
-          email_body: emailBody.trim(),
-        }),
-      })
+      let res: Response
+
+      if (attachments.length > 0) {
+        // Multipart path: text + PDF attachments
+        const formData = new FormData()
+        formData.append('email_from', emailFrom.trim())
+        formData.append('email_subject', emailSubject.trim())
+        formData.append('email_body', emailBody.trim())
+        for (const file of attachments) {
+          formData.append('attachments', file)
+        }
+        res = await fetch('/api/email-import', {
+          method: 'POST',
+          body: formData,
+        })
+      } else {
+        // JSON path (legacy, text only)
+        res = await fetch('/api/email-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email_from: emailFrom.trim(),
+            email_subject: emailSubject.trim(),
+            email_body: emailBody.trim(),
+          }),
+        })
+      }
 
       const data = await res.json()
 
@@ -116,7 +184,7 @@ export function EmailImportDialog({
     } finally {
       setIsSubmitting(false)
     }
-  }, [emailFrom, emailSubject, emailBody])
+  }, [emailFrom, emailSubject, emailBody, attachments])
 
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
@@ -201,6 +269,72 @@ export function EmailImportDialog({
                   disabled={isSubmitting}
                   className="w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
                 />
+              </div>
+
+              {/* Attachments */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-pf-text-secondary">
+                  Allegati PDF{' '}
+                  <span className="font-normal text-pf-text-muted">
+                    (opzionale, max {MAX_ATTACHMENTS} file, 10MB ciascuno)
+                  </span>
+                </label>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  multiple
+                  onChange={handleFilesChange}
+                  disabled={
+                    isSubmitting || attachments.length >= MAX_ATTACHMENTS
+                  }
+                  className="hidden"
+                  id="email-attachments-input"
+                />
+
+                <label
+                  htmlFor="email-attachments-input"
+                  className={cn(
+                    'flex items-center justify-center gap-2 rounded-button border border-dashed border-pf-border bg-pf-bg-primary px-3 py-3 text-sm text-pf-text-secondary transition-colors',
+                    isSubmitting || attachments.length >= MAX_ATTACHMENTS
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'cursor-pointer hover:border-pf-accent hover:text-pf-accent',
+                  )}
+                >
+                  <Paperclip className="h-4 w-4" />
+                  {attachments.length === 0
+                    ? 'Seleziona file PDF'
+                    : `Aggiungi altri (${attachments.length}/${MAX_ATTACHMENTS})`}
+                </label>
+
+                {attachments.length > 0 && (
+                  <ul className="mt-2 space-y-1.5">
+                    {attachments.map((file, idx) => (
+                      <li
+                        key={`${file.name}-${idx}`}
+                        className="flex items-center gap-2 rounded-button border border-pf-border bg-pf-bg-primary px-3 py-2 text-xs"
+                      >
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-pf-accent" />
+                        <span className="flex-1 truncate text-pf-text-primary">
+                          {file.name}
+                        </span>
+                        <span className="shrink-0 text-pf-text-muted">
+                          {(file.size / 1024).toFixed(0)} KB
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAttachment(idx)}
+                          disabled={isSubmitting}
+                          className="shrink-0 rounded-button p-0.5 text-pf-text-muted transition-colors hover:text-pf-text-primary disabled:opacity-50"
+                          aria-label={`Rimuovi ${file.name}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </>
           ) : (

@@ -1,3 +1,5 @@
+import { toFile } from '@anthropic-ai/sdk'
+import type Anthropic from '@anthropic-ai/sdk'
 import { getClaudeClient } from '@/lib/ai/claude-client'
 import { MODELS } from '@/lib/ai/models'
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
@@ -27,6 +29,16 @@ import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableT
 const AGENT_MODEL = MODELS.SONNET
 const MAX_ITERATIONS = 10
 const MAX_TOKENS = 4096
+const FILES_API_BETA = 'files-api-2025-04-14' as const
+
+/**
+ * Represents a file attachment to be uploaded via Files API.
+ */
+export interface EmailAttachmentFile {
+  readonly filename: string
+  readonly content: Buffer
+  readonly mimeType: string
+}
 
 // ---------------------------------------------------------------------------
 // System Prompt
@@ -223,6 +235,69 @@ function parseAgentResult(text: string): EmailProcessingResult {
 }
 
 // ---------------------------------------------------------------------------
+// Files API helpers (for PDF attachments)
+// ---------------------------------------------------------------------------
+
+/**
+ * Upload a PDF to the Anthropic Files API. Returns the file_id.
+ * Non-PDF attachments are filtered out before calling this.
+ */
+async function uploadAttachment(
+  client: Anthropic,
+  attachment: EmailAttachmentFile,
+): Promise<string> {
+  const file = await toFile(attachment.content, attachment.filename, {
+    type: attachment.mimeType,
+  })
+  const uploaded = await client.beta.files.upload({
+    file,
+    betas: [FILES_API_BETA],
+  })
+  return uploaded.id
+}
+
+/**
+ * Best-effort delete of an uploaded file. Logs errors but does not throw.
+ */
+async function deleteUploadedFile(
+  client: Anthropic,
+  fileId: string,
+): Promise<void> {
+  try {
+    await client.beta.files.delete(fileId, { betas: [FILES_API_BETA] })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(`[email-agent] Failed to delete file ${fileId}: ${msg}`)
+  }
+}
+
+/**
+ * Build the message content blocks for the email agent.
+ * Includes a document block per uploaded PDF followed by the email text.
+ */
+function buildEmailMessageContent(
+  emailContent: string,
+  attachmentFileIds: readonly { fileId: string; filename: string }[],
+): Anthropic.Beta.Messages.BetaContentBlockParam[] {
+  const blocks: Anthropic.Beta.Messages.BetaContentBlockParam[] = []
+
+  for (const { fileId, filename } of attachmentFileIds) {
+    blocks.push({
+      type: 'document',
+      source: { type: 'file', file_id: fileId },
+      title: filename,
+    } as Anthropic.Beta.Messages.BetaRequestDocumentBlock)
+  }
+
+  blocks.push({
+    type: 'text',
+    text: `Analizza e processa questa email commerciale:\n\n--- EMAIL ---\n${emailContent}\n--- FINE EMAIL ---\n\n${attachmentFileIds.length > 0 ? `Gli allegati PDF sono qui sopra. Leggili per estrarre i dettagli degli articoli, quantita, prezzi e codici.\n\n` : ''}Esegui tutte le azioni necessarie usando i tool disponibili, poi concludi con il riepilogo JSON.`,
+  })
+
+  return blocks
+}
+
+// ---------------------------------------------------------------------------
 // Main function — processEmail
 // ---------------------------------------------------------------------------
 
@@ -230,14 +305,18 @@ function parseAgentResult(text: string): EmailProcessingResult {
  * Processes an incoming email through the AI agent loop.
  *
  * The agent:
- * 1. Reads the email content
+ * 1. Reads the email content + any uploaded PDF attachments (via Files API)
  * 2. Uses tools to search for related PRs, vendors, commesse
  * 3. Takes appropriate actions (notifications, timeline events, commessa creation)
  * 4. Returns a structured result with intent and actions taken
+ *
+ * When `attachmentFiles` contains PDFs, they are uploaded via the Files API
+ * and referenced as document blocks so the model can read the full content.
  */
 export async function processEmail(
   email: RawEmailData,
   userId?: string,
+  attachmentFiles?: readonly EmailAttachmentFile[],
 ): Promise<EmailProcessingResult> {
   const tools = getEmailAgentTools(userId ?? 'system')
   const client = getClaudeClient()
@@ -245,19 +324,35 @@ export async function processEmail(
   const emailContent = formatEmailContent(email)
   const toolCalls: string[] = []
 
+  // Upload PDF attachments via Files API (filter to supported types)
+  const pdfAttachments = (attachmentFiles ?? []).filter(
+    (a) => a.mimeType === 'application/pdf',
+  )
+  const uploadedFiles: { fileId: string; filename: string }[] = []
+
   try {
+    for (const attachment of pdfAttachments) {
+      try {
+        const fileId = await uploadAttachment(client, attachment)
+        uploadedFiles.push({ fileId, filename: attachment.filename })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.warn(
+          `[email-agent] Failed to upload ${attachment.filename}: ${msg}`,
+        )
+      }
+    }
+
+    const messageContent = buildEmailMessageContent(emailContent, uploadedFiles)
+
     const runner = client.beta.messages.toolRunner({
       model: AGENT_MODEL,
       system: EMAIL_AGENT_SYSTEM_PROMPT,
       max_tokens: MAX_TOKENS,
       max_iterations: MAX_ITERATIONS,
       tools: [...tools],
-      messages: [
-        {
-          role: 'user' as const,
-          content: `Analizza e processa questa email commerciale:\n\n--- EMAIL ---\n${emailContent}\n--- FINE EMAIL ---\n\nEsegui tutte le azioni necessarie usando i tool disponibili, poi concludi con il riepilogo JSON.`,
-        },
-      ],
+      messages: [{ role: 'user' as const, content: messageContent }],
+      betas: uploadedFiles.length > 0 ? [FILES_API_BETA] : undefined,
     })
 
     let lastTextContent = ''
@@ -283,6 +378,11 @@ export async function processEmail(
       actions_taken: toolCalls,
       needs_review: true,
       summary: `Errore nella chiamata AI: ${String(err)}`,
+    }
+  } finally {
+    // Cleanup uploaded files (best-effort, runs even on error)
+    for (const { fileId } of uploadedFiles) {
+      await deleteUploadedFile(client, fileId)
     }
   }
 }
