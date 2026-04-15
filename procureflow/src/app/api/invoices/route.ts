@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import {
+  InvoiceMatchStatus,
+  ReconciliationStatus,
+  Prisma,
+} from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
@@ -12,8 +17,8 @@ import { requireAuth } from '@/lib/auth'
 const invoiceQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  match_status: z.string().optional(),
-  reconciliation_status: z.string().optional(),
+  match_status: z.nativeEnum(InvoiceMatchStatus).optional(),
+  reconciliation_status: z.nativeEnum(ReconciliationStatus).optional(),
   vendor_id: z.string().optional(),
   date_from: z.string().optional(),
   date_to: z.string().optional(),
@@ -43,8 +48,7 @@ export async function GET(req: NextRequest) {
     const dateTo = query.date_to
     const search = query.search
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = {}
+    const where: Prisma.InvoiceWhereInput = {}
 
     if (matchStatus) {
       where.match_status = matchStatus
@@ -55,11 +59,11 @@ export async function GET(req: NextRequest) {
     if (vendorId) {
       where.vendor_id = vendorId
     }
-    if (dateFrom) {
-      where.invoice_date = { ...where.invoice_date, gte: new Date(dateFrom) }
-    }
-    if (dateTo) {
-      where.invoice_date = { ...where.invoice_date, lte: new Date(dateTo) }
+    if (dateFrom || dateTo) {
+      const dateFilter: Prisma.DateTimeFilter<'Invoice'> = {}
+      if (dateFrom) dateFilter.gte = new Date(dateFrom)
+      if (dateTo) dateFilter.lte = new Date(dateTo)
+      where.invoice_date = dateFilter
     }
     if (search) {
       where.OR = [

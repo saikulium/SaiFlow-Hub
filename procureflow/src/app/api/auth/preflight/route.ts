@@ -2,6 +2,28 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { successResponse, errorResponse } from '@/lib/api-response'
 
+// ---------------------------------------------------------------------------
+// Rate limiting per IP: max 10 tentativi per minuto
+// ---------------------------------------------------------------------------
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX = 10
+
+const rateLimitMap = new Map<string, number[]>()
+
+function checkAuthRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const windowStart = now - RATE_LIMIT_WINDOW_MS
+  const existing = rateLimitMap.get(ip) ?? []
+  const recent = existing.filter((ts: number) => ts > windowStart)
+
+  if (recent.length >= RATE_LIMIT_MAX) {
+    return false
+  }
+
+  rateLimitMap.set(ip, [...recent, now])
+  return true
+}
+
 const schema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
@@ -9,6 +31,16 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const ip =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    if (!checkAuthRateLimit(ip)) {
+      return errorResponse(
+        'RATE_LIMITED',
+        'Troppi tentativi. Riprova tra un minuto',
+        429,
+      )
+    }
+
     const body = await req.json().catch(() => null)
     const parsed = schema.safeParse(body)
     if (!parsed.success) {
@@ -17,9 +49,8 @@ export async function POST(req: NextRequest) {
 
     const { prisma } = await import('@/lib/db')
     const bcrypt = (await import('bcryptjs')).default
-    const { checkAccountLocked, recordFailedLogin } = await import(
-      '@/server/services/auth.service'
-    )
+    const { checkAccountLocked, recordFailedLogin } =
+      await import('@/server/services/auth.service')
 
     const user = await prisma.user.findUnique({
       where: { email: parsed.data.email },

@@ -117,7 +117,7 @@ export interface EmailProcessingResult {
 /**
  * Build a create_request tool that executes writes directly for the given userId.
  */
-function buildCreateRequestTool(userId: string): BetaRunnableTool<any> {
+function buildCreateRequestTool(userId: string): BetaRunnableTool<unknown> {
   return betaZodTool({
     name: 'create_request',
     description:
@@ -137,14 +137,16 @@ function buildCreateRequestTool(userId: string): BetaRunnableTool<any> {
         })
       }
     },
-  }) as BetaRunnableTool<any>
+  }) as BetaRunnableTool<unknown>
 }
 
 /**
  * Combine all tools available to the email agent.
  * Includes READ tools, notification, commessa, budget, and create_request (WRITE).
  */
-function getEmailAgentTools(userId: string): readonly BetaRunnableTool<any>[] {
+function getEmailAgentTools(
+  userId: string,
+): readonly BetaRunnableTool<unknown>[] {
   return [
     searchRequestsTool,
     getRequestDetailTool,
@@ -154,7 +156,7 @@ function getEmailAgentTools(userId: string): readonly BetaRunnableTool<any>[] {
     ...NOTIFICATION_TOOLS,
     ...COMMESSA_TOOLS,
     ...ARTICLE_TOOLS,
-  ] as readonly BetaRunnableTool<any>[]
+  ] as readonly BetaRunnableTool<unknown>[]
 }
 
 /**

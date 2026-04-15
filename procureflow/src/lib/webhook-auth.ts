@@ -131,7 +131,10 @@ export function verifyWebhookAuth(
       timestampHeader ?? undefined,
     )
 
-  const isBearerValid = bearerToken !== '' && bearerToken === secret
+  const isBearerValid =
+    bearerToken !== '' &&
+    bearerToken.length === secret.length &&
+    crypto.timingSafeEqual(Buffer.from(bearerToken), Buffer.from(secret))
 
   return isHmacValid || isBearerValid
 }
