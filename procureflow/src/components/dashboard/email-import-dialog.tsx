@@ -25,7 +25,9 @@ interface ImportResult {
   readonly vendor: string | null
   readonly matched_request: string | null
   readonly action_taken: boolean
-  readonly needs_review?: boolean
+  readonly requires_human_decision?: boolean
+  readonly decision_reason?: string | null
+  readonly needs_review?: boolean // legacy
   readonly actions?: readonly string[]
   readonly result?: {
     readonly action: string
@@ -164,15 +166,18 @@ export function EmailImportDialog({
 
       setResult(data.data)
 
-      if (data.data.action_taken) {
-        const actionCount = data.data.actions?.length ?? 0
+      const actionCount = data.data.actions?.length ?? 0
+
+      if (data.data.requires_human_decision) {
+        toast.warning('Decisione manuale richiesta', {
+          description:
+            data.data.decision_reason ??
+            data.data.summary?.slice(0, 100) ??
+            'Rivedi i risultati.',
+        })
+      } else if (data.data.action_taken) {
         toast.success('Email processata con successo', {
           description: `${actionCount} ${actionCount === 1 ? 'azione eseguita' : 'azioni eseguite'}`,
-        })
-      } else if (data.data.needs_review) {
-        toast.info('Email da verificare', {
-          description:
-            data.data.summary?.slice(0, 100) ?? 'Rivedi i risultati.',
         })
       } else {
         toast.info('Email analizzata', {
@@ -350,15 +355,30 @@ export function EmailImportDialog({
                   <p className="text-sm font-medium text-pf-text-primary">
                     {result.action_taken
                       ? 'Email processata con successo'
-                      : result.needs_review
-                        ? 'Da verificare manualmente'
-                        : 'Nessuna azione necessaria'}
+                      : 'Nessuna azione eseguita'}
                   </p>
                   <p className="mt-1 text-xs text-pf-text-secondary">
                     {result.summary}
                   </p>
                 </div>
               </div>
+
+              {/* Human decision required banner */}
+              {result.requires_human_decision && (
+                <div className="flex items-start gap-3 rounded-card border border-amber-400/30 bg-amber-400/5 p-4">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-amber-400">
+                      Decisione manuale richiesta
+                    </p>
+                    {result.decision_reason && (
+                      <p className="mt-1 text-xs text-pf-text-secondary">
+                        {result.decision_reason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-pf-bg-primary/40 rounded-button border border-pf-border px-3 py-2">

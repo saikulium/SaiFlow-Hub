@@ -14,6 +14,8 @@ import {
 import { NOTIFICATION_TOOLS } from '@/server/agents/tools/notification.tools'
 import { COMMESSA_TOOLS } from '@/server/agents/tools/commessa.tools'
 import { ARTICLE_TOOLS } from '@/server/agents/tools/article.tools'
+import { VENDOR_TOOLS } from '@/server/agents/tools/vendor.tools'
+import { CLIENT_TOOLS } from '@/server/agents/tools/client.tools'
 import type { RawEmailData } from '@/server/services/email-ai-classifier.service'
 import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
 
@@ -48,42 +50,54 @@ const EMAIL_AGENT_SYSTEM_PROMPT = `Sei un agente di procurement per PMI italiane
 
 PROCEDURA:
 1. CLASSIFICA l'intent dell'email
-2. CERCA nel database se esistono risorse correlate (PR, fornitori, commesse)
-3. AGISCI in base all'intent — esegui TUTTE le azioni, non solo la prima:
+2. CERCA nel database se esistono risorse correlate (PR, fornitori, clienti, commesse)
+3. SE mancano fornitori/clienti citati, usa find_or_create_vendor / find_or_create_client
+   per censirli in stato PENDING_REVIEW (non serve chiedere conferma)
+4. AGISCI in base all'intent — esegui TUTTE le azioni, non solo la prima
+
+REGOLE ANAGRAFICHE (importanti):
+- Se una email menziona un fornitore NUOVO non in anagrafica → find_or_create_vendor
+- Se una email menziona un cliente finale NUOVO non in anagrafica → find_or_create_client
+- Se un ordine cliente cita un cliente esistente → usa search_clients prima per trovarlo
+- Gli auto-create vanno in stato PENDING_REVIEW: servono verifica manuale ma non bloccano il flusso
 
 AZIONI PER INTENT:
 
 CONFERMA_ORDINE:
-  1. Cerca la PR correlata (search_requests o get_request_detail)
-  2. Crea un evento timeline sulla PR (create_timeline_event)
-  3. Crea una notifica per il richiedente (create_notification)
+  1. Cerca la PR correlata (search_requests o get_request_detail) — cerca anche per external_ref
+  2. Se il fornitore citato non e in anagrafica → find_or_create_vendor
+  3. Crea un evento timeline sulla PR (create_timeline_event)
+  4. Crea una notifica per il richiedente (create_notification)
 
 RITARDO_CONSEGNA:
   1. Cerca la PR correlata
-  2. Crea un evento timeline con la nuova data
-  3. Notifica il richiedente con urgenza
+  2. Se collegata a una commessa cliente, verifica impatto (get_request_detail)
+  3. Crea un evento timeline con la nuova data
+  4. Notifica il richiedente con urgenza
 
 VARIAZIONE_PREZZO:
   1. Cerca la PR correlata
   2. Crea un evento timeline con vecchio/nuovo prezzo
   3. Notifica il manager con la differenza in EUR e percentuale
+  4. Setta requires_human_decision=true se la variazione supera il 2%
 
 ORDINE_CLIENTE (il piu importante — fai TUTTI gli step in ordine):
-  1. Crea la commessa con create_commessa (client_name, client_value, deadline, items).
-     SALVA l'ID della commessa restituito (campo "id" nella risposta).
-  2. Per OGNI articolo nell'ordine:
-     a. Cerca o crea l'articolo nel catalogo con find_or_create_article
-        (passa code/manufacturer_code, name, unit_of_measure).
+  1. Cerca il cliente con search_clients; se non esiste, find_or_create_client.
+     SALVA il client_id.
+  2. Crea la commessa con create_commessa passando client_name, client_value, deadline, items.
+     SALVA l'ID della commessa restituito.
+  3. Per OGNI articolo nell'ordine:
+     a. Cerca o crea l'articolo nel catalogo con find_or_create_article.
         SALVA l'article_id restituito.
      b. Crea una richiesta d'acquisto con create_request:
         - title: "[codice articolo] per commessa [cliente]"
         - description: "Quantita richiesta dal cliente: [qty] [unit]. VERIFICARE disponibilita a magazzino prima di ordinare."
-        - commessa_id: l'ID della commessa creata allo step 1
+        - commessa_id: l'ID della commessa creata allo step 2
         - items: [{name: descrizione, quantity: quantita, unit: unita}]
         - priority: "HIGH" se la scadenza e entro 30 giorni, altrimenti "MEDIUM"
         - needed_by: la deadline dell'ordine cliente in formato ISO
-  3. Cerca i fornitori che potrebbero avere gli articoli (search_vendors)
-  4. Crea una notifica di riepilogo con create_notification che includa:
+  4. Cerca i fornitori che potrebbero avere gli articoli (search_vendors)
+  5. Crea una notifica di riepilogo con create_notification che includa:
      - Lista delle RDA create con i codici PR
      - Link alle RDA: /requests/[codice-pr] per ogni RDA
      - La frase: "Le quantita sono quelle richieste dal cliente. Verificare le disponibilita a magazzino e modificare le quantita prima di inviare per approvazione."
@@ -107,9 +121,35 @@ Dopo aver eseguito tutte le azioni necessarie, concludi con un riepilogo JSON:
 {
   "intent": "CONFERMA_ORDINE|RITARDO_CONSEGNA|VARIAZIONE_PREZZO|RICHIESTA_INFO|FATTURA_ALLEGATA|ORDINE_CLIENTE|ALTRO",
   "actions_taken": ["descrizione azione 1", "descrizione azione 2"],
-  "needs_review": true/false,
+  "confidence": 0.0-1.0,
+  "requires_human_decision": true/false,
+  "decision_reason": "descrizione breve del perche serve decisione umana (solo se requires_human_decision=true)",
   "summary": "Riepilogo in italiano di cosa e stato fatto"
-}`
+}
+
+COME SETTARE confidence E requires_human_decision:
+
+confidence (0.0-1.0):
+- 0.9-1.0: classificazione intent chiarissima, tutte le info estratte senza ambiguita
+- 0.7-0.9: classificazione certa, qualche dato mancante ma non critico
+- 0.5-0.7: ambiguita significative (intent incerto, dati contraddittori, codici non riconosciuti)
+- 0.0-0.5: email poco chiara o in formato inatteso, molti dati mancanti
+
+requires_human_decision (true SOLO quando):
+- Variazione prezzo oltre soglia contrattuale (tipicamente >2%) — il buyer deve decidere se accettare
+- Ritardo consegna che impatta un cliente finale — serve decisione su mitigation
+- Fattura con discrepanze importanti — dispute manuale
+- Ordine cliente con articoli non in catalogo — serve verifica
+- Fornitore non in anagrafica citato in una conferma — serve censimento manuale
+
+requires_human_decision=false quando l'agente ha completato tutto e non serve decisione:
+- Conferma ordine standard senza discrepanze
+- Ritardo breve senza impatto
+- Semplice notifica informativa
+
+IMPORTANTE: confidence e requires_human_decision sono INDIPENDENTI.
+Un'analisi puo avere confidence=0.95 E requires_human_decision=true
+(l'agente ha capito tutto, ma serve decisione umana sui prezzi).`
 
 // ---------------------------------------------------------------------------
 // Types
@@ -118,7 +158,9 @@ Dopo aver eseguito tutte le azioni necessarie, concludi con un riepilogo JSON:
 export interface EmailProcessingResult {
   readonly intent: string
   readonly actions_taken: readonly string[]
-  readonly needs_review: boolean
+  readonly confidence: number
+  readonly requires_human_decision: boolean
+  readonly decision_reason: string | null
   readonly summary: string
 }
 
@@ -168,6 +210,8 @@ function getEmailAgentTools(
     ...NOTIFICATION_TOOLS,
     ...COMMESSA_TOOLS,
     ...ARTICLE_TOOLS,
+    ...VENDOR_TOOLS,
+    ...CLIENT_TOOLS,
   ] as readonly BetaRunnableTool<unknown>[]
 }
 
@@ -203,19 +247,37 @@ function formatEmailContent(email: RawEmailData): string {
 /**
  * Parse the final JSON result from the agent's text response.
  */
+function clampConfidence(value: unknown): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0.5
+  return Math.max(0, Math.min(1, value))
+}
+
 function parseAgentResult(text: string): EmailProcessingResult {
   // Try to find JSON in the response
   const jsonMatch = text.match(/\{[\s\S]*"intent"[\s\S]*\}/)
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>
+      // Backwards compat: if only needs_review present, map it
+      const legacyNeedsReview =
+        typeof parsed.needs_review === 'boolean' ? parsed.needs_review : null
+      const requiresDecision =
+        typeof parsed.requires_human_decision === 'boolean'
+          ? parsed.requires_human_decision
+          : (legacyNeedsReview ?? false)
+      const confidence = clampConfidence(parsed.confidence)
+
       return {
         intent: typeof parsed.intent === 'string' ? parsed.intent : 'ALTRO',
         actions_taken: Array.isArray(parsed.actions_taken)
           ? (parsed.actions_taken as string[])
           : [],
-        needs_review:
-          typeof parsed.needs_review === 'boolean' ? parsed.needs_review : true,
+        confidence,
+        requires_human_decision: requiresDecision,
+        decision_reason:
+          typeof parsed.decision_reason === 'string'
+            ? parsed.decision_reason
+            : null,
         summary:
           typeof parsed.summary === 'string'
             ? parsed.summary
@@ -229,7 +291,9 @@ function parseAgentResult(text: string): EmailProcessingResult {
   return {
     intent: 'ALTRO',
     actions_taken: [],
-    needs_review: true,
+    confidence: 0.3,
+    requires_human_decision: true,
+    decision_reason: 'Agent output non strutturato — verificare manualmente',
     summary: text.slice(0, 500) || 'Nessun riepilogo disponibile',
   }
 }
@@ -376,7 +440,9 @@ export async function processEmail(
     return {
       intent: 'ALTRO',
       actions_taken: toolCalls,
-      needs_review: true,
+      confidence: 0,
+      requires_human_decision: true,
+      decision_reason: 'Errore AI — verificare manualmente',
       summary: `Errore nella chiamata AI: ${String(err)}`,
     }
   } finally {

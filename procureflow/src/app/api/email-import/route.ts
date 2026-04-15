@@ -78,7 +78,9 @@ async function parseRequest(
     }
 
     // Collect file attachments
-    const files = form.getAll('attachments').filter((f): f is File => f instanceof File)
+    const files = form
+      .getAll('attachments')
+      .filter((f): f is File => f instanceof File)
     if (files.length > MAX_ATTACHMENTS) {
       return { error: `Massimo ${MAX_ATTACHMENTS} allegati consentiti` }
     }
@@ -106,7 +108,9 @@ async function parseRequest(
     return { ...parsed.data, attachments }
   }
 
-  return { error: 'Content-Type non supportato. Usa JSON o multipart/form-data.' }
+  return {
+    error: 'Content-Type non supportato. Usa JSON o multipart/form-data.',
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -145,12 +149,15 @@ export async function POST(req: NextRequest) {
     // Map agent result to the format the frontend expects
     return successResponse({
       intent: agentResult.intent,
-      confidence: agentResult.needs_review ? 0.6 : 0.9,
+      confidence: agentResult.confidence,
       summary: agentResult.summary,
       vendor: null,
       matched_request: null,
       action_taken: agentResult.actions_taken.length > 0,
-      needs_review: agentResult.needs_review,
+      requires_human_decision: agentResult.requires_human_decision,
+      decision_reason: agentResult.decision_reason,
+      // Legacy field for backwards compat with older UI
+      needs_review: agentResult.requires_human_decision,
       actions: agentResult.actions_taken,
       attachments_processed: input.attachments.length,
     })
