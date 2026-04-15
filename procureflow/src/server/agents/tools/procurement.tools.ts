@@ -131,13 +131,15 @@ export const searchRequestsTool = betaZodTool({
   }),
   run: async (input) => {
     const pageSize = Math.min(input.pageSize ?? 10, MAX_RESULTS)
-    const where: Record<string, unknown> = { tenant_id: DEFAULT_TENANT }
+    // Note: purchase_requests has no tenant_id column — filter removed
+    const where: Record<string, unknown> = {}
     if (input.status) where.status = input.status
     if (input.priority) where.priority = input.priority
     if (input.search) {
       where.OR = [
         { code: { contains: input.search, mode: 'insensitive' } },
         { title: { contains: input.search, mode: 'insensitive' } },
+        { external_ref: { contains: input.search, mode: 'insensitive' } },
       ]
     }
     const [requests, total] = await prisma.$transaction([
@@ -153,6 +155,7 @@ export const searchRequestsTool = betaZodTool({
           currency: true,
           created_at: true,
           needed_by: true,
+          external_ref: true,
           vendor: { select: { name: true } },
           requester: { select: { name: true } },
         },
