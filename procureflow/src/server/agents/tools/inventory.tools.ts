@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { prisma } from '@/lib/db'
 import { getBasicForecast } from '@/server/services/forecast.service'
+import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 import type { ZodTool } from '@/server/agents/tools/procurement.tools'
 
 // ---------------------------------------------------------------------------
@@ -134,7 +135,9 @@ export const getMaterialPriceHistoryTool = betaZodTool({
 
     const avgPrice =
       prices.length > 0
-        ? Math.round((prices.reduce((s, p) => s + p, 0) / prices.length) * 100) / 100
+        ? Math.round(
+            (prices.reduce((s, p) => s + p, 0) / prices.length) * 100,
+          ) / 100
         : null
 
     const lastPrice = prices.length > 0 ? prices[0] : null
@@ -152,6 +155,137 @@ export const getMaterialPriceHistoryTool = betaZodTool({
 })
 
 // ---------------------------------------------------------------------------
+// WRITE-direct tools (agent-only, not chat-intercepted)
+// ---------------------------------------------------------------------------
+
+export const createMaterialTool = betaZodTool({
+  name: 'create_material',
+  description:
+    'Crea un nuovo materiale con codice MAT-YYYY-NNNNN auto-generato. Opzionalmente collega a un articolo.',
+  inputSchema: z.object({
+    name: z.string().describe('Nome del materiale'),
+    category: z.string().optional().describe('Categoria merceologica'),
+    unit_primary: z
+      .string()
+      .default('pz')
+      .describe('Unita misura primaria (pz, kg, m, etc.)'),
+    article_id: z.string().optional().describe('ID articolo da collegare'),
+    min_stock_level: z.number().optional().describe('Livello minimo di stock'),
+    max_stock_level: z.number().optional().describe('Livello massimo di stock'),
+    preferred_vendor_id: z
+      .string()
+      .optional()
+      .describe('ID fornitore preferito'),
+    notes: z.string().optional().describe('Note aggiuntive'),
+  }),
+  run: async (input) => {
+    try {
+      const code = await generateNextCodeAtomic('MAT', 'materials')
+      const material = await prisma.material.create({
+        data: {
+          code,
+          name: input.name,
+          category: input.category,
+          unit_primary: input.unit_primary,
+          article_id: input.article_id,
+          min_stock_level: input.min_stock_level,
+          max_stock_level: input.max_stock_level,
+          preferred_vendor_id: input.preferred_vendor_id,
+          notes: input.notes,
+        },
+      })
+      return JSON.stringify({
+        success: true,
+        id: material.id,
+        code: material.code,
+        name: material.name,
+      })
+    } catch (err) {
+      return JSON.stringify({
+        error: `Errore creazione materiale: ${String(err)}`,
+      })
+    }
+  },
+})
+
+export const updateMaterialStockLevelsTool = betaZodTool({
+  name: 'update_material_stock_levels',
+  description:
+    'Aggiorna le soglie di stock di un materiale (min, max). Influenza gli alert di riordino.',
+  inputSchema: z
+    .object({
+      material_id: z.string().describe('ID del materiale'),
+      min_stock_level: z.number().optional().describe('Nuovo livello minimo'),
+      max_stock_level: z.number().optional().describe('Nuovo livello massimo'),
+    })
+    .refine(
+      (d) => d.min_stock_level !== undefined || d.max_stock_level !== undefined,
+      'Almeno un livello richiesto',
+    ),
+  run: async (input) => {
+    try {
+      const data: Record<string, unknown> = {}
+      if (input.min_stock_level !== undefined)
+        data.min_stock_level = input.min_stock_level
+      if (input.max_stock_level !== undefined)
+        data.max_stock_level = input.max_stock_level
+
+      await prisma.material.update({
+        where: { id: input.material_id },
+        data,
+      })
+
+      return JSON.stringify({
+        success: true,
+        material_id: input.material_id,
+        min_stock_level: input.min_stock_level ?? null,
+        max_stock_level: input.max_stock_level ?? null,
+      })
+    } catch (err) {
+      return JSON.stringify({
+        error: `Errore aggiornamento soglie: ${String(err)}`,
+      })
+    }
+  },
+})
+
+export const setPreferredVendorTool = betaZodTool({
+  name: 'set_preferred_vendor',
+  description: 'Imposta il fornitore preferito per un materiale.',
+  inputSchema: z.object({
+    material_id: z.string().describe('ID del materiale'),
+    vendor_id: z.string().describe('ID del fornitore'),
+  }),
+  run: async (input) => {
+    try {
+      // Verify vendor exists
+      const vendor = await prisma.vendor.findUnique({
+        where: { id: input.vendor_id },
+        select: { id: true, name: true },
+      })
+      if (!vendor) {
+        return JSON.stringify({ error: 'Fornitore non trovato' })
+      }
+
+      await prisma.material.update({
+        where: { id: input.material_id },
+        data: { preferred_vendor_id: input.vendor_id },
+      })
+
+      return JSON.stringify({
+        success: true,
+        material_id: input.material_id,
+        vendor_id: input.vendor_id,
+      })
+    } catch (err) {
+      return JSON.stringify({
+        error: `Errore impostazione fornitore: ${String(err)}`,
+      })
+    }
+  },
+})
+
+// ---------------------------------------------------------------------------
 // Exported collection
 // ---------------------------------------------------------------------------
 
@@ -159,4 +293,7 @@ export const INVENTORY_TOOLS: readonly ZodTool[] = [
   getActiveAlertsTool,
   getMaterialForecastTool,
   getMaterialPriceHistoryTool,
+  createMaterialTool,
+  updateMaterialStockLevelsTool,
+  setPreferredVendorTool,
 ] as readonly ZodTool[]

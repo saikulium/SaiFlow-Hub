@@ -33,9 +33,7 @@ export const searchCommesseTool = betaZodTool({
       .string()
       .optional()
       .describe('Ricerca testo libero su codice o titolo'),
-    status: commessaStatusEnum
-      .optional()
-      .describe('Filtra per stato commessa'),
+    status: commessaStatusEnum.optional().describe('Filtra per stato commessa'),
     pageSize: z
       .number()
       .int()
@@ -96,14 +94,8 @@ export const createCommessaTool = betaZodTool({
     "Crea una nuova commessa da un ordine cliente. Crea anche il cliente se non esiste. Usa quando l'email contiene un ordine da evadere.",
   inputSchema: z.object({
     client_name: z.string().describe('Nome del cliente'),
-    client_code: z
-      .string()
-      .optional()
-      .describe('Codice cliente (se noto)'),
-    client_value: z
-      .number()
-      .optional()
-      .describe('Valore totale ordine in EUR'),
+    client_code: z.string().optional().describe('Codice cliente (se noto)'),
+    client_value: z.number().optional().describe('Valore totale ordine in EUR'),
     deadline: z
       .string()
       .optional()
@@ -173,9 +165,7 @@ export const createCommessaTool = betaZodTool({
       const commessa = await tx.commessa.create({
         data: {
           code: comCode,
-          title:
-            input.source_email_subject ??
-            `Ordine ${input.client_name}`,
+          title: input.source_email_subject ?? `Ordine ${input.client_name}`,
           description,
           status: 'PLANNING',
           client_id: client.id,
@@ -200,6 +190,25 @@ export const createCommessaTool = betaZodTool({
   },
 })
 
+export const updateCommessaStatusTool = betaZodTool({
+  name: 'update_commessa_status',
+  description:
+    'Aggiorna lo stato di una commessa rispettando la macchina a stati (DRAFT→PLANNING→ACTIVE, ON_HOLD reversibile, COMPLETED/CANCELLED terminali).',
+  inputSchema: z.object({
+    code: z.string().describe('Codice commessa COM-YYYY-NNNNN'),
+    new_status: z.enum([
+      'DRAFT',
+      'PLANNING',
+      'ACTIVE',
+      'ON_HOLD',
+      'COMPLETED',
+      'CANCELLED',
+    ]),
+  }),
+  run: async () =>
+    JSON.stringify({ error: 'Write tools require confirmation' }),
+})
+
 // ---------------------------------------------------------------------------
 // Exported collection
 // ---------------------------------------------------------------------------
@@ -207,4 +216,5 @@ export const createCommessaTool = betaZodTool({
 export const COMMESSA_TOOLS: readonly ZodTool[] = [
   searchCommesseTool,
   createCommessaTool,
+  updateCommessaStatusTool,
 ] as readonly ZodTool[]

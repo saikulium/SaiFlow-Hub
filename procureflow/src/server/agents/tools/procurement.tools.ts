@@ -3,6 +3,31 @@ import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { prisma } from '@/lib/db'
 import type Anthropic from '@anthropic-ai/sdk'
 import type { ActionPreview } from '@/types/ai'
+import { assertTransition } from '@/lib/state-machine'
+import {
+  initiateApprovalWorkflow,
+  decideApproval,
+} from '@/server/services/approval.service'
+import { createNotification } from '@/server/services/notification.service'
+import { REQUEST_STATUS_TOOLS } from './request-status.tools'
+import { APPROVAL_TOOLS } from './approval.tools'
+import { updateCommessaStatusTool } from './commessa.tools'
+import { updateVendorTool } from './vendor.tools'
+import { updateCommessaStatus } from '@/server/services/commessa.service'
+import {
+  getTenderDetailTool,
+  updateTenderStatusTool,
+  decideTenderGoNogoTool,
+} from './tender.tools'
+import { validateStatusTransition } from '@/server/services/tenders.service'
+import { disputeInvoiceTool } from './invoice.tools'
+import { COMMENT_TOOLS } from './comment.tools'
+import { ATTACHMENT_TOOLS } from './attachment.tools'
+import { getRequestTimelineTool } from './notification.tools'
+import { BUDGET_TOOLS } from './budget.tools'
+import { STOCK_TOOLS } from './stock.tools'
+import { createComment } from '@/server/services/comment.service'
+import { createAttachmentRecord } from '@/server/services/attachment.service'
 
 // ---------------------------------------------------------------------------
 // Custom type for betaZodTool return value (BetaTool + run + parse)
@@ -110,6 +135,33 @@ const TOOL_META: Record<string, ToolMeta> = {
   get_tender_stats: { permissionLevel: 'READ', minRole: 'VIEWER' },
   create_request: { permissionLevel: 'WRITE', minRole: 'REQUESTER' },
   approve_request: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  cancel_request: { permissionLevel: 'WRITE', minRole: 'REQUESTER' },
+  submit_for_approval: { permissionLevel: 'WRITE', minRole: 'REQUESTER' },
+  reject_request: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  put_request_on_hold: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  resume_request: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  mark_ordered: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  mark_delivered: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  list_pending_approvals: { permissionLevel: 'READ', minRole: 'VIEWER' },
+  get_approval_detail: { permissionLevel: 'READ', minRole: 'VIEWER' },
+  decide_approval: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  update_commessa_status: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  update_vendor: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  get_tender_detail: { permissionLevel: 'READ', minRole: 'VIEWER' },
+  update_tender_status: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  decide_tender_go_nogo: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  dispute_invoice: { permissionLevel: 'WRITE', minRole: 'MANAGER' },
+  add_comment: { permissionLevel: 'WRITE', minRole: 'REQUESTER' },
+  list_comments: { permissionLevel: 'READ', minRole: 'VIEWER' },
+  add_attachment: { permissionLevel: 'WRITE', minRole: 'REQUESTER' },
+  list_attachments: { permissionLevel: 'READ', minRole: 'VIEWER' },
+  get_request_timeline: { permissionLevel: 'READ', minRole: 'VIEWER' },
+  list_budgets: { permissionLevel: 'READ', minRole: 'VIEWER' },
+  get_stock_for_article: { permissionLevel: 'READ', minRole: 'VIEWER' },
+  get_pending_orders_for_material: {
+    permissionLevel: 'READ',
+    minRole: 'VIEWER',
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -571,6 +623,19 @@ export const ALL_TOOLS = [
   getTenderStatsTool,
   createRequestTool,
   approveRequestTool,
+  ...REQUEST_STATUS_TOOLS,
+  ...APPROVAL_TOOLS,
+  updateCommessaStatusTool,
+  updateVendorTool,
+  getTenderDetailTool,
+  updateTenderStatusTool,
+  decideTenderGoNogoTool,
+  disputeInvoiceTool,
+  ...COMMENT_TOOLS,
+  ...ATTACHMENT_TOOLS,
+  getRequestTimelineTool,
+  ...BUDGET_TOOLS,
+  ...STOCK_TOOLS,
 ] as readonly ZodTool[]
 
 // ---------------------------------------------------------------------------
@@ -622,6 +687,195 @@ export function generateActionPreview(
           ...(params.notes
             ? [{ key: 'Note', value: String(params.notes) }]
             : []),
+        ],
+      }
+    case 'cancel_request':
+      return {
+        label: 'Annulla richiesta',
+        fields: [
+          {
+            key: 'Richiesta',
+            value: String(params.code ?? params.request_id ?? ''),
+          },
+          ...(params.reason
+            ? [{ key: 'Motivo', value: String(params.reason) }]
+            : []),
+        ],
+      }
+    case 'submit_for_approval':
+      return {
+        label: 'Invia per approvazione',
+        fields: [
+          {
+            key: 'Richiesta',
+            value: String(params.code ?? params.request_id ?? ''),
+          },
+        ],
+      }
+    case 'reject_request':
+      return {
+        label: 'Rifiuta richiesta',
+        fields: [
+          {
+            key: 'Riferimento',
+            value: String(params.approval_id ?? params.request_id ?? ''),
+          },
+          ...(params.notes
+            ? [{ key: 'Note', value: String(params.notes) }]
+            : []),
+        ],
+      }
+    case 'put_request_on_hold':
+      return {
+        label: 'Metti in attesa',
+        fields: [
+          {
+            key: 'Richiesta',
+            value: String(params.code ?? params.request_id ?? ''),
+          },
+          ...(params.reason
+            ? [{ key: 'Motivo', value: String(params.reason) }]
+            : []),
+        ],
+      }
+    case 'resume_request':
+      return {
+        label: 'Riprendi richiesta',
+        fields: [
+          {
+            key: 'Richiesta',
+            value: String(params.code ?? params.request_id ?? ''),
+          },
+          {
+            key: 'Nuovo stato',
+            value: String(params.target_status ?? ''),
+          },
+        ],
+      }
+    case 'mark_ordered':
+      return {
+        label: 'Marca come ordinata',
+        fields: [
+          {
+            key: 'Richiesta',
+            value: String(params.code ?? params.request_id ?? ''),
+          },
+          ...(params.external_ref
+            ? [{ key: 'Ref fornitore', value: String(params.external_ref) }]
+            : []),
+          ...(params.tracking_number
+            ? [{ key: 'Tracking', value: String(params.tracking_number) }]
+            : []),
+        ],
+      }
+    case 'decide_approval':
+      return {
+        label: 'Decidi approvazione',
+        fields: [
+          { key: 'Approvazione', value: String(params.approval_id ?? '') },
+          { key: 'Decisione', value: String(params.decision ?? '') },
+          ...(params.notes
+            ? [{ key: 'Note', value: String(params.notes) }]
+            : []),
+        ],
+      }
+    case 'update_commessa_status':
+      return {
+        label: 'Aggiorna stato commessa',
+        fields: [
+          { key: 'Commessa', value: String(params.code ?? '') },
+          { key: 'Nuovo stato', value: String(params.new_status ?? '') },
+        ],
+      }
+    case 'update_vendor':
+      return {
+        label: 'Aggiorna fornitore',
+        fields: [
+          { key: 'Fornitore ID', value: String(params.vendor_id ?? '') },
+          ...(params.status
+            ? [{ key: 'Stato', value: String(params.status) }]
+            : []),
+          ...(params.rating !== undefined
+            ? [{ key: 'Rating', value: String(params.rating) }]
+            : []),
+          ...(params.notes
+            ? [{ key: 'Note', value: String(params.notes) }]
+            : []),
+        ],
+      }
+    case 'mark_delivered':
+      return {
+        label: 'Marca come consegnata',
+        fields: [
+          {
+            key: 'Richiesta',
+            value: String(params.code ?? params.request_id ?? ''),
+          },
+          ...(params.actual_amount !== undefined
+            ? [
+                {
+                  key: 'Importo effettivo',
+                  value: String(params.actual_amount),
+                },
+              ]
+            : []),
+          ...(params.notes
+            ? [{ key: 'Note', value: String(params.notes) }]
+            : []),
+        ],
+      }
+    case 'update_tender_status':
+      return {
+        label: 'Aggiorna stato gara',
+        fields: [
+          { key: 'Gara ID', value: String(params.tender_id ?? '') },
+          { key: 'Nuovo stato', value: String(params.new_status ?? '') },
+          ...(params.notes
+            ? [{ key: 'Note', value: String(params.notes) }]
+            : []),
+        ],
+      }
+    case 'decide_tender_go_nogo':
+      return {
+        label: 'Decisione Go/No-Go gara',
+        fields: [
+          { key: 'Gara ID', value: String(params.tender_id ?? '') },
+          { key: 'Decisione', value: String(params.decision ?? '') },
+          ...(params.score !== undefined
+            ? [{ key: 'Score', value: `${params.score}/100` }]
+            : []),
+        ],
+      }
+    case 'dispute_invoice':
+      return {
+        label: 'Contesta fattura',
+        fields: [
+          { key: 'Fattura', value: String(params.invoice_id ?? '') },
+          { key: 'Tipo', value: String(params.discrepancy_type ?? '') },
+          {
+            key: 'Delta EUR',
+            value: `${Number(params.amount_discrepancy ?? 0).toFixed(2)}`,
+          },
+        ],
+      }
+    case 'add_comment':
+      return {
+        label: 'Aggiungi commento',
+        fields: [
+          { key: 'Richiesta', value: String(params.request_id ?? '') },
+          {
+            key: 'Contenuto',
+            value: String(params.content ?? '').slice(0, 80),
+          },
+          ...(params.is_internal ? [{ key: 'Interno', value: 'Sì' }] : []),
+        ],
+      }
+    case 'add_attachment':
+      return {
+        label: 'Aggiungi allegato',
+        fields: [
+          { key: 'Richiesta', value: String(params.request_id ?? '') },
+          { key: 'File', value: String(params.filename ?? '') },
         ],
       }
     default:
@@ -740,6 +994,598 @@ async function executeApproveRequest(
   return approval
 }
 
+// ---------------------------------------------------------------------------
+// Shared helpers for status-change executors
+// ---------------------------------------------------------------------------
+
+interface ResolvedRequest {
+  readonly id: string
+  readonly code: string
+  readonly status: import('@prisma/client').RequestStatus
+  readonly requester_id: string
+  readonly estimated_amount: unknown
+  readonly vendor_id: string | null
+  readonly commessa_id: string | null
+}
+
+async function resolveRequest(input: {
+  request_id?: string
+  code?: string
+}): Promise<ResolvedRequest> {
+  if (!input.request_id && !input.code) {
+    throw new Error('request_id o code obbligatorio')
+  }
+  const request = input.request_id
+    ? await prisma.purchaseRequest.findUnique({
+        where: { id: input.request_id },
+        select: {
+          id: true,
+          code: true,
+          status: true,
+          requester_id: true,
+          estimated_amount: true,
+          vendor_id: true,
+          commessa_id: true,
+        },
+      })
+    : await prisma.purchaseRequest.findUnique({
+        where: { code: input.code! },
+        select: {
+          id: true,
+          code: true,
+          status: true,
+          requester_id: true,
+          estimated_amount: true,
+          vendor_id: true,
+          commessa_id: true,
+        },
+      })
+  if (!request) {
+    throw new Error('Richiesta non trovata')
+  }
+  return request as ResolvedRequest
+}
+
+interface StatusChangeParams {
+  request_id?: string
+  code?: string
+  reason?: string
+  notes?: string
+  target_status?: 'PENDING_APPROVAL' | 'ORDERED' | 'SHIPPED' | 'INVOICED'
+  external_ref?: string
+  tracking_number?: string
+  actual_amount?: number
+  approval_id?: string
+}
+
+async function executeCancelRequest(
+  params: StatusChangeParams,
+  _userId: string,
+): Promise<unknown> {
+  const request = await resolveRequest(params)
+  assertTransition(request.status, 'CANCELLED')
+  await prisma.$transaction([
+    prisma.purchaseRequest.update({
+      where: { id: request.id },
+      data: { status: 'CANCELLED' },
+    }),
+    prisma.timelineEvent.create({
+      data: {
+        request_id: request.id,
+        type: 'status_change',
+        title: `Stato: ${request.status} → CANCELLED`,
+        description: params.reason ?? null,
+        actor: 'User',
+      },
+    }),
+  ])
+  await createNotification({
+    userId: request.requester_id,
+    title: 'Richiesta annullata',
+    body: `La richiesta ${request.code} è stata annullata.${
+      params.reason ? ' Motivo: ' + params.reason : ''
+    }`,
+    type: 'status_changed',
+    link: `/requests/${request.id}`,
+  })
+  return {
+    success: true,
+    code: request.code,
+    from: request.status,
+    to: 'CANCELLED',
+  }
+}
+
+async function executeSubmitForApproval(
+  params: StatusChangeParams,
+  _userId: string,
+): Promise<unknown> {
+  const request = await resolveRequest(params)
+  const user = await prisma.user.findUnique({
+    where: { id: request.requester_id },
+    select: { role: true },
+  })
+  const approval = await initiateApprovalWorkflow(
+    request.id,
+    Number(request.estimated_amount ?? 0),
+    user?.role,
+  )
+  return { success: true, code: request.code, approval_id: approval.id }
+}
+
+async function executeRejectRequest(
+  params: StatusChangeParams,
+  _userId: string,
+): Promise<unknown> {
+  let approvalId = params.approval_id
+  if (!approvalId && params.request_id) {
+    const approval = await prisma.approval.findFirst({
+      where: { request_id: params.request_id, status: 'PENDING' },
+      select: { id: true },
+      orderBy: { created_at: 'desc' },
+    })
+    if (!approval) {
+      throw new Error(
+        'Nessuna approvazione pending trovata per questa richiesta',
+      )
+    }
+    approvalId = approval.id
+  }
+  if (!approvalId) {
+    throw new Error('approval_id o request_id richiesto')
+  }
+  return decideApproval(approvalId, 'REJECTED', params.notes)
+}
+
+async function executePutRequestOnHold(
+  params: StatusChangeParams,
+  _userId: string,
+): Promise<unknown> {
+  const request = await resolveRequest(params)
+  assertTransition(request.status, 'ON_HOLD')
+  await prisma.$transaction([
+    prisma.purchaseRequest.update({
+      where: { id: request.id },
+      data: { status: 'ON_HOLD' },
+    }),
+    prisma.timelineEvent.create({
+      data: {
+        request_id: request.id,
+        type: 'status_change',
+        title: `Stato: ${request.status} → ON_HOLD`,
+        description: params.reason ?? null,
+        metadata: { previous_status: request.status },
+        actor: 'User',
+      },
+    }),
+  ])
+  await createNotification({
+    userId: request.requester_id,
+    title: 'Richiesta sospesa',
+    body: `La richiesta ${request.code} è stata messa in attesa.${
+      params.reason ? ' Motivo: ' + params.reason : ''
+    }`,
+    type: 'status_changed',
+    link: `/requests/${request.id}`,
+  })
+  return {
+    success: true,
+    code: request.code,
+    previous_status: request.status,
+  }
+}
+
+async function executeResumeRequest(
+  params: StatusChangeParams,
+  _userId: string,
+): Promise<unknown> {
+  const request = await resolveRequest(params)
+  if (request.status !== 'ON_HOLD') {
+    throw new Error(
+      `resume_request richiede che la richiesta sia in ON_HOLD, stato corrente: ${request.status}`,
+    )
+  }
+  if (!params.target_status) {
+    throw new Error('target_status obbligatorio')
+  }
+  assertTransition('ON_HOLD', params.target_status)
+  await prisma.$transaction([
+    prisma.purchaseRequest.update({
+      where: { id: request.id },
+      data: { status: params.target_status },
+    }),
+    prisma.timelineEvent.create({
+      data: {
+        request_id: request.id,
+        type: 'status_change',
+        title: `Stato: ON_HOLD → ${params.target_status}`,
+        actor: 'User',
+      },
+    }),
+  ])
+  return {
+    success: true,
+    code: request.code,
+    new_status: params.target_status,
+  }
+}
+
+async function executeMarkOrdered(
+  params: StatusChangeParams,
+  _userId: string,
+): Promise<unknown> {
+  const request = await resolveRequest(params)
+  assertTransition(request.status, 'ORDERED')
+  const updateData: Record<string, unknown> = {
+    status: 'ORDERED',
+    ordered_at: new Date(),
+  }
+  if (params.external_ref) updateData.external_ref = params.external_ref
+  if (params.tracking_number) {
+    updateData.tracking_number = params.tracking_number
+  }
+  await prisma.$transaction([
+    prisma.purchaseRequest.update({
+      where: { id: request.id },
+      data: updateData,
+    }),
+    prisma.timelineEvent.create({
+      data: {
+        request_id: request.id,
+        type: 'status_change',
+        title: `Ordine inviato al fornitore`,
+        description: params.external_ref ? `Ref: ${params.external_ref}` : null,
+        actor: 'User',
+      },
+    }),
+  ])
+  return { success: true, code: request.code, ordered_at: new Date() }
+}
+
+async function executeMarkDelivered(
+  params: StatusChangeParams,
+  _userId: string,
+): Promise<unknown> {
+  const request = await resolveRequest(params)
+  assertTransition(request.status, 'DELIVERED')
+  const updateData: Record<string, unknown> = {
+    status: 'DELIVERED',
+    delivered_at: new Date(),
+  }
+  if (params.actual_amount !== undefined) {
+    updateData.actual_amount = params.actual_amount
+  }
+  await prisma.$transaction([
+    prisma.purchaseRequest.update({
+      where: { id: request.id },
+      data: updateData,
+    }),
+    prisma.timelineEvent.create({
+      data: {
+        request_id: request.id,
+        type: 'status_change',
+        title: 'Consegna confermata',
+        description: params.notes ?? null,
+        actor: 'User',
+      },
+    }),
+  ])
+  await createNotification({
+    userId: request.requester_id,
+    title: 'Ordine consegnato',
+    body: `L'ordine ${request.code} è stato consegnato.`,
+    type: 'status_changed',
+    link: `/requests/${request.id}`,
+  })
+  return { success: true, code: request.code, delivered_at: new Date() }
+}
+
+interface DecideApprovalParams {
+  approval_id: string
+  decision: 'APPROVED' | 'REJECTED'
+  notes?: string
+}
+
+async function executeDecideApproval(
+  params: DecideApprovalParams,
+  userId: string,
+): Promise<unknown> {
+  if (params.decision === 'APPROVED') {
+    const approval = await prisma.approval.findUnique({
+      where: { id: params.approval_id },
+      select: { request: { select: { requester_id: true } } },
+    })
+    if (!approval) throw new Error('Approvazione non trovata')
+    if (approval.request.requester_id === userId) {
+      throw new Error('Non è possibile approvare le proprie richieste')
+    }
+  }
+  return decideApproval(params.approval_id, params.decision, params.notes)
+}
+
+interface UpdateCommessaStatusParams {
+  code: string
+  new_status:
+    | 'DRAFT'
+    | 'PLANNING'
+    | 'ACTIVE'
+    | 'ON_HOLD'
+    | 'COMPLETED'
+    | 'CANCELLED'
+}
+
+async function executeUpdateCommessaStatus(
+  params: UpdateCommessaStatusParams,
+  _userId: string,
+): Promise<unknown> {
+  await updateCommessaStatus(params.code, params.new_status)
+  return { success: true, code: params.code, new_status: params.new_status }
+}
+
+interface UpdateVendorParams {
+  vendor_id: string
+  status?: 'ACTIVE' | 'INACTIVE' | 'BLACKLISTED' | 'PENDING_REVIEW'
+  rating?: number
+  notes?: string
+  payment_terms?: string
+  category?: string[]
+}
+
+async function executeUpdateVendor(
+  params: UpdateVendorParams,
+  _userId: string,
+): Promise<unknown> {
+  const data: Record<string, unknown> = {}
+  if (params.status !== undefined) data.status = params.status
+  if (params.rating !== undefined) data.rating = params.rating
+  if (params.notes !== undefined) data.notes = params.notes
+  if (params.payment_terms !== undefined) {
+    data.payment_terms = params.payment_terms
+  }
+  if (params.category !== undefined) data.category = params.category
+
+  if (Object.keys(data).length === 0) {
+    throw new Error('Almeno un campo da aggiornare richiesto')
+  }
+
+  const vendor = await prisma.vendor.update({
+    where: { id: params.vendor_id },
+    data,
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      status: true,
+      rating: true,
+    },
+  })
+  return {
+    success: true,
+    vendor: {
+      id: vendor.id,
+      code: vendor.code,
+      name: vendor.name,
+      status: vendor.status,
+      rating: vendor.rating,
+    },
+  }
+}
+
+interface UpdateTenderStatusParams {
+  tender_id: string
+  new_status: string
+  notes?: string
+}
+
+async function executeUpdateTenderStatus(
+  params: UpdateTenderStatusParams,
+  _userId: string,
+): Promise<unknown> {
+  const tender = await prisma.tender.findUnique({
+    where: { id: params.tender_id },
+    select: { id: true, code: true, status: true },
+  })
+  if (!tender) throw new Error('Gara non trovata')
+
+  const v = validateStatusTransition(tender.status, params.new_status)
+  if (!v.valid) throw new Error(v.reason ?? 'Transizione non valida')
+
+  await prisma.$transaction([
+    prisma.tender.update({
+      where: { id: params.tender_id },
+      data: { status: params.new_status as never },
+    }),
+    prisma.tenderTimeline.create({
+      data: {
+        tender_id: params.tender_id,
+        type: 'status_change',
+        title: `Stato: ${tender.status} → ${params.new_status}`,
+        description: params.notes,
+        metadata: { from: tender.status, to: params.new_status },
+        actor: 'User',
+      },
+    }),
+  ])
+
+  return {
+    success: true,
+    code: tender.code,
+    from: tender.status,
+    to: params.new_status,
+  }
+}
+
+interface DecideTenderGoNogoParams {
+  tender_id: string
+  decision: 'GO' | 'NO_GO'
+  score?: number
+  notes?: string
+}
+
+async function executeDecideTenderGoNogo(
+  params: DecideTenderGoNogoParams,
+  userId: string,
+): Promise<unknown> {
+  const tender = await prisma.tender.findUnique({
+    where: { id: params.tender_id },
+    select: { id: true, code: true },
+  })
+  if (!tender) throw new Error('Gara non trovata')
+
+  await prisma.$transaction([
+    prisma.tender.update({
+      where: { id: params.tender_id },
+      data: {
+        go_no_go: params.decision,
+        go_no_go_score: params.score,
+        go_no_go_notes: params.notes,
+        go_no_go_decided_by: userId,
+        go_no_go_decided_at: new Date(),
+      },
+    }),
+    prisma.tenderTimeline.create({
+      data: {
+        tender_id: params.tender_id,
+        type: 'go_no_go_decision',
+        title: `Decisione Go/No-Go: ${params.decision}${params.score !== undefined ? ` (${params.score}/100)` : ''}`,
+        description: params.notes,
+        actor: 'User',
+      },
+    }),
+  ])
+
+  return { success: true, code: tender.code, decision: params.decision }
+}
+
+// ---------------------------------------------------------------------------
+// Invoice dispute executor
+// ---------------------------------------------------------------------------
+
+interface DisputeInvoiceParams {
+  invoice_id: string
+  amount_discrepancy: number
+  discrepancy_type:
+    | 'AMOUNT_MISMATCH'
+    | 'QUANTITY_MISMATCH'
+    | 'ITEM_MISMATCH'
+    | 'PRICE_MISMATCH'
+  notes: string
+  notify_user_id?: string
+}
+
+async function executeDisputeInvoice(
+  params: DisputeInvoiceParams,
+  _userId: string,
+): Promise<unknown> {
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: params.invoice_id },
+    select: {
+      id: true,
+      invoice_number: true,
+      purchase_request_id: true,
+      purchase_request: {
+        select: { id: true, code: true, requester_id: true },
+      },
+    },
+  })
+  if (!invoice) throw new Error('Fattura non trovata')
+
+  await prisma.invoice.update({
+    where: { id: params.invoice_id },
+    data: {
+      reconciliation_status: 'DISPUTED',
+      amount_discrepancy: params.amount_discrepancy,
+      discrepancy_type: params.discrepancy_type,
+      reconciliation_notes: params.notes,
+      reconciled_at: new Date(),
+    },
+  })
+
+  if (invoice.purchase_request) {
+    await prisma.timelineEvent.create({
+      data: {
+        request_id: invoice.purchase_request.id,
+        invoice_id: invoice.id,
+        type: 'invoice_disputed',
+        title: `Fattura ${invoice.invoice_number} contestata`,
+        description: params.notes.slice(0, 500),
+        metadata: {
+          amount_discrepancy: params.amount_discrepancy,
+          discrepancy_type: params.discrepancy_type,
+        },
+        actor: 'User',
+      },
+    })
+  }
+
+  const notifyId =
+    params.notify_user_id ?? invoice.purchase_request?.requester_id
+  if (notifyId) {
+    await createNotification({
+      userId: notifyId,
+      title: 'Fattura contestata',
+      body: `La fattura ${invoice.invoice_number} è stata contestata (${params.discrepancy_type}, delta €${params.amount_discrepancy.toFixed(2)}).`,
+      type: 'status_changed',
+      link: invoice.purchase_request
+        ? `/requests/${invoice.purchase_request.id}`
+        : `/invoices/${invoice.id}`,
+    })
+  }
+
+  return {
+    success: true,
+    invoice_id: invoice.id,
+    invoice_number: invoice.invoice_number,
+    amount_discrepancy: params.amount_discrepancy,
+    discrepancy_type: params.discrepancy_type,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Comment / Attachment executors
+// ---------------------------------------------------------------------------
+
+interface AddCommentParams {
+  request_id: string
+  content: string
+  is_internal?: boolean
+}
+
+async function executeAddComment(
+  params: AddCommentParams,
+  userId: string,
+): Promise<unknown> {
+  const comment = await createComment({
+    requestId: params.request_id,
+    authorId: userId,
+    content: params.content,
+    isInternal: params.is_internal ?? false,
+  })
+  return { success: true, comment_id: comment.id }
+}
+
+interface AddAttachmentParams {
+  request_id: string
+  filename: string
+  file_url: string
+  file_size?: number
+  mime_type?: string
+}
+
+async function executeAddAttachment(
+  params: AddAttachmentParams,
+  _userId: string,
+): Promise<unknown> {
+  const attachment = await createAttachmentRecord({
+    requestId: params.request_id,
+    filename: params.filename,
+    fileUrl: params.file_url,
+    fileSize: params.file_size,
+    mimeType: params.mime_type,
+  })
+  return { success: true, attachment_id: attachment.id }
+}
+
 const WRITE_EXECUTORS: Record<
   string,
   (params: Record<string, unknown>, userId: string) => Promise<unknown>
@@ -748,6 +1594,45 @@ const WRITE_EXECUTORS: Record<
     executeCreateRequest(params as CreateRequestInput, userId),
   approve_request: (params, userId) =>
     executeApproveRequest(params as ApproveRequestInput, userId),
+  cancel_request: (params, userId) =>
+    executeCancelRequest(params as StatusChangeParams, userId),
+  submit_for_approval: (params, userId) =>
+    executeSubmitForApproval(params as StatusChangeParams, userId),
+  reject_request: (params, userId) =>
+    executeRejectRequest(params as StatusChangeParams, userId),
+  put_request_on_hold: (params, userId) =>
+    executePutRequestOnHold(params as StatusChangeParams, userId),
+  resume_request: (params, userId) =>
+    executeResumeRequest(params as StatusChangeParams, userId),
+  mark_ordered: (params, userId) =>
+    executeMarkOrdered(params as StatusChangeParams, userId),
+  mark_delivered: (params, userId) =>
+    executeMarkDelivered(params as StatusChangeParams, userId),
+  decide_approval: (params, userId) =>
+    executeDecideApproval(params as unknown as DecideApprovalParams, userId),
+  update_commessa_status: (params, userId) =>
+    executeUpdateCommessaStatus(
+      params as unknown as UpdateCommessaStatusParams,
+      userId,
+    ),
+  update_vendor: (params, userId) =>
+    executeUpdateVendor(params as unknown as UpdateVendorParams, userId),
+  update_tender_status: (params, userId) =>
+    executeUpdateTenderStatus(
+      params as unknown as UpdateTenderStatusParams,
+      userId,
+    ),
+  decide_tender_go_nogo: (params, userId) =>
+    executeDecideTenderGoNogo(
+      params as unknown as DecideTenderGoNogoParams,
+      userId,
+    ),
+  dispute_invoice: (params, userId) =>
+    executeDisputeInvoice(params as unknown as DisputeInvoiceParams, userId),
+  add_comment: (params, userId) =>
+    executeAddComment(params as unknown as AddCommentParams, userId),
+  add_attachment: (params, userId) =>
+    executeAddAttachment(params as unknown as AddAttachmentParams, userId),
 }
 
 export async function executeWriteTool(

@@ -111,10 +111,33 @@ export const createTimelineEventTool = betaZodTool({
 })
 
 // ---------------------------------------------------------------------------
+// get_request_timeline — Read chronological timeline events for a request
+// ---------------------------------------------------------------------------
+
+export const getRequestTimelineTool = betaZodTool({
+  name: 'get_request_timeline',
+  description:
+    'Ottiene la timeline di una richiesta (eventi cronologici: status change, comment, approval, attachment, AI action).',
+  inputSchema: z.object({
+    request_id: z.string(),
+    limit: z.number().int().min(1).max(50).optional(),
+  }),
+  run: async (input) => {
+    const events = await prisma.timelineEvent.findMany({
+      where: { request_id: input.request_id },
+      orderBy: { created_at: 'desc' },
+      take: input.limit ?? 20,
+    })
+    return JSON.stringify({ total: events.length, events })
+  },
+})
+
+// ---------------------------------------------------------------------------
 // Exported collection
 // ---------------------------------------------------------------------------
 
 export const NOTIFICATION_TOOLS: readonly ZodTool[] = [
   createNotificationTool,
   createTimelineEventTool,
+  getRequestTimelineTool,
 ] as readonly ZodTool[]

@@ -94,7 +94,17 @@ vi.mock('@/lib/ai/prompts', () => ({
 // Helper: create async iterable from messages
 // ---------------------------------------------------------------------------
 
-function createMockRunner(messages: Array<{ content: Array<{ type: string; text?: string; name?: string; id?: string; input?: unknown }> }>) {
+function createMockRunner(
+  messages: Array<{
+    content: Array<{
+      type: string
+      text?: string
+      name?: string
+      id?: string
+      input?: unknown
+    }>
+  }>,
+) {
   const iterator = {
     [Symbol.asyncIterator]() {
       let index = 0
@@ -130,8 +140,8 @@ describe('smart-reorder.agent module exports', () => {
 })
 
 describe('inventory tools registry', () => {
-  it('INVENTORY_TOOLS contains 3 tools', () => {
-    expect(INVENTORY_TOOLS).toHaveLength(3)
+  it('INVENTORY_TOOLS contains 6 tools', () => {
+    expect(INVENTORY_TOOLS).toHaveLength(6)
   })
 
   it('each tool has a name, description, and input_schema', () => {

@@ -2,16 +2,12 @@ import { describe, it, expect } from 'vitest'
 
 describe('InvoiceReconciliationAgent', () => {
   it('exports reconcileInvoice function', async () => {
-    const mod = await import(
-      '@/server/agents/invoice-reconciliation.agent'
-    )
+    const mod = await import('@/server/agents/invoice-reconciliation.agent')
     expect(typeof mod.reconcileInvoice).toBe('function')
   })
 
   it('exports ReconciliationResult type-compatible shape', async () => {
-    const mod = await import(
-      '@/server/agents/invoice-reconciliation.agent'
-    )
+    const mod = await import('@/server/agents/invoice-reconciliation.agent')
     // Verify the module has only the expected export
     const exportKeys = Object.keys(mod)
     expect(exportKeys).toContain('reconcileInvoice')
@@ -19,10 +15,10 @@ describe('InvoiceReconciliationAgent', () => {
 })
 
 describe('InvoiceTools', () => {
-  it('exports INVOICE_TOOLS array with 4 tools', async () => {
+  it('exports INVOICE_TOOLS array with 6 tools', async () => {
     const mod = await import('@/server/agents/tools/invoice.tools')
     expect(Array.isArray(mod.INVOICE_TOOLS)).toBe(true)
-    expect(mod.INVOICE_TOOLS).toHaveLength(4)
+    expect(mod.INVOICE_TOOLS).toHaveLength(6)
   })
 
   it('each tool has required shape (name, description, input_schema, run, parse)', async () => {
@@ -46,9 +42,7 @@ describe('InvoiceTools', () => {
 
   it('tools have expected names', async () => {
     const mod = await import('@/server/agents/tools/invoice.tools')
-    const toolNames = mod.INVOICE_TOOLS.map(
-      (t: { name: string }) => t.name,
-    )
+    const toolNames = mod.INVOICE_TOOLS.map((t: { name: string }) => t.name)
     expect(toolNames).toContain('get_invoice_detail')
     expect(toolNames).toContain('get_order_for_invoice')
     expect(toolNames).toContain('get_vendor_price_history')

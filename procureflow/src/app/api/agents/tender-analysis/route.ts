@@ -74,6 +74,29 @@ export async function POST(request: Request) {
   try {
     const result = await analyzeTender(tenderId, pdfBuffer, pdfFilename)
 
+    // Persist the analysis to DB via save_tender_analysis tool (server-side call)
+    try {
+      const { saveTenderAnalysisTool } =
+        await import('@/server/agents/tools/tender.tools')
+      const parsed = saveTenderAnalysisTool.parse({
+        tender_id: tenderId,
+        recommendation: result.analysis.recommendation,
+        fit_score: result.analysis.fit_score,
+        reasoning: result.analysis.reasoning,
+        pros: result.analysis.pros,
+        cons: result.analysis.cons,
+        risks: result.analysis.risks,
+        estimated_participation_cost:
+          result.analysis.estimated_participation_cost,
+        key_requirements: result.analysis.key_requirements,
+        missing_capabilities: result.analysis.missing_capabilities,
+      })
+      await saveTenderAnalysisTool.run(parsed as never)
+    } catch (persistErr) {
+      // Non-fatal: analysis is returned to user even if persistence fails
+      console.error('[tender-analysis] Failed to persist analysis:', persistErr)
+    }
+
     return successResponse(result)
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : ''

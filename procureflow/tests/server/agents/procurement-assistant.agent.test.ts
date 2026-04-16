@@ -81,7 +81,10 @@ vi.mock('@/lib/constants/agent', () => ({
 // Import after mocks
 // ---------------------------------------------------------------------------
 
-import { streamAssistantResponse, executeWriteTool } from '@/server/agents/procurement-assistant.agent'
+import {
+  streamAssistantResponse,
+  executeWriteTool,
+} from '@/server/agents/procurement-assistant.agent'
 import {
   getToolsForRole,
   isWriteTool,
@@ -123,8 +126,8 @@ describe('procurement-assistant.agent module exports', () => {
 // ---------------------------------------------------------------------------
 
 describe('procurement tools registry', () => {
-  it('ALL_TOOLS contains all 10 tools', () => {
-    expect(ALL_TOOLS).toHaveLength(10)
+  it('ALL_TOOLS contains all 34 tools', () => {
+    expect(ALL_TOOLS).toHaveLength(34)
   })
 
   it('each tool has a name, description, and input_schema', () => {
@@ -315,9 +318,7 @@ describe('streamAssistantResponse', () => {
 
     // Round 2: model produces final text
     mockBetaMessagesCreate.mockResolvedValueOnce({
-      content: [
-        { type: 'text', text: 'Ho trovato 1 richiesta approvata.' },
-      ],
+      content: [{ type: 'text', text: 'Ho trovato 1 richiesta approvata.' }],
       usage: { input_tokens: 100, output_tokens: 30 },
     })
 

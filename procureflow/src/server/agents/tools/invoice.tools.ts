@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { prisma } from '@/lib/db'
+import { performThreeWayMatch } from '@/server/services/three-way-matching.service'
 import type { ZodTool } from '@/server/agents/tools/procurement.tools'
 
 // ---------------------------------------------------------------------------
@@ -323,6 +324,64 @@ export const updateReconciliationStatusTool = betaZodTool({
 })
 
 // ---------------------------------------------------------------------------
+// 5. dispute_invoice — Contest an invoice (WRITE-intercepted)
+// ---------------------------------------------------------------------------
+
+// NOTE: The Prisma DiscrepancyType enum only contains AMOUNT_MISMATCH,
+// QUANTITY_MISMATCH, PRICE_MISMATCH, ITEM_MISMATCH, NONE. VAT_MISMATCH,
+// DUPLICATE and OTHER from the plan are intentionally omitted here because
+// they do not exist in the schema and would fail at insert time.
+export const disputeInvoiceTool = betaZodTool({
+  name: 'dispute_invoice',
+  description:
+    'Contesta una fattura con importo di discrepanza, tipo e note. Aggiorna reconciliation_status a DISPUTED e crea timeline + notifica.',
+  inputSchema: z.object({
+    invoice_id: z.string(),
+    amount_discrepancy: z
+      .number()
+      .describe('Differenza in EUR (positiva o negativa)'),
+    discrepancy_type: z.enum([
+      'AMOUNT_MISMATCH',
+      'QUANTITY_MISMATCH',
+      'ITEM_MISMATCH',
+      'PRICE_MISMATCH',
+    ]),
+    notes: z.string().describe('Motivazione dettagliata della contestazione'),
+    notify_user_id: z
+      .string()
+      .optional()
+      .describe('Utente da notificare (default: owner del PR correlato)'),
+  }),
+  run: async () =>
+    JSON.stringify({ error: 'Write tools require confirmation' }),
+})
+
+// ---------------------------------------------------------------------------
+// 6. perform_three_way_match — Execute three-way matching (WRITE-direct)
+// ---------------------------------------------------------------------------
+
+export const performThreeWayMatchTool = betaZodTool({
+  name: 'perform_three_way_match',
+  description:
+    'Esegue three-way matching (ordinato vs ricevuto vs fatturato). Aggiorna automaticamente lo stato match/reconciliation se PASS. Wrapper di performThreeWayMatch.',
+  inputSchema: z.object({
+    invoice_id: z.string(),
+    request_id: z.string(),
+  }),
+  run: async (input) => {
+    try {
+      const result = await performThreeWayMatch(
+        input.invoice_id,
+        input.request_id,
+      )
+      return JSON.stringify(result)
+    } catch (err) {
+      return JSON.stringify({ error: String(err) })
+    }
+  },
+})
+
+// ---------------------------------------------------------------------------
 // Exported collection
 // ---------------------------------------------------------------------------
 
@@ -331,4 +390,6 @@ export const INVOICE_TOOLS: readonly ZodTool[] = [
   getOrderForInvoiceTool,
   getVendorPriceHistoryTool,
   updateReconciliationStatusTool,
+  disputeInvoiceTool,
+  performThreeWayMatchTool,
 ] as readonly ZodTool[]

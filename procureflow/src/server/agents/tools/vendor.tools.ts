@@ -11,10 +11,7 @@ import { generateNextCodeAtomic } from '@/server/services/code-generator.service
  * Normalize a VAT ID: strip spaces, uppercase, remove "IT" prefix if present
  */
 function normalizeVatId(vatId: string): string {
-  return vatId
-    .replace(/\s+/g, '')
-    .replace(/^IT/i, '')
-    .toUpperCase()
+  return vatId.replace(/\s+/g, '').replace(/^IT/i, '').toUpperCase()
 }
 
 /**
@@ -24,7 +21,10 @@ function normalizeVatId(vatId: string): string {
 function normalizeVendorName(name: string): string {
   return name
     .toLowerCase()
-    .replace(/\b(s\.?r\.?l\.?s?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|s\.?l\.?)\b/gi, '')
+    .replace(
+      /\b(s\.?r\.?l\.?s?|s\.?p\.?a\.?|s\.?a\.?s\.?|s\.?n\.?c\.?|s\.?l\.?)\b/gi,
+      '',
+    )
     .replace(/[.,]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -133,4 +133,22 @@ export const findOrCreateVendorTool = betaZodTool({
   },
 })
 
-export const VENDOR_TOOLS = [findOrCreateVendorTool]
+export const updateVendorTool = betaZodTool({
+  name: 'update_vendor',
+  description:
+    'Aggiorna i dati di un fornitore esistente (status, rating, note, termini pagamento, categorie). Almeno un campo opzionale obbligatorio.',
+  inputSchema: z.object({
+    vendor_id: z.string().describe('ID del fornitore da aggiornare'),
+    status: z
+      .enum(['ACTIVE', 'INACTIVE', 'BLACKLISTED', 'PENDING_REVIEW'])
+      .optional(),
+    rating: z.number().min(0).max(5).optional().describe('Rating 0-5'),
+    notes: z.string().optional(),
+    payment_terms: z.string().optional().describe('Es. "30gg DFFM"'),
+    category: z.array(z.string()).optional(),
+  }),
+  run: async () =>
+    JSON.stringify({ error: 'Write tools require confirmation' }),
+})
+
+export const VENDOR_TOOLS = [findOrCreateVendorTool, updateVendorTool]
