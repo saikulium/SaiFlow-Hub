@@ -1,5 +1,6 @@
 import { toFile } from '@anthropic-ai/sdk'
 import type Anthropic from '@anthropic-ai/sdk'
+import { z } from 'zod'
 import { getClaudeClient } from '@/lib/ai/claude-client'
 import { MODELS } from '@/lib/ai/models'
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
@@ -8,6 +9,7 @@ import {
   getRequestDetailTool,
   searchVendorsTool,
   getBudgetOverviewTool,
+  searchInvoicesTool,
   createRequestInputSchema,
   executeWriteTool,
 } from '@/server/agents/tools/procurement.tools'
@@ -16,6 +18,19 @@ import { COMMESSA_TOOLS } from '@/server/agents/tools/commessa.tools'
 import { ARTICLE_TOOLS } from '@/server/agents/tools/article.tools'
 import { VENDOR_TOOLS } from '@/server/agents/tools/vendor.tools'
 import { CLIENT_TOOLS } from '@/server/agents/tools/client.tools'
+import { listCommentsTool } from '@/server/agents/tools/comment.tools'
+import { listAttachmentsTool } from '@/server/agents/tools/attachment.tools'
+import {
+  getInvoiceDetailTool,
+  getOrderForInvoiceTool,
+  getVendorPriceHistoryTool,
+  performThreeWayMatchTool,
+} from '@/server/agents/tools/invoice.tools'
+import { STOCK_TOOLS } from '@/server/agents/tools/stock.tools'
+import {
+  listPendingApprovalsTool,
+  getApprovalDetailTool,
+} from '@/server/agents/tools/approval.tools'
 import type { RawEmailData } from '@/server/services/email-ai-classifier.service'
 import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
 
@@ -64,22 +79,36 @@ REGOLE ANAGRAFICHE (importanti):
 AZIONI PER INTENT:
 
 CONFERMA_ORDINE:
-  1. Cerca la PR correlata (search_requests o get_request_detail) — cerca anche per external_ref
+  1. search_requests per external_ref o codice ordine menzionato nell'email
   2. Se il fornitore citato non e in anagrafica → find_or_create_vendor
-  3. Crea un evento timeline sulla PR (create_timeline_event)
-  4. Crea una notifica per il richiedente (create_notification)
+  3. Se PR trovata in stato APPROVED → mark_ordered (con external_ref del fornitore)
+  4. Se PR trovata in stato ORDERED → create_timeline_event ("Conferma ricevuta da fornitore")
+  5. Se allegati PDF presenti → add_attachment per collegare alla PR
+  6. add_comment con riepilogo email ("Conferma ordine ricevuta da [vendor]: ref [ref], data consegna prevista [data]")
+  7. create_notification al requester
 
 RITARDO_CONSEGNA:
-  1. Cerca la PR correlata
-  2. Se collegata a una commessa cliente, verifica impatto (get_request_detail)
-  3. Crea un evento timeline con la nuova data
-  4. Notifica il richiedente con urgenza
+  1. search_requests per codice ordine / external_ref
+  2. get_request_detail per verificare expected_delivery attuale
+  3. create_timeline_event tipo 'delivery_delay' con:
+     - data originale vs nuova data
+     - motivo del ritardo (se indicato)
+  4. Se PR collegata a commessa: get_request_detail per verificare commessa.deadline
+     - Se ritardo impatta deadline commessa: requires_human_decision=true con decision_reason specifico
+  5. add_comment con dettaglio ritardo ("Ritardo comunicato da [vendor]: consegna spostata da [data_old] a [data_new]. Motivo: [motivo]")
+  6. create_notification URGENTE al requester
 
 VARIAZIONE_PREZZO:
-  1. Cerca la PR correlata
-  2. Crea un evento timeline con vecchio/nuovo prezzo
-  3. Notifica il manager con la differenza in EUR e percentuale
-  4. Setta requires_human_decision=true se la variazione supera il 2%
+  1. search_requests per codice ordine
+  2. get_request_detail per avere i prezzi originali (RequestItem.unit_price)
+  3. Calcola delta EUR e percentuale per OGNI riga
+  4. create_timeline_event tipo 'price_variance' con metadata {old_price, new_price, delta_pct, per_item: [...]}
+  5. Se variazione > 2% su qualsiasi riga:
+     - requires_human_decision=true
+     - decision_reason con dettaglio per riga
+  6. add_comment con tabella comparativa (vecchio vs nuovo vs delta)
+  7. create_notification al MANAGER (non solo requester)
+  8. Se allegati (conferma ordine con nuovi prezzi) → add_attachment
 
 ORDINE_CLIENTE (il piu importante — fai TUTTI gli step in ordine):
   1. Cerca il cliente con search_clients; se non esiste, find_or_create_client.
@@ -89,25 +118,44 @@ ORDINE_CLIENTE (il piu importante — fai TUTTI gli step in ordine):
   3. Per OGNI articolo nell'ordine:
      a. Cerca o crea l'articolo nel catalogo con find_or_create_article.
         SALVA l'article_id restituito.
-     b. Crea una richiesta d'acquisto con create_request:
+     b. PRIMA di creare la RDA, verifica disponibilita:
+        - get_stock_for_article per verificare stock disponibile
+        - Se article ha material_id, get_pending_orders_for_material per verificare ordini in arrivo
+        - Calcola quantita da ordinare: max(0, quantita_richiesta - stock_disponibile - pending_in_arrivo)
+     c. Se quantita_da_ordinare > 0: crea RDA con create_request:
         - title: "[codice articolo] per commessa [cliente]"
-        - description: "Quantita richiesta dal cliente: [qty] [unit]. VERIFICARE disponibilita a magazzino prima di ordinare."
+        - description: "Richiesto dal cliente: [qty_originale] [unit]. Stock disponibile: [stock]. Pending in arrivo: [pending]. Da ordinare: [qty_calcolata]. VERIFICARE disponibilita a magazzino prima di ordinare."
         - commessa_id: l'ID della commessa creata allo step 2
-        - items: [{name: descrizione, quantity: quantita, unit: unita}]
+        - items: [{name: descrizione, quantity: quantita_da_ordinare, unit: unita}]
         - priority: "HIGH" se la scadenza e entro 30 giorni, altrimenti "MEDIUM"
         - needed_by: la deadline dell'ordine cliente in formato ISO
+     d. Se quantita_da_ordinare == 0: nota nel summary "Articolo [X] coperto da stock/ordini pending"
   4. Cerca i fornitori che potrebbero avere gli articoli (search_vendors)
   5. Crea una notifica di riepilogo con create_notification che includa:
      - Lista delle RDA create con i codici PR
      - Link alle RDA: /requests/[codice-pr] per ogni RDA
-     - La frase: "Le quantita sono quelle richieste dal cliente. Verificare le disponibilita a magazzino e modificare le quantita prima di inviare per approvazione."
+     - Per ogni articolo: quantita richiesta, stock, pending, quantita RDA
+     - Se qualche articolo e coperto da stock: segnalarlo esplicitamente
 
 FATTURA_ALLEGATA:
-  1. Notifica il reparto contabilita
+  1. Se allegato PDF presente: leggi il contenuto per estrarre numero fattura, fornitore, importo totale, data, righe
+  2. search_invoices per verificare se fattura gia importata (per numero fattura o fornitore)
+  3. search_requests per cercare ordine correlato (per codice PR o external_ref menzionato)
+  4. Se ordine trovato:
+     - create_timeline_event sulla PR ("Fattura ricevuta: [numero], importo [importo] EUR")
+     - add_attachment per collegare PDF alla PR
+  5. Se dati sufficienti per confronto fattura vs ordine: nota nel summary se i numeri corrispondono (match preliminare)
+  6. create_notification al reparto contabilita con dettaglio importi
 
 RICHIESTA_INFO:
-  1. Cerca la PR correlata se presente
-  2. Notifica il richiedente
+  1. search_requests per cercare PR correlata
+  2. Se PR trovata:
+     - get_request_detail per contesto
+     - get_request_timeline per vedere lo storico
+     - add_comment con la domanda del fornitore (tag: @requester)
+     - create_notification al requester con link alla PR
+  3. Se PR non trovata:
+     - create_notification generica all'admin
 
 REGOLE:
 - Esegui TUTTE le azioni elencate per l'intent, non fermarti dopo la prima.
@@ -194,24 +242,217 @@ function buildCreateRequestTool(userId: string): BetaRunnableTool<unknown> {
   }) as BetaRunnableTool<unknown>
 }
 
+// ---------------------------------------------------------------------------
+// WRITE tool builders — wrap intercepted tools for autonomous execution
+// ---------------------------------------------------------------------------
+
+/**
+ * Generic helper to build a WRITE tool that executes directly via executeWriteTool.
+ * Used for tools whose normal `run` is a placeholder requiring user confirmation.
+ */
+function buildWriteTool(
+  toolName: string,
+  description: string,
+  inputSchema: z.ZodTypeAny,
+  userId: string,
+): BetaRunnableTool<unknown> {
+  return betaZodTool({
+    name: toolName,
+    description,
+    inputSchema,
+    run: async (input) => {
+      try {
+        const params = {
+          ...(input as Record<string, unknown>),
+          _userId: userId,
+        }
+        const result = await executeWriteTool(toolName, params, userId)
+        return typeof result === 'string' ? result : JSON.stringify(result)
+      } catch (err) {
+        return JSON.stringify({ error: `Errore ${toolName}: ${String(err)}` })
+      }
+    },
+  }) as BetaRunnableTool<unknown>
+}
+
+function buildMarkOrderedTool(userId: string): BetaRunnableTool<unknown> {
+  return buildWriteTool(
+    'mark_ordered',
+    'Marca una richiesta APPROVED come ordinata (ORDERED). Usa quando un fornitore conferma un ordine.',
+    z
+      .object({
+        request_id: z.string().optional().describe('ID della richiesta'),
+        code: z
+          .string()
+          .optional()
+          .describe('Codice richiesta (es: PR-2025-00001)'),
+        external_ref: z
+          .string()
+          .optional()
+          .describe('Riferimento ordine fornitore'),
+        tracking_number: z.string().optional().describe('Numero tracking'),
+      })
+      .refine((d) => Boolean(d.request_id || d.code), {
+        message: 'request_id o code obbligatorio',
+      }),
+    userId,
+  )
+}
+
+function buildMarkDeliveredTool(userId: string): BetaRunnableTool<unknown> {
+  return buildWriteTool(
+    'mark_delivered',
+    'Marca un ordine come consegnato (DELIVERED). Usa quando il fornitore conferma la consegna.',
+    z
+      .object({
+        request_id: z.string().optional().describe('ID della richiesta'),
+        code: z
+          .string()
+          .optional()
+          .describe('Codice richiesta (es: PR-2025-00001)'),
+        actual_amount: z
+          .number()
+          .optional()
+          .describe('Importo effettivo consegnato'),
+        notes: z.string().optional().describe('Note consegna'),
+      })
+      .refine((d) => Boolean(d.request_id || d.code), {
+        message: 'request_id o code obbligatorio',
+      }),
+    userId,
+  )
+}
+
+function buildCancelRequestTool(userId: string): BetaRunnableTool<unknown> {
+  return buildWriteTool(
+    'cancel_request',
+    "Annulla una richiesta d'acquisto. Usa quando il fornitore o il cliente annulla un ordine.",
+    z
+      .object({
+        request_id: z.string().optional().describe('ID della richiesta'),
+        code: z
+          .string()
+          .optional()
+          .describe('Codice richiesta (es: PR-2025-00001)'),
+        reason: z.string().optional().describe("Motivo dell'annullamento"),
+      })
+      .refine((d) => Boolean(d.request_id || d.code), {
+        message: 'request_id o code obbligatorio',
+      }),
+    userId,
+  )
+}
+
+function buildAddCommentTool(userId: string): BetaRunnableTool<unknown> {
+  return buildWriteTool(
+    'add_comment',
+    "Aggiunge un commento a una richiesta d'acquisto. Usa per salvare il contenuto di un'email come nota sulla PR.",
+    z.object({
+      request_id: z.string(),
+      content: z.string().min(1),
+      is_internal: z
+        .boolean()
+        .optional()
+        .describe(
+          'Default false — se true il commento non e visibile al vendor',
+        ),
+    }),
+    userId,
+  )
+}
+
+function buildAddAttachmentTool(userId: string): BetaRunnableTool<unknown> {
+  return buildWriteTool(
+    'add_attachment',
+    "Registra un allegato su una richiesta d'acquisto. Usa per collegare PDF fattura/conferma alla PR.",
+    z.object({
+      request_id: z.string(),
+      filename: z.string(),
+      file_url: z.string().url(),
+      file_size: z.number().int().optional(),
+      mime_type: z.string().optional(),
+    }),
+    userId,
+  )
+}
+
+function buildDisputeInvoiceTool(userId: string): BetaRunnableTool<unknown> {
+  return buildWriteTool(
+    'dispute_invoice',
+    'Contesta una fattura con discrepanze. Aggiorna lo stato a DISPUTED e crea timeline + notifica.',
+    z.object({
+      invoice_id: z.string(),
+      amount_discrepancy: z
+        .number()
+        .describe('Differenza in EUR (positiva o negativa)'),
+      discrepancy_type: z.enum([
+        'AMOUNT_MISMATCH',
+        'QUANTITY_MISMATCH',
+        'ITEM_MISMATCH',
+        'PRICE_MISMATCH',
+      ]),
+      notes: z.string().describe('Motivazione dettagliata della contestazione'),
+      notify_user_id: z
+        .string()
+        .optional()
+        .describe('Utente da notificare (default: owner del PR correlato)'),
+    }),
+    userId,
+  )
+}
+
 /**
  * Combine all tools available to the email agent.
- * Includes READ tools, notification, commessa, budget, and create_request (WRITE).
+ *
+ * READ tools are imported directly — they have real `run` implementations.
+ * WRITE tools are wrapped via builder functions that call `executeWriteTool`
+ * directly, bypassing the user-confirmation flow used in the chat assistant.
  */
 function getEmailAgentTools(
   userId: string,
 ): readonly BetaRunnableTool<unknown>[] {
   return [
+    // --- READ: core procurement ---
     searchRequestsTool,
     getRequestDetailTool,
     searchVendorsTool,
     getBudgetOverviewTool,
-    buildCreateRequestTool(userId),
+    searchInvoicesTool,
+
+    // --- READ: comments & attachments ---
+    listCommentsTool,
+    listAttachmentsTool,
+
+    // --- READ: invoices ---
+    getInvoiceDetailTool,
+    getOrderForInvoiceTool,
+    getVendorPriceHistoryTool,
+    performThreeWayMatchTool,
+
+    // --- READ: stock ---
+    ...STOCK_TOOLS,
+
+    // --- READ: approvals ---
+    listPendingApprovalsTool,
+    getApprovalDetailTool,
+
+    // --- READ/WRITE: notifications & timeline (have real run) ---
     ...NOTIFICATION_TOOLS,
+
+    // --- READ/WRITE: commessa, article, vendor, client (have real run) ---
     ...COMMESSA_TOOLS,
     ...ARTICLE_TOOLS,
     ...VENDOR_TOOLS,
     ...CLIENT_TOOLS,
+
+    // --- WRITE: autonomous execution via executeWriteTool ---
+    buildCreateRequestTool(userId),
+    buildMarkOrderedTool(userId),
+    buildMarkDeliveredTool(userId),
+    buildCancelRequestTool(userId),
+    buildAddCommentTool(userId),
+    buildAddAttachmentTool(userId),
+    buildDisputeInvoiceTool(userId),
   ] as readonly BetaRunnableTool<unknown>[]
 }
 
