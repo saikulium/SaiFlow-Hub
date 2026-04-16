@@ -1242,6 +1242,61 @@ model ProcessedWebhook {
   @@map("processed_webhooks")
 }
 
+// --- Email Processing Log ---
+
+model EmailLog {
+  id                    String    @id @default(cuid())
+
+  // Email originale
+  email_from            String
+  email_to              String?
+  email_subject         String
+  email_body            String    @db.Text
+  email_date            String?
+  email_message_id      String?   @unique
+
+  // Classificazione AI
+  intent                String
+  confidence            Float
+  requires_human_decision Boolean @default(false)
+  decision_reason       String?
+
+  // Dati estratti
+  matched_request_code  String?
+  matched_vendor_name   String?
+  extracted_amount      Decimal?  @db.Decimal(12, 2)
+  extracted_old_price   Decimal?  @db.Decimal(12, 2)
+  extracted_new_price   Decimal?  @db.Decimal(12, 2)
+  price_delta_percent   Float?
+  extracted_old_date    DateTime?
+  extracted_new_date    DateTime?
+
+  // Risultato
+  actions_taken         String[]
+  summary               String?   @db.Text
+
+  // Link alle risorse create/aggiornate
+  request_id            String?
+  commessa_id           String?
+  invoice_id            String?
+
+  // Allegati processati
+  attachments_count     Int       @default(0)
+
+  // Metadata
+  processed_by_user_id  String?
+  ai_model              String?
+  processing_time_ms    Int?
+
+  created_at            DateTime  @default(now())
+
+  @@index([intent, created_at])
+  @@index([email_message_id])
+  @@index([matched_request_code])
+  @@index([requires_human_decision])
+  @@map("email_logs")
+}
+
 // --- Integration Configurations ---
 
 model IntegrationConfig {

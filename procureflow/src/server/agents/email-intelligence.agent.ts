@@ -31,6 +31,7 @@ import {
   listPendingApprovalsTool,
   getApprovalDetailTool,
 } from '@/server/agents/tools/approval.tools'
+import { createEmailLog } from '@/server/services/email-log.service'
 import type { RawEmailData } from '@/server/services/email-ai-classifier.service'
 import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
 
@@ -623,6 +624,7 @@ export async function processEmail(
   userId?: string,
   attachmentFiles?: readonly EmailAttachmentFile[],
 ): Promise<EmailProcessingResult> {
+  const startTime = Date.now()
   const tools = getEmailAgentTools(userId ?? 'system')
   const client = getClaudeClient()
 
@@ -673,10 +675,37 @@ export async function processEmail(
     }
 
     const parsed = parseAgentResult(lastTextContent)
-    return {
+    const processingTimeMs = Date.now() - startTime
+    const result: EmailProcessingResult = {
       ...parsed,
       actions_taken: [...toolCalls, ...parsed.actions_taken],
     }
+
+    // Persist email log (non-blocking, errors don't fail the response)
+    try {
+      await createEmailLog({
+        email_from: email.email_from,
+        email_to: email.email_to,
+        email_subject: email.email_subject,
+        email_body: email.email_body,
+        email_date: email.email_date,
+        email_message_id: email.email_message_id,
+        intent: result.intent,
+        confidence: result.confidence,
+        requires_human_decision: result.requires_human_decision,
+        decision_reason: result.decision_reason,
+        actions_taken: result.actions_taken,
+        summary: result.summary,
+        attachments_count: attachmentFiles?.length ?? 0,
+        processed_by_user_id: userId ?? undefined,
+        ai_model: AGENT_MODEL,
+        processing_time_ms: processingTimeMs,
+      })
+    } catch (logErr) {
+      console.warn('[email-agent] Failed to save EmailLog:', logErr)
+    }
+
+    return result
   } catch (err) {
     return {
       intent: 'ALTRO',
