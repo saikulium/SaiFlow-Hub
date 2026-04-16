@@ -13,6 +13,7 @@ import {
   useVendors,
   type RequestDetail,
 } from '@/hooks/use-request'
+import { useCommesse } from '@/hooks/use-commesse'
 import { PRIORITY_CONFIG, type PriorityKey } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
@@ -54,6 +55,7 @@ function buildDefaults(r: RequestDetail): UpdateRequestInput {
     cup: r.cup ?? undefined,
     is_mepa: r.is_mepa,
     mepa_oda_number: r.mepa_oda_number ?? undefined,
+    commessa_id: r.commessa?.id ?? undefined,
     tags: r.tags,
     items: r.items.map((item) => ({
       name: item.name,
@@ -79,6 +81,7 @@ export function RequestEditDialog({
   const updateRequest = useUpdateRequest(request.id)
   const { data: vendorsResponse } = useVendors()
   const vendors = vendorsResponse?.data ?? []
+  const { data: commesse } = useCommesse({ status: 'DRAFT,PLANNING,ACTIVE' })
 
   const {
     register,
@@ -228,6 +231,24 @@ export function RequestEditDialog({
                 className="w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none"
               />
             </div>
+          </div>
+
+          {/* Commessa */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-pf-text-primary">
+              Commessa
+            </label>
+            <select
+              {...register('commessa_id')}
+              className="w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none"
+            >
+              <option value="">Nessuna commessa</option>
+              {(commesse ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.title}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Needed by + Department */}
