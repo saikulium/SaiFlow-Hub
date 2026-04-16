@@ -26,6 +26,11 @@ import { ATTACHMENT_TOOLS } from './attachment.tools'
 import { getRequestTimelineTool } from './notification.tools'
 import { BUDGET_TOOLS } from './budget.tools'
 import { STOCK_TOOLS } from './stock.tools'
+import {
+  PRICE_VARIANCE_TOOLS,
+  listPriceVarianceReviewsTool,
+  decidePriceVarianceTool,
+} from './price-variance.tools'
 import { createComment } from '@/server/services/comment.service'
 import { createAttachmentRecord } from '@/server/services/attachment.service'
 
@@ -161,6 +166,14 @@ const TOOL_META: Record<string, ToolMeta> = {
   get_pending_orders_for_material: {
     permissionLevel: 'READ',
     minRole: 'VIEWER',
+  },
+  list_price_variance_reviews: {
+    permissionLevel: 'READ',
+    minRole: 'VIEWER',
+  },
+  decide_price_variance: {
+    permissionLevel: 'WRITE',
+    minRole: 'MANAGER',
   },
 }
 
@@ -636,6 +649,7 @@ export const ALL_TOOLS = [
   getRequestTimelineTool,
   ...BUDGET_TOOLS,
   ...STOCK_TOOLS,
+  ...PRICE_VARIANCE_TOOLS,
 ] as readonly ZodTool[]
 
 // ---------------------------------------------------------------------------
@@ -876,6 +890,17 @@ export function generateActionPreview(
         fields: [
           { key: 'Richiesta', value: String(params.request_id ?? '') },
           { key: 'File', value: String(params.filename ?? '') },
+        ],
+      }
+    case 'decide_price_variance':
+      return {
+        label: 'Decisione variazione prezzo',
+        fields: [
+          { key: 'Review', value: String(params.review_id ?? '') },
+          { key: 'Decisione', value: String(params.status ?? '') },
+          ...(params.notes
+            ? [{ key: 'Note', value: String(params.notes) }]
+            : []),
         ],
       }
     default:
@@ -1586,6 +1611,83 @@ async function executeAddAttachment(
   return { success: true, attachment_id: attachment.id }
 }
 
+// ---------------------------------------------------------------------------
+// Price Variance executor
+// ---------------------------------------------------------------------------
+
+interface DecidePriceVarianceParams {
+  review_id: string
+  status: 'ACCEPTED' | 'REJECTED' | 'NEGOTIATING'
+  notes?: string
+}
+
+async function executeDecidePriceVariance(
+  params: DecidePriceVarianceParams,
+  userId: string,
+): Promise<unknown> {
+  const review = await prisma.priceVarianceReview.findUnique({
+    where: { id: params.review_id },
+    select: {
+      id: true,
+      status: true,
+      request_id: true,
+      max_delta_percent: true,
+      total_delta: true,
+      request: { select: { code: true, requester_id: true } },
+    },
+  })
+  if (!review) throw new Error('Price variance review non trovata')
+  if (review.status !== 'PENDING') {
+    throw new Error(
+      `Review non in stato PENDING (stato attuale: ${review.status})`,
+    )
+  }
+
+  await prisma.$transaction([
+    prisma.priceVarianceReview.update({
+      where: { id: params.review_id },
+      data: {
+        status: params.status,
+        decided_by: userId,
+        decided_at: new Date(),
+        decision_notes: params.notes ?? null,
+      },
+    }),
+    prisma.timelineEvent.create({
+      data: {
+        request_id: review.request_id,
+        type: 'price_variance_decision',
+        title: `Variazione prezzo: ${params.status}`,
+        description:
+          params.notes ??
+          `Delta ${Number(review.total_delta) >= 0 ? '+' : ''}${Number(review.total_delta).toFixed(2)} EUR (${review.max_delta_percent.toFixed(1)}%)`,
+        metadata: {
+          review_id: review.id,
+          decision: params.status,
+          max_delta_percent: review.max_delta_percent,
+          total_delta: Number(review.total_delta),
+        },
+        actor: 'User',
+      },
+    }),
+  ])
+
+  await createNotification({
+    userId: review.request.requester_id,
+    title: `Variazione prezzo ${params.status === 'ACCEPTED' ? 'accettata' : params.status === 'REJECTED' ? 'rifiutata' : 'in negoziazione'}`,
+    body: `La variazione prezzo sulla richiesta ${review.request.code} è stata ${params.status === 'ACCEPTED' ? 'accettata' : params.status === 'REJECTED' ? 'rifiutata' : 'messa in negoziazione'}.`,
+    type: 'status_changed',
+    link: `/requests/${review.request_id}`,
+  })
+
+  return {
+    success: true,
+    review_id: review.id,
+    request_code: review.request.code,
+    decision: params.status,
+  }
+}
+
 const WRITE_EXECUTORS: Record<
   string,
   (params: Record<string, unknown>, userId: string) => Promise<unknown>
@@ -1633,6 +1735,11 @@ const WRITE_EXECUTORS: Record<
     executeAddComment(params as unknown as AddCommentParams, userId),
   add_attachment: (params, userId) =>
     executeAddAttachment(params as unknown as AddAttachmentParams, userId),
+  decide_price_variance: (params, userId) =>
+    executeDecidePriceVariance(
+      params as unknown as DecidePriceVarianceParams,
+      userId,
+    ),
 }
 
 export async function executeWriteTool(

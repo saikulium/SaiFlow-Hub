@@ -24,6 +24,7 @@ import { TimelineTab } from './tabs/timeline-tab'
 import { ApprovazioniTab } from './tabs/approvazioni-tab'
 import { AllegatiTab } from './tabs/allegati-tab'
 import { CommentiTab } from './tabs/commenti-tab'
+import { PriceVarianceBanner } from './price-variance-banner'
 
 // --- Types ---
 
@@ -202,6 +203,15 @@ export function RequestDetailContent({ requestId }: RequestDetailContentProps) {
       <div className="rounded-card border border-pf-border bg-pf-bg-secondary px-6 py-4">
         <StatusStepper currentStatus={request.status} />
       </div>
+
+      {/* Price Variance Banner */}
+      {request.price_variance_reviews &&
+        request.price_variance_reviews.length > 0 && (
+          <PriceVarianceBanner
+            reviews={request.price_variance_reviews}
+            requestId={request.id}
+          />
+        )}
 
       {/* Tabs */}
       <div className="border-b border-pf-border">

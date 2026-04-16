@@ -126,8 +126,8 @@ describe('procurement-assistant.agent module exports', () => {
 // ---------------------------------------------------------------------------
 
 describe('procurement tools registry', () => {
-  it('ALL_TOOLS contains all 34 tools', () => {
-    expect(ALL_TOOLS).toHaveLength(34)
+  it('ALL_TOOLS contains all 36 tools', () => {
+    expect(ALL_TOOLS).toHaveLength(36)
   })
 
   it('each tool has a name, description, and input_schema', () => {

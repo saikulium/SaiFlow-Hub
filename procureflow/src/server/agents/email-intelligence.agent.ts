@@ -31,6 +31,7 @@ import {
   listPendingApprovalsTool,
   getApprovalDetailTool,
 } from '@/server/agents/tools/approval.tools'
+import { createPriceVarianceReviewTool } from '@/server/agents/tools/price-variance.tools'
 import { createEmailLog } from '@/server/services/email-log.service'
 import type { RawEmailData } from '@/server/services/email-ai-classifier.service'
 import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
@@ -107,6 +108,9 @@ VARIAZIONE_PREZZO:
   5. Se variazione > 2% su qualsiasi riga:
      - requires_human_decision=true
      - decision_reason con dettaglio per riga
+     - Chiama create_price_variance_review con i dati per-item:
+       request_id, items (array con item_name, old_price, new_price, delta_pct, quantity),
+       total_old_amount, total_new_amount
   6. add_comment con tabella comparativa (vecchio vs nuovo vs delta)
   7. create_notification al MANAGER (non solo requester)
   8. Se allegati (conferma ordine con nuovi prezzi) → add_attachment
@@ -445,6 +449,9 @@ function getEmailAgentTools(
     ...ARTICLE_TOOLS,
     ...VENDOR_TOOLS,
     ...CLIENT_TOOLS,
+
+    // --- WRITE: price variance review (direct execution) ---
+    createPriceVarianceReviewTool,
 
     // --- WRITE: autonomous execution via executeWriteTool ---
     buildCreateRequestTool(userId),

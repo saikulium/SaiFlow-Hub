@@ -63,6 +63,30 @@ export interface RequestAttachment {
   }
 }
 
+export interface PriceVarianceReviewItem {
+  item_name: string
+  old_price: number
+  new_price: number
+  delta_pct: number
+  quantity?: number
+}
+
+export interface PriceVarianceReview {
+  id: string
+  email_log_id: string | null
+  request_id: string
+  items: PriceVarianceReviewItem[]
+  total_old_amount: number
+  total_new_amount: number
+  total_delta: number
+  max_delta_percent: number
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'NEGOTIATING'
+  decided_by: string | null
+  decided_at: string | null
+  decision_notes: string | null
+  created_at: string
+}
+
 export interface RequestDetail {
   id: string
   code: string
@@ -106,6 +130,7 @@ export interface RequestDetail {
   timeline: TimelineEvent[]
   comments: RequestComment[]
   attachments: RequestAttachment[]
+  price_variance_reviews?: PriceVarianceReview[]
 }
 
 export interface Vendor {

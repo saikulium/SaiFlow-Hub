@@ -51,6 +51,11 @@ export async function GET(
           orderBy: { created_at: 'desc' },
         },
         attachments: { orderBy: { created_at: 'desc' } },
+        price_variance_reviews: {
+          where: { status: 'PENDING' },
+          orderBy: { created_at: 'desc' },
+          take: 5,
+        },
       },
     })
 
@@ -83,6 +88,11 @@ export async function GET(
             orderBy: { created_at: 'desc' },
           },
           attachments: { orderBy: { created_at: 'desc' } },
+          price_variance_reviews: {
+            where: { status: 'PENDING' },
+            orderBy: { created_at: 'desc' },
+            take: 5,
+          },
         },
       })
 
