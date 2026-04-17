@@ -160,4 +160,87 @@ export const findOrCreateArticleTool = betaZodTool({
   },
 })
 
-export const ARTICLE_TOOLS = [findOrCreateArticleTool]
+export const linkArticleToRequestItemTool = betaZodTool({
+  name: 'link_article_to_request_item',
+  description:
+    "Collega un articolo del catalogo a una riga di una RDA esistente. Usa dopo aver creato la RDA e trovato/creato l'articolo con find_or_create_article.",
+  inputSchema: z.object({
+    request_code: z.string().describe('Codice della RDA (es: PR-2026-00001)'),
+    item_name: z
+      .string()
+      .describe(
+        "Nome dell'articolo nella riga RDA (usato per identificare la riga giusta)",
+      ),
+    article_id: z
+      .string()
+      .describe(
+        "ID dell'articolo dal catalogo (ottenuto da find_or_create_article)",
+      ),
+  }),
+  run: async (input) => {
+    const request = await prisma.purchaseRequest.findUnique({
+      where: { code: input.request_code },
+      select: {
+        id: true,
+        items: { select: { id: true, name: true, article_id: true } },
+      },
+    })
+
+    if (!request) {
+      return JSON.stringify({ error: `RDA ${input.request_code} non trovata` })
+    }
+
+    // Find matching item by name (case-insensitive partial match)
+    const targetItem = request.items.find(
+      (item) =>
+        item.name.toLowerCase().includes(input.item_name.toLowerCase()) ||
+        input.item_name.toLowerCase().includes(item.name.toLowerCase()),
+    )
+
+    if (!targetItem) {
+      return JSON.stringify({
+        error: `Nessuna riga trovata con nome "${input.item_name}" nella RDA ${input.request_code}`,
+        available_items: request.items.map((i) => i.name),
+      })
+    }
+
+    if (targetItem.article_id) {
+      return JSON.stringify({
+        already_linked: true,
+        item_id: targetItem.id,
+        article_id: targetItem.article_id,
+      })
+    }
+
+    // Verify article exists
+    const article = await prisma.article.findUnique({
+      where: { id: input.article_id },
+      select: { id: true, code: true, name: true },
+    })
+
+    if (!article) {
+      return JSON.stringify({
+        error: `Articolo con ID ${input.article_id} non trovato nel catalogo`,
+      })
+    }
+
+    await prisma.requestItem.update({
+      where: { id: targetItem.id },
+      data: { article_id: input.article_id },
+    })
+
+    return JSON.stringify({
+      linked: true,
+      item_id: targetItem.id,
+      item_name: targetItem.name,
+      article_id: article.id,
+      article_code: article.code,
+      article_name: article.name,
+    })
+  },
+})
+
+export const ARTICLE_TOOLS = [
+  findOrCreateArticleTool,
+  linkArticleToRequestItemTool,
+]

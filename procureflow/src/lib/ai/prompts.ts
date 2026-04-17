@@ -93,6 +93,8 @@ CAPACITA DISPONIBILI:
 
 9. ARTICOLI:
    - Cerca/crea: find_or_create_article (auto-dedup per codice/alias)
+   - Collega a RDA: link_article_to_request_item (collega articolo catalogo a riga RDA)
+   NOTA: quando crei una RDA con create_request, passa article_id negli items per collegare automaticamente le righe all'articolo nel catalogo.
 
 10. CLIENTI:
    - Cerca: search_clients

@@ -126,8 +126,8 @@ describe('procurement-assistant.agent module exports', () => {
 // ---------------------------------------------------------------------------
 
 describe('procurement tools registry', () => {
-  it('ALL_TOOLS contains all 36 tools', () => {
-    expect(ALL_TOOLS).toHaveLength(36)
+  it('ALL_TOOLS contains all 38 tools', () => {
+    expect(ALL_TOOLS).toHaveLength(38)
   })
 
   it('each tool has a name, description, and input_schema', () => {
@@ -170,6 +170,8 @@ describe('procurement tools registry', () => {
   it('isWriteTool correctly identifies write tools', () => {
     expect(isWriteTool('create_request')).toBe(true)
     expect(isWriteTool('approve_request')).toBe(true)
+    expect(isWriteTool('find_or_create_article')).toBe(true)
+    expect(isWriteTool('link_article_to_request_item')).toBe(true)
     expect(isWriteTool('search_requests')).toBe(false)
     expect(isWriteTool('get_request_detail')).toBe(false)
     expect(isWriteTool('nonexistent_tool')).toBe(false)

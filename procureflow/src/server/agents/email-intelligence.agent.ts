@@ -131,7 +131,8 @@ ORDINE_CLIENTE (il piu importante — fai TUTTI gli step in ordine):
         - title: "[codice articolo] per commessa [cliente]"
         - description: "Richiesto dal cliente: [qty_originale] [unit]. Stock disponibile: [stock]. Pending in arrivo: [pending]. Da ordinare: [qty_calcolata]. VERIFICARE disponibilita a magazzino prima di ordinare."
         - commessa_id: l'ID della commessa creata allo step 2
-        - items: [{name: descrizione, quantity: quantita_da_ordinare, unit: unita}]
+        - items: [{name: descrizione, quantity: quantita_da_ordinare, unit: unita, article_id: l'article_id ottenuto dallo step 3a}]
+          IMPORTANTE: DEVI SEMPRE passare article_id negli items per collegare la riga RDA all'articolo nel catalogo!
         - priority: "HIGH" se la scadenza e entro 30 giorni, altrimenti "MEDIUM"
         - needed_by: la deadline dell'ordine cliente in formato ISO
      d. Se quantita_da_ordinare == 0: nota nel summary "Articolo [X] coperto da stock/ordini pending"
