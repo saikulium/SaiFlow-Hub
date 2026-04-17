@@ -27,12 +27,18 @@ import { getRequestTimelineTool } from './notification.tools'
 import { BUDGET_TOOLS } from './budget.tools'
 import { STOCK_TOOLS } from './stock.tools'
 import {
+  ARTICLE_TOOLS,
+  findOrCreateArticleTool,
+  linkArticleToRequestItemTool,
+} from './article.tools'
+import {
   PRICE_VARIANCE_TOOLS,
   listPriceVarianceReviewsTool,
   decidePriceVarianceTool,
 } from './price-variance.tools'
 import { createComment } from '@/server/services/comment.service'
 import { createAttachmentRecord } from '@/server/services/attachment.service'
+import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 
 // ---------------------------------------------------------------------------
 // Custom type for betaZodTool return value (BetaTool + run + parse)
@@ -174,6 +180,14 @@ const TOOL_META: Record<string, ToolMeta> = {
   decide_price_variance: {
     permissionLevel: 'WRITE',
     minRole: 'MANAGER',
+  },
+  find_or_create_article: {
+    permissionLevel: 'WRITE',
+    minRole: 'REQUESTER',
+  },
+  link_article_to_request_item: {
+    permissionLevel: 'WRITE',
+    minRole: 'REQUESTER',
   },
 }
 
@@ -569,6 +583,12 @@ const requestItemSchema = z.object({
   quantity: z.number().int().min(1).describe('Quantita'),
   unit: z.string().optional().describe('Unita di misura (pz, kg, m, etc.)'),
   unit_price: z.number().optional().describe('Prezzo unitario'),
+  article_id: z
+    .string()
+    .optional()
+    .describe(
+      "ID articolo dal catalogo (ottenuto da find_or_create_article). Collega la riga RDA all'articolo nel catalogo.",
+    ),
 })
 
 export const createRequestInputSchema = z.object({
@@ -650,6 +670,7 @@ export const ALL_TOOLS = [
   ...BUDGET_TOOLS,
   ...STOCK_TOOLS,
   ...PRICE_VARIANCE_TOOLS,
+  ...ARTICLE_TOOLS,
 ] as readonly ZodTool[]
 
 // ---------------------------------------------------------------------------
@@ -903,6 +924,27 @@ export function generateActionPreview(
             : []),
         ],
       }
+    case 'find_or_create_article':
+      return {
+        label: 'Cerca/crea articolo',
+        fields: [
+          { key: 'Nome', value: String(params.name ?? '') },
+          ...(params.code
+            ? [{ key: 'Codice', value: String(params.code) }]
+            : []),
+          ...(params.manufacturer
+            ? [{ key: 'Produttore', value: String(params.manufacturer) }]
+            : []),
+        ],
+      }
+    case 'link_article_to_request_item':
+      return {
+        label: 'Collega articolo a riga RDA',
+        fields: [
+          { key: 'RDA', value: String(params.request_code ?? '') },
+          { key: 'Articolo', value: String(params.item_name ?? '') },
+        ],
+      }
     default:
       return { label: toolName, fields: [] }
   }
@@ -911,14 +953,6 @@ export function generateActionPreview(
 // ---------------------------------------------------------------------------
 // Write Tool Executors (called after user confirmation)
 // ---------------------------------------------------------------------------
-
-function generateRequestCode(): string {
-  const year = new Date().getFullYear()
-  const bytes = new Uint32Array(1)
-  globalThis.crypto.getRandomValues(bytes)
-  const seq = String((bytes[0]! % 99999) + 1).padStart(5, '0')
-  return `PR-${year}-${seq}`
-}
 
 async function executeCreateRequest(
   params: CreateRequestInput,
@@ -931,9 +965,11 @@ async function executeCreateRequest(
     return sum + qty * price
   }, 0)
 
+  const code = await generateNextCodeAtomic()
+
   return prisma.purchaseRequest.create({
     data: {
-      code: generateRequestCode(),
+      code,
       title: params.title,
       description: params.description,
       status: 'DRAFT',
@@ -959,6 +995,7 @@ async function executeCreateRequest(
                   total_price: item.unit_price
                     ? item.quantity * item.unit_price
                     : undefined,
+                  article_id: item.article_id,
                 })),
               },
             }
@@ -1740,6 +1777,18 @@ const WRITE_EXECUTORS: Record<
       params as unknown as DecidePriceVarianceParams,
       userId,
     ),
+  find_or_create_article: async (params) => {
+    const result = await findOrCreateArticleTool.run(
+      params as Parameters<typeof findOrCreateArticleTool.run>[0],
+    )
+    return JSON.parse(result as string)
+  },
+  link_article_to_request_item: async (params) => {
+    const result = await linkArticleToRequestItemTool.run(
+      params as Parameters<typeof linkArticleToRequestItemTool.run>[0],
+    )
+    return JSON.parse(result as string)
+  },
 }
 
 export async function executeWriteTool(
