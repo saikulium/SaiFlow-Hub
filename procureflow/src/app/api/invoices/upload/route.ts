@@ -52,9 +52,10 @@ function isAiSupportedFile(filename: string, mimeType: string): boolean {
 }
 
 export async function POST(req: Request) {
-  const blocked = await requireModule('/api/invoices')
-  if (blocked) return blocked
   try {
+    const blocked = await requireModule('/api/invoices')
+    if (blocked) return blocked
+
     const authResult = await requireRole('ADMIN', 'MANAGER', 'REQUESTER')
     if (authResult instanceof NextResponse) return authResult
 

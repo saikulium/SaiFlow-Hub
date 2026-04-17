@@ -19,12 +19,13 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-
-  const blocked = await requireModule('/api/invoices')
-  if (blocked) return blocked
   try {
+    const authResult = await requireAuth()
+    if (authResult instanceof NextResponse) return authResult
+
+    const blocked = await requireModule('/api/invoices')
+    if (blocked) return blocked
+
     const invoice = await prisma.invoice.findUnique({
       where: { id: params.id },
       select: {

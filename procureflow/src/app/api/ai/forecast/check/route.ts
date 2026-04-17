@@ -5,10 +5,10 @@ import { checkReorderAlerts } from '@/server/services/forecast.service'
 import { requireAuth } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-
   try {
+    const authResult = await requireAuth()
+    if (authResult instanceof NextResponse) return authResult
+
     const rawBody = await req.text()
     const isAuthed = verifyWebhookAuth(
       rawBody,

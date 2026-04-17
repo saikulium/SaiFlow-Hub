@@ -32,12 +32,17 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ materialId: string }> },
 ) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
+  try {
+    const authResult = await requireAuth()
+    if (authResult instanceof NextResponse) return authResult
 
-  const { materialId } = await params
-  const forecast = await getBasicForecast(materialId)
-  return successResponse(forecast)
+    const { materialId } = await params
+    const forecast = await getBasicForecast(materialId)
+    return successResponse(forecast)
+  } catch (error) {
+    console.error('GET /api/ai/forecast/[materialId] error:', error)
+    return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)
+  }
 }
 
 export async function POST(

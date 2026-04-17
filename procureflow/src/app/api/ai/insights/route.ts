@@ -8,11 +8,16 @@ import {
 } from '@/server/services/insight.service'
 
 export async function GET() {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
+  try {
+    const authResult = await requireAuth()
+    if (authResult instanceof NextResponse) return authResult
 
-  const insights = await getActiveInsights()
-  return successResponse(insights)
+    const insights = await getActiveInsights()
+    return successResponse(insights)
+  } catch (error) {
+    console.error('GET /api/ai/insights error:', error)
+    return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)
+  }
 }
 
 export async function POST(req: NextRequest) {
