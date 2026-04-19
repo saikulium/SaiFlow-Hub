@@ -7,7 +7,7 @@ import { MODELS } from '@/lib/ai/models'
 import {
   TenderAnalysisSchema,
   type TenderAnalysis,
-} from '@/lib/ai/schemas/tender-analysis.schema'
+} from './tender-analysis.schema'
 import { prisma } from '@/lib/db'
 import type Anthropic from '@anthropic-ai/sdk'
 

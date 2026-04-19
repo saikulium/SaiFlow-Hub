@@ -2,9 +2,9 @@
 
 import { useCallback, useState } from 'react'
 import { X } from 'lucide-react'
-import { TENDER_TYPE_LABELS } from '@/lib/constants/tenders'
-import { useCreateTender } from '@/hooks/use-tenders'
-import { useUpdateTender } from '@/hooks/use-tender'
+import { TENDER_TYPE_LABELS } from '../constants'
+import { useCreateTender } from '../hooks/use-tenders'
+import { useUpdateTender } from '../hooks/use-tender'
 import { cn } from '@/lib/utils'
 import type { TenderDetail } from '@/types'
 
@@ -55,8 +55,10 @@ function buildInitialState(data?: TenderDetail | null): FormState {
     opening_date: data?.openingDate?.slice(0, 10) ?? '',
     base_amount: data?.baseAmount != null ? String(data.baseAmount) : '',
     award_criteria: data?.awardCriteria ?? '',
-    technical_weight: data?.technicalWeight != null ? String(data.technicalWeight) : '',
-    economic_weight: data?.economicWeight != null ? String(data.economicWeight) : '',
+    technical_weight:
+      data?.technicalWeight != null ? String(data.technicalWeight) : '',
+    economic_weight:
+      data?.economicWeight != null ? String(data.economicWeight) : '',
     assigned_to_id: '',
     category: data?.category ?? '',
     department: data?.department ?? '',
@@ -73,34 +75,49 @@ function parsePayload(form: FormState): Record<string, unknown> {
   }
 
   if (form.description) payload.description = form.description
-  if (form.contracting_authority_id) payload.contracting_authority_id = form.contracting_authority_id
+  if (form.contracting_authority_id)
+    payload.contracting_authority_id = form.contracting_authority_id
   if (form.cig) payload.cig = form.cig
   if (form.cup) payload.cup = form.cup
   if (form.gara_number) payload.gara_number = form.gara_number
   if (form.platform_url) payload.platform_url = form.platform_url
   if (form.publication_date) payload.publication_date = form.publication_date
   if (form.question_deadline) payload.question_deadline = form.question_deadline
-  if (form.submission_deadline) payload.submission_deadline = form.submission_deadline
+  if (form.submission_deadline)
+    payload.submission_deadline = form.submission_deadline
   if (form.opening_date) payload.opening_date = form.opening_date
   if (form.base_amount) payload.base_amount = Number(form.base_amount)
   if (form.award_criteria) payload.award_criteria = form.award_criteria
-  if (form.technical_weight) payload.technical_weight = Number(form.technical_weight)
-  if (form.economic_weight) payload.economic_weight = Number(form.economic_weight)
+  if (form.technical_weight)
+    payload.technical_weight = Number(form.technical_weight)
+  if (form.economic_weight)
+    payload.economic_weight = Number(form.economic_weight)
   if (form.assigned_to_id) payload.assigned_to_id = form.assigned_to_id
   if (form.category) payload.category = form.category
   if (form.department) payload.department = form.department
   if (form.cost_center) payload.cost_center = form.cost_center
   if (form.notes) payload.notes = form.notes
   if (form.tags.trim()) {
-    payload.tags = form.tags.split(',').map((t) => t.trim()).filter(Boolean)
+    payload.tags = form.tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
   }
 
   return payload
 }
 
-export function TenderFormDialog({ open, onOpenChange, initialData }: TenderFormDialogProps) {
-  const [form, setForm] = useState<FormState>(() => buildInitialState(initialData))
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
+export function TenderFormDialog({
+  open,
+  onOpenChange,
+  initialData,
+}: TenderFormDialogProps) {
+  const [form, setForm] = useState<FormState>(() =>
+    buildInitialState(initialData),
+  )
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof FormState, string>>
+  >({})
 
   const createMutation = useCreateTender()
   const updateMutation = useUpdateTender()
@@ -145,7 +162,15 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
         })
       }
     },
-    [form, validate, isEdit, initialData, createMutation, updateMutation, onOpenChange],
+    [
+      form,
+      validate,
+      isEdit,
+      initialData,
+      createMutation,
+      updateMutation,
+      onOpenChange,
+    ],
   )
 
   const isPending = createMutation.isPending || updateMutation.isPending
@@ -180,11 +205,16 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
         </div>
 
         {/* Scrollable content */}
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
           <div className="flex-1 space-y-6 overflow-y-auto px-6 py-4">
             {/* Base */}
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-pf-text-primary">Informazioni Base</h3>
+              <h3 className="text-sm font-semibold text-pf-text-primary">
+                Informazioni Base
+              </h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <label className={labelClassName}>Titolo *</label>
@@ -192,7 +222,10 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
                     type="text"
                     value={form.title}
                     onChange={(e) => updateField('title', e.target.value)}
-                    className={cn(inputClassName, errors.title && 'border-red-500')}
+                    className={cn(
+                      inputClassName,
+                      errors.title && 'border-red-500',
+                    )}
                     placeholder="Titolo della gara"
                   />
                   {errors.title && (
@@ -204,7 +237,10 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
                   <select
                     value={form.tender_type}
                     onChange={(e) => updateField('tender_type', e.target.value)}
-                    className={cn(inputClassName, errors.tender_type && 'border-red-500')}
+                    className={cn(
+                      inputClassName,
+                      errors.tender_type && 'border-red-500',
+                    )}
                   >
                     {Object.entries(TENDER_TYPE_LABELS).map(([key, label]) => (
                       <option key={key} value={key}>
@@ -228,7 +264,9 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
 
             {/* Authority & IDs */}
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-pf-text-primary">Ente e Identificativi</h3>
+              <h3 className="text-sm font-semibold text-pf-text-primary">
+                Ente e Identificativi
+              </h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className={labelClassName}>CIG</label>
@@ -267,7 +305,9 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
                   <input
                     type="url"
                     value={form.platform_url}
-                    onChange={(e) => updateField('platform_url', e.target.value)}
+                    onChange={(e) =>
+                      updateField('platform_url', e.target.value)
+                    }
                     className={inputClassName}
                     placeholder="https://..."
                   />
@@ -277,14 +317,18 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
 
             {/* Dates */}
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-pf-text-primary">Scadenze</h3>
+              <h3 className="text-sm font-semibold text-pf-text-primary">
+                Scadenze
+              </h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className={labelClassName}>Data Pubblicazione</label>
                   <input
                     type="date"
                     value={form.publication_date}
-                    onChange={(e) => updateField('publication_date', e.target.value)}
+                    onChange={(e) =>
+                      updateField('publication_date', e.target.value)
+                    }
                     className={inputClassName}
                   />
                 </div>
@@ -293,16 +337,22 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
                   <input
                     type="date"
                     value={form.question_deadline}
-                    onChange={(e) => updateField('question_deadline', e.target.value)}
+                    onChange={(e) =>
+                      updateField('question_deadline', e.target.value)
+                    }
                     className={inputClassName}
                   />
                 </div>
                 <div>
-                  <label className={labelClassName}>Scadenza Presentazione</label>
+                  <label className={labelClassName}>
+                    Scadenza Presentazione
+                  </label>
                   <input
                     type="date"
                     value={form.submission_deadline}
-                    onChange={(e) => updateField('submission_deadline', e.target.value)}
+                    onChange={(e) =>
+                      updateField('submission_deadline', e.target.value)
+                    }
                     className={inputClassName}
                   />
                 </div>
@@ -311,7 +361,9 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
                   <input
                     type="date"
                     value={form.opening_date}
-                    onChange={(e) => updateField('opening_date', e.target.value)}
+                    onChange={(e) =>
+                      updateField('opening_date', e.target.value)
+                    }
                     className={inputClassName}
                   />
                 </div>
@@ -320,7 +372,9 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
 
             {/* Amounts */}
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-pf-text-primary">Importi e Criteri</h3>
+              <h3 className="text-sm font-semibold text-pf-text-primary">
+                Importi e Criteri
+              </h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className={labelClassName}>Importo Base (EUR)</label>
@@ -335,11 +389,15 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
                   />
                 </div>
                 <div>
-                  <label className={labelClassName}>Criterio di Aggiudicazione</label>
+                  <label className={labelClassName}>
+                    Criterio di Aggiudicazione
+                  </label>
                   <input
                     type="text"
                     value={form.award_criteria}
-                    onChange={(e) => updateField('award_criteria', e.target.value)}
+                    onChange={(e) =>
+                      updateField('award_criteria', e.target.value)
+                    }
                     className={inputClassName}
                     placeholder="OEPV, prezzo piu basso..."
                   />
@@ -351,7 +409,9 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
                     min="0"
                     max="100"
                     value={form.technical_weight}
-                    onChange={(e) => updateField('technical_weight', e.target.value)}
+                    onChange={(e) =>
+                      updateField('technical_weight', e.target.value)
+                    }
                     className={inputClassName}
                     placeholder="0"
                   />
@@ -363,7 +423,9 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
                     min="0"
                     max="100"
                     value={form.economic_weight}
-                    onChange={(e) => updateField('economic_weight', e.target.value)}
+                    onChange={(e) =>
+                      updateField('economic_weight', e.target.value)
+                    }
                     className={inputClassName}
                     placeholder="0"
                   />
@@ -373,7 +435,9 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
 
             {/* Assignment */}
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-pf-text-primary">Assegnazione</h3>
+              <h3 className="text-sm font-semibold text-pf-text-primary">
+                Assegnazione
+              </h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className={labelClassName}>Categoria</label>
@@ -406,7 +470,9 @@ export function TenderFormDialog({ open, onOpenChange, initialData }: TenderForm
                   />
                 </div>
                 <div>
-                  <label className={labelClassName}>Tag (separati da virgola)</label>
+                  <label className={labelClassName}>
+                    Tag (separati da virgola)
+                  </label>
                   <input
                     type="text"
                     value={form.tags}

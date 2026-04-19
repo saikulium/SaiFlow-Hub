@@ -8,16 +8,13 @@ import { PaginationBar } from '@/components/shared/pagination-bar'
 import { SkeletonRows } from '@/components/shared/skeleton-row'
 import { TableEmptyState } from '@/components/shared/table-empty-state'
 import { DeleteRowButton } from '@/components/shared/delete-row-button'
-import {
-  TenderFiltersBar,
-  type TenderFilters,
-} from '@/components/tenders/tender-filters'
-import { TenderStatusBadge } from '@/components/tenders/tender-status-badge'
-import { TenderFormDialog } from '@/components/tenders/tender-form-dialog'
+import { TenderFiltersBar, type TenderFilters } from './tender-filters'
+import { TenderStatusBadge } from './tender-status-badge'
+import { TenderFormDialog } from './tender-form-dialog'
 import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog'
 import { useDeleteRecord, useIsAdmin } from '@/hooks/use-delete-record'
-import { useTenders } from '@/hooks/use-tenders'
-import { TENDER_TYPE_LABELS } from '@/lib/constants/tenders'
+import { useTenders } from '../hooks/use-tenders'
+import { TENDER_TYPE_LABELS } from '../constants'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 const DEFAULT_PAGE_SIZE = 20

@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
 import { assertModuleEnabled } from '@/lib/module-guard'
-import { getTenderDashboardStats } from '@/server/services/tenders.service'
+import { getTenderDashboardStats } from '@/modules/core/tenders'
 
 export async function GET() {
   const packGate = assertModuleEnabled('tenders')

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api-response'
-import { analyzeTender } from '@/server/agents/tender-analysis.agent'
+import { analyzeTender } from '@/modules/core/tenders'
 
 // ---------------------------------------------------------------------------
 // POST /api/agents/tender-analysis — Trigger tender analysis agent
@@ -76,8 +76,7 @@ export async function POST(request: Request) {
 
     // Persist the analysis to DB via save_tender_analysis tool (server-side call)
     try {
-      const { saveTenderAnalysisTool } =
-        await import('@/server/agents/tools/tender.tools')
+      const { saveTenderAnalysisTool } = await import('@/modules/core/tenders')
       const parsed = saveTenderAnalysisTool.parse({
         tender_id: tenderId,
         recommendation: result.analysis.recommendation,

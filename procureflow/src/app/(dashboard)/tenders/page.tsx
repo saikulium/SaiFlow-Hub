@@ -1,5 +1,4 @@
-import { TendersPageContent } from '@/components/tenders/tenders-page-content'
-
+import { TendersPageContent } from '@/modules/core/tenders'
 
 export default function TendersPage() {
   return <TendersPageContent />

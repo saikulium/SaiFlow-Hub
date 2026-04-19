@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  TenderAnalysisSchema,
-  TenderRiskSchema,
-} from '@/lib/ai/schemas/tender-analysis.schema'
+import { TenderAnalysisSchema, TenderRiskSchema } from '@/modules/core/tenders'
 
 // ---------------------------------------------------------------------------
 // Schema validation tests
@@ -12,7 +9,8 @@ describe('TenderAnalysisSchema', () => {
   const validAnalysis = {
     fit_score: 72,
     recommendation: 'GO',
-    reasoning: 'La PMI ha le competenze tecniche richieste e il margine atteso e positivo.',
+    reasoning:
+      'La PMI ha le competenze tecniche richieste e il margine atteso e positivo.',
     pros: ['Esperienza nel settore', 'Certificazioni presenti'],
     cons: ['Scadenza ravvicinata', 'Importo elevato'],
     risks: [
@@ -101,9 +99,7 @@ describe('TenderAnalysisSchema', () => {
 
   it('rejects missing required fields', () => {
     expect(() => TenderAnalysisSchema.parse({})).toThrow()
-    expect(() =>
-      TenderAnalysisSchema.parse({ fit_score: 50 }),
-    ).toThrow()
+    expect(() => TenderAnalysisSchema.parse({ fit_score: 50 })).toThrow()
   })
 })
 
@@ -148,12 +144,12 @@ describe('TenderRiskSchema', () => {
 
 describe('TenderAnalysisAgent module', () => {
   it('exports analyzeTender function', async () => {
-    const mod = await import('@/server/agents/tender-analysis.agent')
+    const mod = await import('@/modules/core/tenders')
     expect(typeof mod.analyzeTender).toBe('function')
   })
 
   it('has only the expected export', async () => {
-    const mod = await import('@/server/agents/tender-analysis.agent')
+    const mod = await import('@/modules/core/tenders')
     const exportKeys = Object.keys(mod)
     expect(exportKeys).toContain('analyzeTender')
   })
@@ -161,7 +157,7 @@ describe('TenderAnalysisAgent module', () => {
 
 describe('TenderAnalysisSchema module', () => {
   it('exports TenderAnalysisSchema and TenderRiskSchema', async () => {
-    const mod = await import('@/lib/ai/schemas/tender-analysis.schema')
+    const mod = await import('@/modules/core/tenders')
     expect(mod.TenderAnalysisSchema).toBeDefined()
     expect(mod.TenderRiskSchema).toBeDefined()
   })

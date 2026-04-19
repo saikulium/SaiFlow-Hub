@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { createListHook } from './create-list-hook'
+import { createListHook } from '@/hooks/create-list-hook'
 import type { TenderListItem } from '@/types'
 
 interface TenderQueryParams {

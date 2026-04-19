@@ -11,8 +11,8 @@ import { assertModuleEnabled } from '@/lib/module-guard'
 import {
   createTenderSchema,
   tenderQuerySchema,
-} from '@/lib/validations/tenders'
-import { getNextTenderCode } from '@/server/services/tenders.service'
+  getNextTenderCode,
+} from '@/modules/core/tenders'
 import type { TenderListItem } from '@/types'
 
 export async function GET(req: NextRequest) {

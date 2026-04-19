@@ -9,8 +9,10 @@ import {
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
 import { assertModuleEnabled } from '@/lib/module-guard'
-import { statusTransitionSchema } from '@/lib/validations/tenders'
-import { validateStatusTransition } from '@/server/services/tenders.service'
+import {
+  statusTransitionSchema,
+  validateStatusTransition,
+} from '@/modules/core/tenders'
 
 export async function PATCH(
   req: NextRequest,

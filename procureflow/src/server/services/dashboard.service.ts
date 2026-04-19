@@ -1,4 +1,4 @@
-export { getTenderDashboardStats } from '@/server/services/tenders.service'
+export { getTenderDashboardStats } from '@/modules/core/tenders'
 export { getInventoryDashboardStats } from '@/server/services/inventory-db.service'
 import { prisma } from '@/lib/db'
 import { REQUEST_STATUS_CONFIG, type RequestStatusKey } from '@/lib/constants'
@@ -6,8 +6,18 @@ import { INVOICE_MATCH_STATUS_CONFIG } from '@/lib/constants/sdi'
 import { getBudgetDashboardStats as computeBudgetDashboardStats } from '@/server/services/budget.service'
 
 const MONTH_NAMES = [
-  'Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu',
-  'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic',
+  'Gen',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mag',
+  'Giu',
+  'Lug',
+  'Ago',
+  'Set',
+  'Ott',
+  'Nov',
+  'Dic',
 ]
 
 import type {
@@ -31,8 +41,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
 
   const closedStatuses = [
-    'DELIVERED', 'INVOICED', 'RECONCILED',
-    'CLOSED', 'CANCELLED', 'REJECTED',
+    'DELIVERED',
+    'INVOICED',
+    'RECONCILED',
+    'CLOSED',
+    'CANCELLED',
+    'REJECTED',
   ] as const
 
   // $transaction batches all queries in a single DB round-trip on one connection
@@ -198,8 +212,12 @@ export async function getSpendByVendor(): Promise<SpendByVendor[]> {
     where: {
       status: {
         in: [
-          'ORDERED', 'SHIPPED', 'DELIVERED',
-          'INVOICED', 'RECONCILED', 'CLOSED',
+          'ORDERED',
+          'SHIPPED',
+          'DELIVERED',
+          'INVOICED',
+          'RECONCILED',
+          'CLOSED',
         ],
       },
       vendor_id: { not: null },

@@ -2,7 +2,7 @@ import {
   VALID_TRANSITIONS,
   TERMINAL_STATUSES,
   PIPELINE_STATUSES,
-} from '@/lib/constants/tenders'
+} from '../constants'
 import type { GoNoGoScoreInput } from '@/types'
 
 /**
@@ -90,7 +90,7 @@ export function isPipelineStatus(status: string): boolean {
 // ---------------------------------------------------------------------------
 
 import { prisma } from '@/lib/db'
-import { TENDER_STATUS_CONFIG } from '@/lib/constants/tenders'
+import { TENDER_STATUS_CONFIG } from '../constants'
 import type { TenderDashboardStats } from '@/types'
 
 /**

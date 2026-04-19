@@ -1,4 +1,4 @@
-import { TENDER_STATUS_CONFIG } from '@/lib/constants/tenders'
+import { TENDER_STATUS_CONFIG } from '../constants'
 import { cn } from '@/lib/utils'
 
 interface TenderStatusBadgeProps {

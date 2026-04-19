@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
-import { TENDER_STATUS_CONFIG, TENDER_TYPE_LABELS } from '@/lib/constants/tenders'
+import { TENDER_STATUS_CONFIG, TENDER_TYPE_LABELS } from '../constants'
 import { cn } from '@/lib/utils'
 
 export interface TenderFilters {
@@ -16,7 +16,10 @@ interface TenderFiltersBarProps {
   onFiltersChange: (filters: TenderFilters) => void
 }
 
-export function TenderFiltersBar({ filters, onFiltersChange }: TenderFiltersBarProps) {
+export function TenderFiltersBar({
+  filters,
+  onFiltersChange,
+}: TenderFiltersBarProps) {
   const [searchValue, setSearchValue] = useState(filters.search ?? '')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -76,7 +79,7 @@ export function TenderFiltersBar({ filters, onFiltersChange }: TenderFiltersBarP
   }, [onFiltersChange])
 
   return (
-    <div className="space-y-4 rounded-card border border-pf-border bg-pf-bg-secondary/60 p-4 backdrop-blur-xl">
+    <div className="bg-pf-bg-secondary/60 space-y-4 rounded-card border border-pf-border p-4 backdrop-blur-xl">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         {/* Search */}
         <div className="relative flex-1">
@@ -86,7 +89,7 @@ export function TenderFiltersBar({ filters, onFiltersChange }: TenderFiltersBarP
             value={searchValue}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Cerca per titolo, codice o CIG..."
-            className="w-full rounded-button border border-pf-border bg-pf-bg-primary/50 py-2 pl-10 pr-4 text-sm text-pf-text-primary placeholder:text-pf-text-secondary/60 focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
+            className="bg-pf-bg-primary/50 placeholder:text-pf-text-secondary/60 w-full rounded-button border border-pf-border py-2 pl-10 pr-4 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
           />
           {searchValue && (
             <button
@@ -102,7 +105,7 @@ export function TenderFiltersBar({ filters, onFiltersChange }: TenderFiltersBarP
         <select
           value={filters.status ?? ''}
           onChange={handleStatusChange}
-          className="rounded-button border border-pf-border bg-pf-bg-primary/50 px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
+          className="bg-pf-bg-primary/50 rounded-button border border-pf-border px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
         >
           <option value="">Tutti gli stati</option>
           {Object.entries(TENDER_STATUS_CONFIG).map(([key, config]) => (
@@ -116,7 +119,7 @@ export function TenderFiltersBar({ filters, onFiltersChange }: TenderFiltersBarP
         <select
           value={filters.tender_type ?? ''}
           onChange={handleTypeChange}
-          className="rounded-button border border-pf-border bg-pf-bg-primary/50 px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
+          className="bg-pf-bg-primary/50 rounded-button border border-pf-border px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
         >
           <option value="">Tutti i tipi</option>
           {Object.entries(TENDER_TYPE_LABELS).map(([key, label]) => (

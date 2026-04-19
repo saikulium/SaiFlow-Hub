@@ -4,7 +4,7 @@ import {
   errorResponse,
   notFoundResponse,
 } from '@/lib/api-response'
-import { updateTenderSchema } from '@/lib/validations/tenders'
+import { updateTenderSchema } from '@/modules/core/tenders'
 import { withApiHandler } from '@/lib/api-handler'
 import type { TenderDetail } from '@/types'
 

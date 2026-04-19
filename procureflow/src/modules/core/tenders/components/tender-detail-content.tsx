@@ -13,18 +13,22 @@ import {
   Download,
 } from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
-import { TenderStatusBadge } from '@/components/tenders/tender-status-badge'
-import { TenderFormDialog } from '@/components/tenders/tender-form-dialog'
-import { GoNoGoDialog } from '@/components/tenders/go-no-go-dialog'
-import { useTender, useUpdateTenderStatus } from '@/hooks/use-tender'
+import { TenderStatusBadge } from './tender-status-badge'
+import { TenderFormDialog } from './tender-form-dialog'
+import { GoNoGoDialog } from './go-no-go-dialog'
+import { useTender, useUpdateTenderStatus } from '../hooks/use-tender'
 import {
   TENDER_STATUS_CONFIG,
   TENDER_TYPE_LABELS,
   DOCUMENT_TYPE_LABELS,
   VALID_TRANSITIONS,
-} from '@/lib/constants/tenders'
+} from '../constants'
 import { cn, formatCurrency, formatDate, formatRelativeTime } from '@/lib/utils'
-import type { TenderDetail, TenderDocumentItem, TenderTimelineItem } from '@/types'
+import type {
+  TenderDetail,
+  TenderDocumentItem,
+  TenderTimelineItem,
+} from '@/types'
 
 interface TenderDetailContentProps {
   id: string
@@ -65,7 +69,9 @@ function DocumentRow({ doc }: { doc: TenderDocumentItem }) {
       <div className="flex items-center gap-3">
         <FileText className="h-5 w-5 shrink-0 text-pf-text-secondary" />
         <div>
-          <p className="text-sm font-medium text-pf-text-primary">{doc.filename}</p>
+          <p className="text-sm font-medium text-pf-text-primary">
+            {doc.filename}
+          </p>
           <div className="flex items-center gap-2 text-xs text-pf-text-secondary">
             <span className="rounded-badge bg-pf-bg-hover px-1.5 py-0.5 font-medium">
               {typeLabel}
@@ -99,9 +105,13 @@ function TimelineRow({ event }: { event: TenderTimelineItem }) {
         <div className="mt-1 flex-1 border-l border-pf-border" />
       </div>
       <div className="pb-6">
-        <p className="text-sm font-medium text-pf-text-primary">{event.title}</p>
+        <p className="text-sm font-medium text-pf-text-primary">
+          {event.title}
+        </p>
         {event.description && (
-          <p className="mt-0.5 text-xs text-pf-text-secondary">{event.description}</p>
+          <p className="mt-0.5 text-xs text-pf-text-secondary">
+            {event.description}
+          </p>
         )}
         <div className="mt-1 flex items-center gap-2 text-xs text-pf-text-muted">
           {event.actor && <span>{event.actor}</span>}
@@ -136,8 +146,14 @@ function DetailsTab({ tender }: { tender: TenderDetail }) {
     <div className="space-y-6">
       {/* Main info */}
       <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-        <DetailField label="Tipo Procedura" value={TENDER_TYPE_LABELS[tender.tenderType] ?? tender.tenderType} />
-        <DetailField label="Ente Appaltante" value={tender.contractingAuthority} />
+        <DetailField
+          label="Tipo Procedura"
+          value={TENDER_TYPE_LABELS[tender.tenderType] ?? tender.tenderType}
+        />
+        <DetailField
+          label="Ente Appaltante"
+          value={tender.contractingAuthority}
+        />
         <DetailField label="CIG" value={tender.cig} />
         <DetailField label="CUP" value={tender.cup} />
         <DetailField label="Numero Gara" value={tender.garaNumber} />
@@ -163,45 +179,147 @@ function DetailsTab({ tender }: { tender: TenderDetail }) {
 
       {/* Dates */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-pf-text-primary">Scadenze</h3>
+        <h3 className="mb-3 text-sm font-semibold text-pf-text-primary">
+          Scadenze
+        </h3>
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-          <DetailField label="Pubblicazione" value={tender.publicationDate ? formatDate(tender.publicationDate) : null} />
-          <DetailField label="Scadenza Quesiti" value={tender.questionDeadline ? formatDate(tender.questionDeadline) : null} />
-          <DetailField label="Scadenza Presentazione" value={tender.submissionDeadline ? formatDate(tender.submissionDeadline) : null} />
-          <DetailField label="Apertura Buste" value={tender.openingDate ? formatDate(tender.openingDate) : null} />
-          <DetailField label="Data Aggiudicazione" value={tender.awardDate ? formatDate(tender.awardDate) : null} />
-          <DetailField label="Inizio Contratto" value={tender.contractStartDate ? formatDate(tender.contractStartDate) : null} />
-          <DetailField label="Fine Contratto" value={tender.contractEndDate ? formatDate(tender.contractEndDate) : null} />
+          <DetailField
+            label="Pubblicazione"
+            value={
+              tender.publicationDate ? formatDate(tender.publicationDate) : null
+            }
+          />
+          <DetailField
+            label="Scadenza Quesiti"
+            value={
+              tender.questionDeadline
+                ? formatDate(tender.questionDeadline)
+                : null
+            }
+          />
+          <DetailField
+            label="Scadenza Presentazione"
+            value={
+              tender.submissionDeadline
+                ? formatDate(tender.submissionDeadline)
+                : null
+            }
+          />
+          <DetailField
+            label="Apertura Buste"
+            value={tender.openingDate ? formatDate(tender.openingDate) : null}
+          />
+          <DetailField
+            label="Data Aggiudicazione"
+            value={tender.awardDate ? formatDate(tender.awardDate) : null}
+          />
+          <DetailField
+            label="Inizio Contratto"
+            value={
+              tender.contractStartDate
+                ? formatDate(tender.contractStartDate)
+                : null
+            }
+          />
+          <DetailField
+            label="Fine Contratto"
+            value={
+              tender.contractEndDate ? formatDate(tender.contractEndDate) : null
+            }
+          />
         </div>
       </div>
 
       {/* Amounts & Scores */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-pf-text-primary">Importi e Punteggi</h3>
+        <h3 className="mb-3 text-sm font-semibold text-pf-text-primary">
+          Importi e Punteggi
+        </h3>
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-          <DetailField label="Importo Base" value={tender.baseAmount != null ? formatCurrency(tender.baseAmount) : null} />
-          <DetailField label="Offerta Nostra" value={tender.ourOfferAmount != null ? formatCurrency(tender.ourOfferAmount) : null} />
-          <DetailField label="Importo Aggiudicato" value={tender.awardedAmount != null ? formatCurrency(tender.awardedAmount) : null} />
-          <DetailField label="Criterio Aggiudicazione" value={tender.awardCriteria} />
-          <DetailField label="Peso Tecnico" value={tender.technicalWeight != null ? `${tender.technicalWeight}%` : null} />
-          <DetailField label="Peso Economico" value={tender.economicWeight != null ? `${tender.economicWeight}%` : null} />
-          <DetailField label="Punteggio Tecnico" value={tender.ourTechnicalScore} />
-          <DetailField label="Punteggio Economico" value={tender.ourEconomicScore} />
+          <DetailField
+            label="Importo Base"
+            value={
+              tender.baseAmount != null
+                ? formatCurrency(tender.baseAmount)
+                : null
+            }
+          />
+          <DetailField
+            label="Offerta Nostra"
+            value={
+              tender.ourOfferAmount != null
+                ? formatCurrency(tender.ourOfferAmount)
+                : null
+            }
+          />
+          <DetailField
+            label="Importo Aggiudicato"
+            value={
+              tender.awardedAmount != null
+                ? formatCurrency(tender.awardedAmount)
+                : null
+            }
+          />
+          <DetailField
+            label="Criterio Aggiudicazione"
+            value={tender.awardCriteria}
+          />
+          <DetailField
+            label="Peso Tecnico"
+            value={
+              tender.technicalWeight != null
+                ? `${tender.technicalWeight}%`
+                : null
+            }
+          />
+          <DetailField
+            label="Peso Economico"
+            value={
+              tender.economicWeight != null ? `${tender.economicWeight}%` : null
+            }
+          />
+          <DetailField
+            label="Punteggio Tecnico"
+            value={tender.ourTechnicalScore}
+          />
+          <DetailField
+            label="Punteggio Economico"
+            value={tender.ourEconomicScore}
+          />
           <DetailField label="Punteggio Totale" value={tender.ourTotalScore} />
           <DetailField label="Partecipanti" value={tender.participantsCount} />
           <DetailField label="Vincitore" value={tender.winnerName} />
-          <DetailField label="Importo Vincitore" value={tender.winnerAmount != null ? formatCurrency(tender.winnerAmount) : null} />
+          <DetailField
+            label="Importo Vincitore"
+            value={
+              tender.winnerAmount != null
+                ? formatCurrency(tender.winnerAmount)
+                : null
+            }
+          />
         </div>
       </div>
 
       {/* Go/No-Go details */}
       {tender.goNoGoScore != null && (
         <div>
-          <h3 className="mb-3 text-sm font-semibold text-pf-text-primary">Decisione Go/No-Go</h3>
+          <h3 className="mb-3 text-sm font-semibold text-pf-text-primary">
+            Decisione Go/No-Go
+          </h3>
           <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-            <DetailField label="Punteggio" value={`${tender.goNoGoScore}/100`} />
+            <DetailField
+              label="Punteggio"
+              value={`${tender.goNoGoScore}/100`}
+            />
             <DetailField label="Deciso da" value={tender.goNoGoDecidedBy} />
-            <DetailField label="Data Decisione" value={tender.goNoGoDecidedAt ? formatDate(tender.goNoGoDecidedAt) : null} />
+            <DetailField
+              label="Data Decisione"
+              value={
+                tender.goNoGoDecidedAt
+                  ? formatDate(tender.goNoGoDecidedAt)
+                  : null
+              }
+            />
             {tender.goNoGoNotes && (
               <div className="sm:col-span-2">
                 <DetailField label="Note" value={tender.goNoGoNotes} />
@@ -213,15 +331,20 @@ function DetailsTab({ tender }: { tender: TenderDetail }) {
 
       {/* Classification */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-pf-text-primary">Classificazione</h3>
+        <h3 className="mb-3 text-sm font-semibold text-pf-text-primary">
+          Classificazione
+        </h3>
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
           <DetailField label="Categoria" value={tender.category} />
           <DetailField label="Dipartimento" value={tender.department} />
           <DetailField label="Centro di Costo" value={tender.costCenter} />
           <DetailField label="Creato da" value={tender.createdBy} />
-          <DetailField label="Data Creazione" value={formatDate(tender.createdAt)} />
+          <DetailField
+            label="Data Creazione"
+            value={formatDate(tender.createdAt)}
+          />
           {tender.tags.length > 0 && (
-            <div className="sm:col-span-2 space-y-1">
+            <div className="space-y-1 sm:col-span-2">
               <dt className="text-xs font-medium uppercase tracking-wider text-pf-text-secondary">
                 Tag
               </dt>
@@ -300,14 +423,17 @@ export function TenderDetailContent({ id }: TenderDetailContentProps) {
             ) : tender ? (
               <div className="flex items-center gap-3">
                 <h1 className="font-display text-xl font-bold text-pf-text-primary sm:text-2xl">
-                  <span className="font-mono text-pf-text-secondary">{tender.code}</span>
-                  {' '}
+                  <span className="font-mono text-pf-text-secondary">
+                    {tender.code}
+                  </span>{' '}
                   {tender.title}
                 </h1>
                 <TenderStatusBadge status={tender.status} />
               </div>
             ) : (
-              <h1 className="text-xl font-bold text-pf-text-primary">Gara non trovata</h1>
+              <h1 className="text-xl font-bold text-pf-text-primary">
+                Gara non trovata
+              </h1>
             )}
           </div>
 
@@ -340,7 +466,11 @@ export function TenderDetailContent({ id }: TenderDetailContentProps) {
                               onClick={() => handleStatusChange(status)}
                               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-pf-text-primary transition-colors hover:bg-pf-bg-hover"
                             >
-                              {config && <config.icon className={cn('h-4 w-4', config.color)} />}
+                              {config && (
+                                <config.icon
+                                  className={cn('h-4 w-4', config.color)}
+                                />
+                              )}
                               {config?.label ?? status}
                             </button>
                           )
@@ -412,7 +542,7 @@ export function TenderDetailContent({ id }: TenderDetailContentProps) {
         )}
 
         {/* Tab content */}
-        <div className="rounded-card border border-pf-border bg-pf-bg-secondary/60 p-6 backdrop-blur-xl">
+        <div className="bg-pf-bg-secondary/60 rounded-card border border-pf-border p-6 backdrop-blur-xl">
           {isLoading && <DetailsSkeleton />}
 
           {!isLoading && !tender && (

@@ -20,8 +20,8 @@ import {
   getTenderDetailTool,
   updateTenderStatusTool,
   decideTenderGoNogoTool,
-} from './tender.tools'
-import { validateStatusTransition } from '@/server/services/tenders.service'
+  validateStatusTransition,
+} from '@/modules/core/tenders'
 import { disputeInvoiceTool } from './invoice.tools'
 import { COMMENT_TOOLS } from './comment.tools'
 import { ATTACHMENT_TOOLS } from './attachment.tools'

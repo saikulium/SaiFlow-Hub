@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { TENDER_TOOLS } from '@/server/agents/tools/tender.tools'
+import { TENDER_TOOLS } from '@/modules/core/tenders'
 
 describe('tender.tools', () => {
   it('exports 5 tools', () => {

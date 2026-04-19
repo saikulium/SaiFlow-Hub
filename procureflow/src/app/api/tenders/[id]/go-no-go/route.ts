@@ -9,8 +9,7 @@ import {
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
 import { assertModuleEnabled } from '@/lib/module-guard'
-import { goNoGoSchema } from '@/lib/validations/tenders'
-import { computeGoNoGoScore } from '@/server/services/tenders.service'
+import { goNoGoSchema, computeGoNoGoScore } from '@/modules/core/tenders'
 
 export async function POST(
   req: NextRequest,

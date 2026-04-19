@@ -2,8 +2,8 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
-import { GO_NO_GO_CRITERIA } from '@/lib/constants/tenders'
-import { useGoNoGoDecision } from '@/hooks/use-tender'
+import { GO_NO_GO_CRITERIA } from '../constants'
+import { useGoNoGoDecision } from '../hooks/use-tender'
 import { cn } from '@/lib/utils'
 import type { GoNoGoScoreInput } from '@/types'
 
@@ -33,12 +33,20 @@ function getRecommendation(total: number): {
     return { label: 'NO GO', color: 'text-red-400', bgColor: 'bg-red-400' }
   }
   if (total <= 60) {
-    return { label: 'VALUTARE', color: 'text-amber-400', bgColor: 'bg-amber-400' }
+    return {
+      label: 'VALUTARE',
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-400',
+    }
   }
   return { label: 'GO', color: 'text-green-400', bgColor: 'bg-green-400' }
 }
 
-export function GoNoGoDialog({ open, onOpenChange, tenderId }: GoNoGoDialogProps) {
+export function GoNoGoDialog({
+  open,
+  onOpenChange,
+  tenderId,
+}: GoNoGoDialogProps) {
   const [scores, setScores] = useState<GoNoGoScoreInput>({ ...INITIAL_SCORES })
   const [notes, setNotes] = useState('')
   const goNoGoMutation = useGoNoGoDecision()
@@ -54,7 +62,10 @@ export function GoNoGoDialog({ open, onOpenChange, tenderId }: GoNoGoDialogProps
     [scores],
   )
 
-  const recommendation = useMemo(() => getRecommendation(totalScore), [totalScore])
+  const recommendation = useMemo(
+    () => getRecommendation(totalScore),
+    [totalScore],
+  )
 
   const handleScoreChange = useCallback((key: ScoreKey, value: number) => {
     setScores((prev) => ({ ...prev, [key]: value }))
@@ -120,16 +131,22 @@ export function GoNoGoDialog({ open, onOpenChange, tenderId }: GoNoGoDialogProps
                   </label>
                   <span className="text-sm font-semibold text-pf-text-primary">
                     {value}
-                    <span className="text-pf-text-secondary">/{criterion.maxScore}</span>
+                    <span className="text-pf-text-secondary">
+                      /{criterion.maxScore}
+                    </span>
                   </span>
                 </div>
-                <p className="text-xs text-pf-text-secondary">{criterion.description}</p>
+                <p className="text-xs text-pf-text-secondary">
+                  {criterion.description}
+                </p>
                 <input
                   type="range"
                   min={0}
                   max={criterion.maxScore}
                   value={value}
-                  onChange={(e) => handleScoreChange(key, Number(e.target.value))}
+                  onChange={(e) =>
+                    handleScoreChange(key, Number(e.target.value))
+                  }
                   className="h-2 w-full cursor-pointer appearance-none rounded-full bg-pf-bg-tertiary accent-pf-accent"
                 />
               </div>
@@ -155,7 +172,12 @@ export function GoNoGoDialog({ open, onOpenChange, tenderId }: GoNoGoDialogProps
                 style={{ width: `${totalScore}%` }}
               />
             </div>
-            <p className={cn('text-center text-sm font-semibold', recommendation.color)}>
+            <p
+              className={cn(
+                'text-center text-sm font-semibold',
+                recommendation.color,
+              )}
+            >
               Raccomandazione: {recommendation.label}
             </p>
           </div>
@@ -169,7 +191,7 @@ export function GoNoGoDialog({ open, onOpenChange, tenderId }: GoNoGoDialogProps
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full rounded-button border border-pf-border bg-pf-bg-primary/50 px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-secondary/60 focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
+              className="bg-pf-bg-primary/50 placeholder:text-pf-text-secondary/60 w-full rounded-button border border-pf-border px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
               placeholder="Motivazioni della decisione..."
             />
           </div>

@@ -1,8 +1,8 @@
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
-import { getNextTenderCode } from '@/server/services/tenders.service'
-import type { ZodTool } from './procurement.tools'
+import { getNextTenderCode } from './tenders.service'
+import type { ZodTool } from '@/server/agents/tools/procurement.tools'
 
 // ---------------------------------------------------------------------------
 // Tender Tools
@@ -149,8 +149,7 @@ const tenderStatusEnum = z.enum([
 
 export const updateTenderStatusTool = betaZodTool({
   name: 'update_tender_status',
-  description:
-    'Aggiorna lo stato di una gara rispettando la macchina a stati.',
+  description: 'Aggiorna lo stato di una gara rispettando la macchina a stati.',
   inputSchema: z.object({
     tender_id: z.string(),
     new_status: tenderStatusEnum,
