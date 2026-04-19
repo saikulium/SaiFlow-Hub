@@ -8,12 +8,12 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { updateCommessaSchema } from '@/lib/validations/commesse'
 import {
+  updateCommessaSchema,
   getCommessaDetail,
   updateCommessaStatus,
   CommessaTransitionError,
-} from '@/server/services/commessa.service'
+} from '@/modules/core/commesse'
 import { Prisma, type CommessaStatus } from '@prisma/client'
 
 export async function GET(

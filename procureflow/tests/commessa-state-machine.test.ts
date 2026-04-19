@@ -3,7 +3,7 @@ import {
   canCommessaTransition,
   assertCommessaTransition,
   CommessaTransitionError,
-} from '@/lib/commessa-state-machine'
+} from '@/modules/core/commesse'
 import type { CommessaStatus } from '@prisma/client'
 
 const s = (v: string) => v as CommessaStatus

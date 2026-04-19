@@ -11,9 +11,11 @@ import {
 import { createNotification } from '@/server/services/notification.service'
 import { REQUEST_STATUS_TOOLS } from './request-status.tools'
 import { APPROVAL_TOOLS } from './approval.tools'
-import { updateCommessaStatusTool } from './commessa.tools'
 import { updateVendorTool } from './vendor.tools'
-import { updateCommessaStatus } from '@/server/services/commessa.service'
+import {
+  updateCommessaStatusTool,
+  updateCommessaStatus,
+} from '@/modules/core/commesse'
 import {
   getTenderDetailTool,
   updateTenderStatusTool,

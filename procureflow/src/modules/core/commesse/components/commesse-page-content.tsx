@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { useCommesse } from '@/hooks/use-commesse'
 import { useClients } from '@/hooks/use-clients'
-import { CommessaCreateDialog } from '@/components/commesse/commessa-create-dialog'
+import { CommessaCreateDialog } from './commessa-create-dialog'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
@@ -75,7 +75,10 @@ const COMMESSA_CSV_COLUMNS = [
   { header: 'Titolo', accessor: (c: CommessaListItem) => c.title },
   { header: 'Cliente', accessor: (c: CommessaListItem) => c.clientName },
   { header: 'Stato', accessor: (c: CommessaListItem) => c.status },
-  { header: 'Valore Cliente', accessor: (c: CommessaListItem) => c.clientValue },
+  {
+    header: 'Valore Cliente',
+    accessor: (c: CommessaListItem) => c.clientValue,
+  },
   { header: 'Costi', accessor: (c: CommessaListItem) => c.totalCosts },
   { header: 'Margine %', accessor: (c: CommessaListItem) => c.marginPercent },
   { header: 'Scadenza', accessor: (c: CommessaListItem) => c.deadline },
@@ -120,13 +123,24 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-function MarginCell({ margin, marginPercent }: { margin: number | null; marginPercent: number | null }) {
+function MarginCell({
+  margin,
+  marginPercent,
+}: {
+  margin: number | null
+  marginPercent: number | null
+}) {
   if (margin == null || marginPercent == null) {
     return <span className="text-pf-text-muted">—</span>
   }
   const isPositive = margin >= 0
   return (
-    <span className={cn('font-medium', isPositive ? 'text-green-400' : 'text-red-400')}>
+    <span
+      className={cn(
+        'font-medium',
+        isPositive ? 'text-green-400' : 'text-red-400',
+      )}
+    >
       {formatCurrency(margin)}
       <span className="ml-1 text-xs">({marginPercent.toFixed(1)}%)</span>
     </span>
@@ -374,7 +388,10 @@ export function CommessePageContent() {
                       {formatCurrency(c.totalCosts)}
                     </td>
                     <td className="hidden whitespace-nowrap px-4 py-3 text-right lg:table-cell">
-                      <MarginCell margin={c.margin} marginPercent={c.marginPercent} />
+                      <MarginCell
+                        margin={c.margin}
+                        marginPercent={c.marginPercent}
+                      />
                     </td>
                     <td className="hidden whitespace-nowrap px-4 py-3 lg:table-cell">
                       {c.deadline ? (
@@ -414,7 +431,7 @@ export function CommessePageContent() {
           transition={{ duration: 0.4 }}
           className="flex min-h-[40vh] flex-col items-center justify-center rounded-card border border-pf-border bg-pf-bg-secondary p-8"
         >
-          <div className="flex h-14 w-14 items-center justify-center rounded-card bg-pf-accent/10">
+          <div className="bg-pf-accent/10 flex h-14 w-14 items-center justify-center rounded-card">
             <Briefcase className="h-7 w-7 text-pf-accent" />
           </div>
           <h3 className="mt-4 font-display text-lg font-semibold text-pf-text-primary">

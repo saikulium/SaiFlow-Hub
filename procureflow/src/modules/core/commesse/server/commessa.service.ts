@@ -4,7 +4,7 @@ import type { CommessaStatus } from '@prisma/client'
 import {
   assertCommessaTransition,
   CommessaTransitionError,
-} from '@/lib/commessa-state-machine'
+} from './state-machine'
 import type {
   CommessaDetail,
   CommessaRequestItem,

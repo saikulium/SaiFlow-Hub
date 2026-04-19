@@ -14,7 +14,7 @@ import {
   executeWriteTool,
 } from '@/server/agents/tools/procurement.tools'
 import { NOTIFICATION_TOOLS } from '@/server/agents/tools/notification.tools'
-import { COMMESSA_TOOLS } from '@/server/agents/tools/commessa.tools'
+import { COMMESSA_TOOLS } from '@/modules/core/commesse'
 import { ARTICLE_TOOLS } from '@/server/agents/tools/article.tools'
 import { VENDOR_TOOLS } from '@/server/agents/tools/vendor.tools'
 import { CLIENT_TOOLS } from '@/server/agents/tools/client.tools'

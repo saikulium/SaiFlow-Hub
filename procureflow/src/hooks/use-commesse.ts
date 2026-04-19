@@ -1,8 +1,15 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { CreateCommessaInput, UpdateCommessaInput } from '@/lib/validations/commesse'
-import type { CommessaListItem, CommessaDetail, CommessaDashboardStats } from '@/types'
+import type {
+  CreateCommessaInput,
+  UpdateCommessaInput,
+} from '@/modules/core/commesse'
+import type {
+  CommessaListItem,
+  CommessaDetail,
+  CommessaDashboardStats,
+} from '@/types'
 
 interface CommessaListParams {
   search?: string

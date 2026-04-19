@@ -1,10 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { Prisma } from '@prisma/client'
-import { computeMargin } from '../src/server/services/commessa.service'
+import { computeMargin } from '@/modules/core/commesse'
 
 describe('computeMargin', () => {
   it('returns null when clientValue is null', () => {
-    const result = computeMargin(null, new Prisma.Decimal(5000), new Prisma.Decimal(3000))
+    const result = computeMargin(
+      null,
+      new Prisma.Decimal(5000),
+      new Prisma.Decimal(3000),
+    )
     expect(result.margin).toBeNull()
     expect(result.marginPercent).toBeNull()
   })
@@ -40,11 +44,7 @@ describe('computeMargin', () => {
   })
 
   it('returns full value as margin when both costs are null', () => {
-    const result = computeMargin(
-      new Prisma.Decimal(10000),
-      null,
-      null,
-    )
+    const result = computeMargin(new Prisma.Decimal(10000), null, null)
     expect(result.margin).toBe(10000)
     expect(result.marginPercent).toBe(100)
   })

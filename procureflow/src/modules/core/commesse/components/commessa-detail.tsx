@@ -23,7 +23,7 @@ import {
   useRejectSuggestion,
   useUpdateCommessa,
 } from '@/hooks/use-commesse'
-import { SuggestionCard } from '@/components/commesse/suggestion-card'
+import { SuggestionCard } from './suggestion-card'
 import { cn } from '@/lib/utils'
 import { REQUEST_STATUS_CONFIG, PRIORITY_CONFIG } from '@/lib/constants'
 import type {

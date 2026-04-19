@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { getCommessaDashboardStats } from '@/server/services/commessa.service'
+import { getCommessaDashboardStats } from '@/modules/core/commesse'
 import { requireAuth } from '@/lib/auth'
 
 export async function GET() {

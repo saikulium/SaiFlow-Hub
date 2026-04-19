@@ -7,7 +7,7 @@ import { X, Loader2, AlertCircle } from 'lucide-react'
 import {
   createCommessaSchema,
   type CreateCommessaInput,
-} from '@/lib/validations/commesse'
+} from '../validations/commesse'
 import { useCreateCommessa } from '@/hooks/use-commesse'
 import { useClients } from '@/hooks/use-clients'
 import { cn } from '@/lib/utils'
