@@ -1,4 +1,4 @@
-import { InventoryDetailContent } from '@/components/inventory/inventory-detail-content'
+import { InventoryDetailContent } from '@/modules/core/inventory'
 
 export default function InventoryDetailPage() {
   return <InventoryDetailContent />

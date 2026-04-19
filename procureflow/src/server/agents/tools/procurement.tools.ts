@@ -27,7 +27,7 @@ import { COMMENT_TOOLS } from './comment.tools'
 import { ATTACHMENT_TOOLS } from './attachment.tools'
 import { getRequestTimelineTool } from './notification.tools'
 import { BUDGET_TOOLS } from '@/modules/core/budgets'
-import { STOCK_TOOLS } from './stock.tools'
+import { STOCK_TOOLS } from '@/modules/core/inventory'
 import {
   ARTICLE_TOOLS,
   findOrCreateArticleTool,

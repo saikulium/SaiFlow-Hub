@@ -70,7 +70,7 @@ vi.mock('@/lib/ai/claude-client', () => ({
   }),
 }))
 
-vi.mock('@/lib/constants/forecast', () => ({
+vi.mock('@/modules/core/inventory/constants/forecast', () => ({
   WMA_WEIGHTS: [3, 2, 1],
   WMA_MONTHS: 3,
   FORECAST_MONTHS_AHEAD: 3,
@@ -125,9 +125,11 @@ function createMockRunner(
 // Import after mocks
 // ---------------------------------------------------------------------------
 
-import { runReorderAgent } from '@/server/agents/smart-reorder.agent'
-import type { ReorderResult } from '@/server/agents/smart-reorder.agent'
-import { INVENTORY_TOOLS } from '@/server/agents/tools/inventory.tools'
+import {
+  runReorderAgent,
+  INVENTORY_TOOLS,
+  type ReorderResult,
+} from '@/modules/core/inventory'
 
 // ---------------------------------------------------------------------------
 // Tests: Module Exports

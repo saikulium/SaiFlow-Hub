@@ -1,4 +1,4 @@
-import { InventoriesPageContent } from '@/components/inventory/inventories-page-content'
+import { InventoriesPageContent } from '@/modules/core/inventory'
 
 export default function InventoriesPage() {
   return <InventoriesPageContent />

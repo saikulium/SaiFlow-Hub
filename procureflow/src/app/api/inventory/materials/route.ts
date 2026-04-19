@@ -10,9 +10,9 @@ import { requireModule } from '@/lib/modules/require-module'
 import {
   materialQuerySchema,
   createMaterialSchema,
-} from '@/lib/validations/inventory'
-import { getNextMaterialCode } from '@/server/services/inventory-db.service'
-import { computeStockLevel } from '@/server/services/inventory.service'
+  getNextMaterialCode,
+  computeStockLevel,
+} from '@/modules/core/inventory'
 import type { MaterialListItem } from '@/types'
 
 export async function GET(req: NextRequest) {

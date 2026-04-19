@@ -1,14 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Warehouse as WarehouseIcon, MapPin, CheckCircle, XCircle } from 'lucide-react'
+import {
+  Plus,
+  Warehouse as WarehouseIcon,
+  MapPin,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
-import { useWarehouses, useCreateWarehouse } from '@/hooks/use-stock'
+import { useWarehouses, useCreateWarehouse } from '../hooks/use-stock'
 import { cn } from '@/lib/utils'
 
 function SkeletonCard() {
   return (
-    <div className="rounded-card border border-pf-border bg-pf-bg-secondary/60 p-5">
+    <div className="bg-pf-bg-secondary/60 rounded-card border border-pf-border p-5">
       <div className="skeleton-shimmer mb-3 h-5 w-40 rounded" />
       <div className="skeleton-shimmer mb-2 h-4 w-60 rounded" />
       <div className="skeleton-shimmer h-4 w-24 rounded" />
@@ -143,7 +149,9 @@ export function WarehousesPageContent() {
               Magazzini
             </h1>
             <p className="mt-1 text-sm text-pf-text-secondary">
-              {isLoading ? 'Caricamento...' : `${items.length} magazzini configurati`}
+              {isLoading
+                ? 'Caricamento...'
+                : `${items.length} magazzini configurati`}
             </p>
           </div>
 
@@ -166,7 +174,7 @@ export function WarehousesPageContent() {
         )}
 
         {!isLoading && items.length === 0 && (
-          <div className="rounded-card border border-pf-border bg-pf-bg-secondary/60 px-4 py-16 text-center backdrop-blur-xl">
+          <div className="bg-pf-bg-secondary/60 rounded-card border border-pf-border px-4 py-16 text-center backdrop-blur-xl">
             <WarehouseIcon className="mx-auto mb-3 h-10 w-10 text-pf-text-muted" />
             <p className="text-sm font-medium text-pf-text-secondary">
               Nessun magazzino configurato
@@ -182,7 +190,7 @@ export function WarehousesPageContent() {
             {items.map((wh) => (
               <div
                 key={wh.id}
-                className="rounded-card border border-pf-border bg-pf-bg-secondary/60 p-5 backdrop-blur-xl transition-colors hover:bg-pf-bg-hover"
+                className="bg-pf-bg-secondary/60 rounded-card border border-pf-border p-5 backdrop-blur-xl transition-colors hover:bg-pf-bg-hover"
               >
                 <div className="flex items-start justify-between">
                   <div>

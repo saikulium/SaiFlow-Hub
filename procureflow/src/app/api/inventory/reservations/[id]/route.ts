@@ -8,7 +8,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { updateReservationSchema } from '@/lib/validations/inventory'
+import { updateReservationSchema } from '@/modules/core/inventory'
 
 export async function PATCH(
   req: NextRequest,

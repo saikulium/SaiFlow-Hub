@@ -8,7 +8,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { updateWarehouseSchema } from '@/lib/validations/inventory'
+import { updateWarehouseSchema } from '@/modules/core/inventory'
 
 export async function GET(
   _req: NextRequest,
@@ -49,11 +49,7 @@ export async function GET(
     })
   } catch (error) {
     console.error('GET /api/inventory/warehouses/[id] error:', error)
-    return errorResponse(
-      'INTERNAL_ERROR',
-      'Errore nel recupero magazzino',
-      500,
-    )
+    return errorResponse('INTERNAL_ERROR', 'Errore nel recupero magazzino', 500)
   }
 }
 

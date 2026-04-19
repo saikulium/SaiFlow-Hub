@@ -4,8 +4,8 @@ import { successResponse, errorResponse } from '@/lib/api-response'
 import {
   getBasicForecast,
   getAiForecast,
-} from '@/server/services/forecast.service'
-import { AI_FORECAST_RATE_LIMIT } from '@/lib/constants/forecast'
+  AI_FORECAST_RATE_LIMIT,
+} from '@/modules/core/inventory'
 
 // Simple in-memory rate limiter for AI forecasts
 const rateLimits = new Map<string, { count: number; windowStart: number }>()

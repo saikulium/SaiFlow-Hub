@@ -2,12 +2,12 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
-import { useCreateMovement } from '@/hooks/use-stock'
-import { useWarehouses } from '@/hooks/use-stock'
+import { useCreateMovement } from '../hooks/use-stock'
+import { useWarehouses } from '../hooks/use-stock'
 import {
   MOVEMENT_TYPE_CONFIG,
   MOVEMENT_REASON_LABELS,
-} from '@/lib/constants/inventory'
+} from '../constants/inventory'
 import { cn } from '@/lib/utils'
 
 interface MovementFormDialogProps {
@@ -48,10 +48,27 @@ const INITIAL_FORM: FormState = {
 }
 
 const REASONS_BY_TYPE: Record<string, string[]> = {
-  INBOUND: ['ACQUISTO', 'RESO_CLIENTE', 'PRODUZIONE', 'TRASFERIMENTO_IN', 'RETTIFICA_POSITIVA'],
-  OUTBOUND: ['VENDITA', 'RESO_FORNITORE', 'TRASFERIMENTO_OUT', 'RETTIFICA_NEGATIVA', 'SCARTO'],
+  INBOUND: [
+    'ACQUISTO',
+    'RESO_CLIENTE',
+    'PRODUZIONE',
+    'TRASFERIMENTO_IN',
+    'RETTIFICA_POSITIVA',
+  ],
+  OUTBOUND: [
+    'VENDITA',
+    'RESO_FORNITORE',
+    'TRASFERIMENTO_OUT',
+    'RETTIFICA_NEGATIVA',
+    'SCARTO',
+  ],
   TRANSFER: ['TRASFERIMENTO_IN', 'TRASFERIMENTO_OUT'],
-  ADJUSTMENT: ['RETTIFICA_POSITIVA', 'RETTIFICA_NEGATIVA', 'INVENTARIO', 'CORREZIONE_MANUALE'],
+  ADJUSTMENT: [
+    'RETTIFICA_POSITIVA',
+    'RETTIFICA_NEGATIVA',
+    'INVENTARIO',
+    'CORREZIONE_MANUALE',
+  ],
   RETURN: ['RESO_CLIENTE', 'RESO_FORNITORE'],
 }
 
@@ -63,7 +80,8 @@ function parsePayload(form: FormState): Record<string, unknown> {
     quantity: Number(form.quantity),
     warehouse_id: form.warehouse_id,
   }
-  if (form.quantity_secondary) payload.quantity_secondary = Number(form.quantity_secondary)
+  if (form.quantity_secondary)
+    payload.quantity_secondary = Number(form.quantity_secondary)
   if (form.unit_cost) payload.unit_cost = Number(form.unit_cost)
   if (form.lot_id) payload.lot_id = form.lot_id
   if (form.zone_id) payload.zone_id = form.zone_id
@@ -74,9 +92,14 @@ function parsePayload(form: FormState): Record<string, unknown> {
   return payload
 }
 
-export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogProps) {
+export function MovementFormDialog({
+  open,
+  onOpenChange,
+}: MovementFormDialogProps) {
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof FormState, string>>
+  >({})
 
   const createMutation = useCreateMovement()
   const { data: warehouses } = useWarehouses()
@@ -135,7 +158,8 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
     if (!form.quantity || Number(form.quantity) <= 0)
       newErrors.quantity = 'Quantita deve essere positiva'
     if (!form.warehouse_id) newErrors.warehouse_id = 'Magazzino obbligatorio'
-    if (isOutbound && !form.lot_id) newErrors.lot_id = 'Lotto obbligatorio per scarico'
+    if (isOutbound && !form.lot_id)
+      newErrors.lot_id = 'Lotto obbligatorio per scarico'
     if (isTransfer && !form.to_warehouse_id)
       newErrors.to_warehouse_id = 'Magazzino destinazione obbligatorio'
     setErrors(newErrors)
@@ -188,7 +212,10 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
         </div>
 
         {/* Scrollable content */}
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
           <div className="flex-1 space-y-5 overflow-y-auto px-6 py-4">
             {/* Type & Reason */}
             <div className="grid gap-3 sm:grid-cols-2">
@@ -197,7 +224,10 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
                 <select
                   value={form.movement_type}
                   onChange={(e) => updateField('movement_type', e.target.value)}
-                  className={cn(inputClassName, errors.movement_type && 'border-red-500')}
+                  className={cn(
+                    inputClassName,
+                    errors.movement_type && 'border-red-500',
+                  )}
                 >
                   {Object.entries(MOVEMENT_TYPE_CONFIG).map(([key, cfg]) => (
                     <option key={key} value={key}>
@@ -206,7 +236,9 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
                   ))}
                 </select>
                 {errors.movement_type && (
-                  <p className="mt-1 text-xs text-red-400">{errors.movement_type}</p>
+                  <p className="mt-1 text-xs text-red-400">
+                    {errors.movement_type}
+                  </p>
                 )}
               </div>
               <div>
@@ -214,7 +246,10 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
                 <select
                   value={form.reason}
                   onChange={(e) => updateField('reason', e.target.value)}
-                  className={cn(inputClassName, errors.reason && 'border-red-500')}
+                  className={cn(
+                    inputClassName,
+                    errors.reason && 'border-red-500',
+                  )}
                 >
                   <option value="">Seleziona causale...</option>
                   {availableReasons.map((r) => (
@@ -236,11 +271,16 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
                 type="text"
                 value={form.material_id}
                 onChange={(e) => updateField('material_id', e.target.value)}
-                className={cn(inputClassName, errors.material_id && 'border-red-500')}
+                className={cn(
+                  inputClassName,
+                  errors.material_id && 'border-red-500',
+                )}
                 placeholder="ID del materiale"
               />
               {errors.material_id && (
-                <p className="mt-1 text-xs text-red-400">{errors.material_id}</p>
+                <p className="mt-1 text-xs text-red-400">
+                  {errors.material_id}
+                </p>
               )}
             </div>
 
@@ -254,7 +294,10 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
                   min="0"
                   value={form.quantity}
                   onChange={(e) => updateField('quantity', e.target.value)}
-                  className={cn(inputClassName, errors.quantity && 'border-red-500')}
+                  className={cn(
+                    inputClassName,
+                    errors.quantity && 'border-red-500',
+                  )}
                   placeholder="0"
                 />
                 {errors.quantity && (
@@ -268,7 +311,9 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
                   step="0.001"
                   min="0"
                   value={form.quantity_secondary}
-                  onChange={(e) => updateField('quantity_secondary', e.target.value)}
+                  onChange={(e) =>
+                    updateField('quantity_secondary', e.target.value)
+                  }
                   className={inputClassName}
                   placeholder="0"
                 />
@@ -297,7 +342,10 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
                   type="text"
                   value={form.lot_id}
                   onChange={(e) => updateField('lot_id', e.target.value)}
-                  className={cn(inputClassName, errors.lot_id && 'border-red-500')}
+                  className={cn(
+                    inputClassName,
+                    errors.lot_id && 'border-red-500',
+                  )}
                   placeholder="ID del lotto"
                 />
                 {errors.lot_id && (
@@ -313,7 +361,10 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
                 <select
                   value={form.warehouse_id}
                   onChange={(e) => updateField('warehouse_id', e.target.value)}
-                  className={cn(inputClassName, errors.warehouse_id && 'border-red-500')}
+                  className={cn(
+                    inputClassName,
+                    errors.warehouse_id && 'border-red-500',
+                  )}
                 >
                   <option value="">Seleziona magazzino...</option>
                   {(warehouses ?? []).map((w) => (
@@ -323,7 +374,9 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
                   ))}
                 </select>
                 {errors.warehouse_id && (
-                  <p className="mt-1 text-xs text-red-400">{errors.warehouse_id}</p>
+                  <p className="mt-1 text-xs text-red-400">
+                    {errors.warehouse_id}
+                  </p>
                 )}
               </div>
               <div>
@@ -348,10 +401,14 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
             {isTransfer && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className={labelClassName}>Magazzino Destinazione *</label>
+                  <label className={labelClassName}>
+                    Magazzino Destinazione *
+                  </label>
                   <select
                     value={form.to_warehouse_id}
-                    onChange={(e) => updateField('to_warehouse_id', e.target.value)}
+                    onChange={(e) =>
+                      updateField('to_warehouse_id', e.target.value)
+                    }
                     className={cn(
                       inputClassName,
                       errors.to_warehouse_id && 'border-red-500',
@@ -396,7 +453,9 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
                 <input
                   type="text"
                   value={form.reference_code}
-                  onChange={(e) => updateField('reference_code', e.target.value)}
+                  onChange={(e) =>
+                    updateField('reference_code', e.target.value)
+                  }
                   className={inputClassName}
                   placeholder="DDT, fattura, ordine..."
                 />
@@ -431,7 +490,9 @@ export function MovementFormDialog({ open, onOpenChange }: MovementFormDialogPro
                 createMutation.isPending && 'cursor-not-allowed opacity-60',
               )}
             >
-              {createMutation.isPending ? 'Registrazione...' : 'Registra Movimento'}
+              {createMutation.isPending
+                ? 'Registrazione...'
+                : 'Registra Movimento'}
             </button>
           </div>
         </form>

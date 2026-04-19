@@ -7,11 +7,11 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { withApiHandler } from '@/lib/api-handler'
-import { getStockLevels } from '@/server/services/inventory-db.service'
 import {
+  getStockLevels,
   recordInboundMovement,
   recordOutboundMovement,
-} from '@/server/services/inventory-db.service'
+} from '@/modules/core/inventory'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 
 // ---------------------------------------------------------------------------

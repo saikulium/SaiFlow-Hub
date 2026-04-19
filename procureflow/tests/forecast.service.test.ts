@@ -35,7 +35,7 @@ describe('forecast.service', () => {
 
   describe('computeWMA', () => {
     it('computes correct weighted average with 6 months of data', async () => {
-      const { computeWMA } = await import('@/server/services/forecast.service')
+      const { computeWMA } = await import('@/modules/core/inventory')
 
       const result = computeWMA([100, 80, 90, 70, 60, 50])
 
@@ -47,7 +47,7 @@ describe('forecast.service', () => {
     })
 
     it('pads with zeros when fewer than 6 months provided', async () => {
-      const { computeWMA } = await import('@/server/services/forecast.service')
+      const { computeWMA } = await import('@/modules/core/inventory')
 
       const result = computeWMA([100, 80, 60])
 
@@ -62,7 +62,7 @@ describe('forecast.service', () => {
     })
 
     it('returns 0 for empty input', async () => {
-      const { computeWMA } = await import('@/server/services/forecast.service')
+      const { computeWMA } = await import('@/modules/core/inventory')
 
       expect(computeWMA([])).toBe(0)
     })
@@ -90,8 +90,7 @@ describe('forecast.service', () => {
         { month: '2025-10', total: 5 },
       ])
 
-      const { getBasicForecast } =
-        await import('@/server/services/forecast.service')
+      const { getBasicForecast } = await import('@/modules/core/inventory')
       const result = await getBasicForecast('mat-1')
 
       expect(result.materialId).toBe('mat-1')
@@ -105,8 +104,7 @@ describe('forecast.service', () => {
     it('throws when material not found', async () => {
       mockPrisma.material.findUnique.mockResolvedValue(null)
 
-      const { getBasicForecast } =
-        await import('@/server/services/forecast.service')
+      const { getBasicForecast } = await import('@/modules/core/inventory')
 
       await expect(getBasicForecast('nonexistent')).rejects.toThrow(
         'Material not found',
@@ -145,8 +143,7 @@ describe('forecast.service', () => {
         ],
       } as never)
 
-      const { getAiForecast } =
-        await import('@/server/services/forecast.service')
+      const { getAiForecast } = await import('@/modules/core/inventory')
       const result = await getAiForecast('mat-1')
 
       expect(result.aiProjected).toEqual([42, 45, 48])
@@ -170,8 +167,7 @@ describe('forecast.service', () => {
 
       mockCallClaude.mockRejectedValue(new Error('API unavailable'))
 
-      const { getAiForecast } =
-        await import('@/server/services/forecast.service')
+      const { getAiForecast } = await import('@/modules/core/inventory')
       const result = await getAiForecast('mat-1')
 
       // Should fall back to basic forecast values
@@ -220,8 +216,7 @@ describe('forecast.service', () => {
       mockPrisma.materialAlert.create.mockResolvedValue({ id: 'alert-1' })
       mockPrisma.materialAlert.updateMany.mockResolvedValue({ count: 0 })
 
-      const { checkReorderAlerts } =
-        await import('@/server/services/forecast.service')
+      const { checkReorderAlerts } = await import('@/modules/core/inventory')
       const result = await checkReorderAlerts()
 
       expect(result.alerts_created).toBe(1)
@@ -249,8 +244,7 @@ describe('forecast.service', () => {
       ]
       mockPrisma.materialAlert.findMany.mockResolvedValue(mockAlerts)
 
-      const { getActiveAlerts } =
-        await import('@/server/services/forecast.service')
+      const { getActiveAlerts } = await import('@/modules/core/inventory')
       const result = await getActiveAlerts()
 
       expect(result).toEqual(mockAlerts)
@@ -267,8 +261,7 @@ describe('forecast.service', () => {
     it('sets dismissed to true', async () => {
       mockPrisma.materialAlert.updateMany.mockResolvedValue({ count: 1 })
 
-      const { dismissAlert } =
-        await import('@/server/services/forecast.service')
+      const { dismissAlert } = await import('@/modules/core/inventory')
       await dismissAlert('alert-1')
 
       expect(mockPrisma.materialAlert.updateMany).toHaveBeenCalledWith({
@@ -282,8 +275,7 @@ describe('forecast.service', () => {
     it('sets resolved_by and dismissed', async () => {
       mockPrisma.materialAlert.updateMany.mockResolvedValue({ count: 1 })
 
-      const { resolveAlert } =
-        await import('@/server/services/forecast.service')
+      const { resolveAlert } = await import('@/modules/core/inventory')
       await resolveAlert('alert-1', 'req-123')
 
       expect(mockPrisma.materialAlert.updateMany).toHaveBeenCalledWith({

@@ -8,8 +8,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { updateMaterialSchema } from '@/lib/validations/inventory'
-import { getStockLevels } from '@/server/services/inventory-db.service'
+import { updateMaterialSchema, getStockLevels } from '@/modules/core/inventory'
 import type { MaterialDetail, LotSummary, ReservationSummary } from '@/types'
 
 export async function GET(

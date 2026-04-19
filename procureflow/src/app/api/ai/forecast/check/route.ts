@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
-import { checkReorderAlerts } from '@/server/services/forecast.service'
+import { checkReorderAlerts } from '@/modules/core/inventory'
 import { requireAuth } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api-response'
-import { getActiveAlerts } from '@/server/services/forecast.service'
+import { getActiveAlerts } from '@/modules/core/inventory'
 
 export async function GET() {
   const authResult = await requireAuth()

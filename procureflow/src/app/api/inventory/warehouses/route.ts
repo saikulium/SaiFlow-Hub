@@ -7,7 +7,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { createWarehouseSchema } from '@/lib/validations/inventory'
+import { createWarehouseSchema } from '@/modules/core/inventory'
 import type { WarehouseListItem } from '@/types'
 
 export async function GET(_req: NextRequest) {

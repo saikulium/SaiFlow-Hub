@@ -1,7 +1,7 @@
 import {
   STOCK_STATUS_CONFIG,
   type StockStatusKey,
-} from '@/lib/constants/inventory'
+} from '../constants/inventory'
 import { cn } from '@/lib/utils'
 
 interface StockLevelBadgeProps {

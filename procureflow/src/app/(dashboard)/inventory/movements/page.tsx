@@ -1,4 +1,4 @@
-import { MovementsPageContent } from '@/components/inventory/movements-page-content'
+import { MovementsPageContent } from '@/modules/core/inventory'
 
 export default function MovementsPage() {
   return <MovementsPageContent />

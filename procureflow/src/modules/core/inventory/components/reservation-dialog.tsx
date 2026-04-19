@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import { X } from 'lucide-react'
-import { useCreateReservation } from '@/hooks/use-stock'
+import { useCreateReservation } from '../hooks/use-stock'
 import { cn } from '@/lib/utils'
 
 interface ReservationDialogProps {
@@ -30,9 +30,14 @@ const INITIAL_FORM: FormState = {
   notes: '',
 }
 
-export function ReservationDialog({ open, onOpenChange }: ReservationDialogProps) {
+export function ReservationDialog({
+  open,
+  onOpenChange,
+}: ReservationDialogProps) {
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof FormState, string>>
+  >({})
   const createMutation = useCreateReservation()
 
   const inputClassName =
@@ -72,7 +77,8 @@ export function ReservationDialog({ open, onOpenChange }: ReservationDialogProps
       }
       if (form.lot_id) payload.lot_id = form.lot_id
       if (form.tender_id) payload.tender_id = form.tender_id
-      if (form.purchase_request_id) payload.purchase_request_id = form.purchase_request_id
+      if (form.purchase_request_id)
+        payload.purchase_request_id = form.purchase_request_id
       if (form.expires_at) payload.expires_at = form.expires_at
       if (form.notes) payload.notes = form.notes
 
@@ -110,7 +116,10 @@ export function ReservationDialog({ open, onOpenChange }: ReservationDialogProps
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
           <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
             <div>
               <label className={labelClassName}>ID Materiale *</label>
@@ -118,11 +127,16 @@ export function ReservationDialog({ open, onOpenChange }: ReservationDialogProps
                 type="text"
                 value={form.material_id}
                 onChange={(e) => updateField('material_id', e.target.value)}
-                className={cn(inputClassName, errors.material_id && 'border-red-500')}
+                className={cn(
+                  inputClassName,
+                  errors.material_id && 'border-red-500',
+                )}
                 placeholder="ID del materiale"
               />
               {errors.material_id && (
-                <p className="mt-1 text-xs text-red-400">{errors.material_id}</p>
+                <p className="mt-1 text-xs text-red-400">
+                  {errors.material_id}
+                </p>
               )}
             </div>
 
@@ -144,12 +158,19 @@ export function ReservationDialog({ open, onOpenChange }: ReservationDialogProps
                 step="0.001"
                 min="0"
                 value={form.reserved_quantity}
-                onChange={(e) => updateField('reserved_quantity', e.target.value)}
-                className={cn(inputClassName, errors.reserved_quantity && 'border-red-500')}
+                onChange={(e) =>
+                  updateField('reserved_quantity', e.target.value)
+                }
+                className={cn(
+                  inputClassName,
+                  errors.reserved_quantity && 'border-red-500',
+                )}
                 placeholder="0"
               />
               {errors.reserved_quantity && (
-                <p className="mt-1 text-xs text-red-400">{errors.reserved_quantity}</p>
+                <p className="mt-1 text-xs text-red-400">
+                  {errors.reserved_quantity}
+                </p>
               )}
             </div>
 
@@ -165,11 +186,15 @@ export function ReservationDialog({ open, onOpenChange }: ReservationDialogProps
                 />
               </div>
               <div>
-                <label className={labelClassName}>ID Richiesta (opzionale)</label>
+                <label className={labelClassName}>
+                  ID Richiesta (opzionale)
+                </label>
                 <input
                   type="text"
                   value={form.purchase_request_id}
-                  onChange={(e) => updateField('purchase_request_id', e.target.value)}
+                  onChange={(e) =>
+                    updateField('purchase_request_id', e.target.value)
+                  }
                   className={inputClassName}
                   placeholder="ID richiesta"
                 />

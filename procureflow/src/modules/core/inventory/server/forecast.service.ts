@@ -9,7 +9,7 @@ import {
   WMA_WEIGHTS,
   WMA_MONTHS,
   FORECAST_MONTHS_AHEAD,
-} from '@/lib/constants/forecast'
+} from '../constants/forecast'
 import type { BasicForecast, AiForecast, CheckReorderResult } from '@/types/ai'
 
 // ---------------------------------------------------------------------------

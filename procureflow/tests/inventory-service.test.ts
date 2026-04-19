@@ -7,7 +7,7 @@ import {
   computeWeightedAverageCost,
   computeStockLevel,
   validateMovement,
-} from '@/server/services/inventory.service'
+} from '@/modules/core/inventory'
 
 // ---------------------------------------------------------------------------
 // generateMaterialCode
@@ -102,12 +102,12 @@ describe('generateInventoryCode', () => {
 // ---------------------------------------------------------------------------
 describe('computeWeightedAverageCost', () => {
   it('standard case: stock=1000, cost=0.50, new=500, newCost=0.60 → 0.5333', () => {
-    const result = computeWeightedAverageCost(1000, 0.50, 500, 0.60)
+    const result = computeWeightedAverageCost(1000, 0.5, 500, 0.6)
     expect(result).toBeCloseTo(0.5333, 4)
   })
 
   it('first load (currentStock=0): result equals newCost', () => {
-    const result = computeWeightedAverageCost(0, 0, 500, 0.60)
+    const result = computeWeightedAverageCost(0, 0, 500, 0.6)
     expect(result).toBe(0.6)
   })
 
@@ -236,7 +236,8 @@ describe('validateMovement', () => {
     })
     expect(result).toEqual({
       valid: false,
-      reason: 'Per un trasferimento è necessario specificare il magazzino di destinazione',
+      reason:
+        'Per un trasferimento è necessario specificare il magazzino di destinazione',
     })
   })
 

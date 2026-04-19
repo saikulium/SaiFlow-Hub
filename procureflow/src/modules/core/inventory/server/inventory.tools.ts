@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { prisma } from '@/lib/db'
-import { getBasicForecast } from '@/server/services/forecast.service'
+import { getBasicForecast } from './forecast.service'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 import type { ZodTool } from '@/server/agents/tools/procurement.tools'
 

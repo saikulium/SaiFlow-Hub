@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { STOCK_TOOLS } from '@/server/agents/tools/stock.tools'
+import { STOCK_TOOLS } from '@/modules/core/inventory'
 
 describe('stock.tools', () => {
   it('exports 2 tools', () => {

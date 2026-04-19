@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth'
-import {
-  successResponse,
-  errorResponse,
-} from '@/lib/api-response'
+import { successResponse, errorResponse } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { getSuggestedInbounds } from '@/server/services/inventory-db.service'
+import { getSuggestedInbounds } from '@/modules/core/inventory'
 
 export async function GET(_req: NextRequest) {
   const blocked = await requireModule('/api/inventory')

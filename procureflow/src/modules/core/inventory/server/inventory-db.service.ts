@@ -11,7 +11,7 @@ import {
   generateInventoryCode,
   computeWeightedAverageCost,
   computeStockLevel,
-} from '@/server/services/inventory.service'
+} from './inventory.service'
 import type { StockByWarehouse, InventoryDashboardStats } from '@/types'
 
 // ---------------------------------------------------------------------------

@@ -13,17 +13,17 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
-import { StockLevelBadge } from '@/components/inventory/stock-level-badge'
-import { MaterialFormDialog } from '@/components/inventory/material-form-dialog'
-import { ForecastPanel } from '@/components/inventory/forecast-panel'
-import { useMaterial } from '@/hooks/use-materials'
+import { StockLevelBadge } from './stock-level-badge'
+import { MaterialFormDialog } from './material-form-dialog'
+import { ForecastPanel } from './forecast-panel'
+import { useMaterial } from '../hooks/use-materials'
 import {
   MOVEMENT_TYPE_CONFIG,
   LOT_STATUS_CONFIG,
   RESERVATION_STATUS_CONFIG,
   MOVEMENT_REASON_LABELS,
-} from '@/lib/constants/inventory'
-import type { StockStatusKey } from '@/lib/constants/inventory'
+} from '../constants/inventory'
+import type { StockStatusKey } from '../constants/inventory'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import type {
   MaterialDetail,
@@ -32,7 +32,7 @@ import type {
   ReservationSummary,
   MovementListItem,
 } from '@/types'
-import { useMovements } from '@/hooks/use-stock'
+import { useMovements } from '../hooks/use-stock'
 
 interface MaterialDetailContentProps {
   id: string

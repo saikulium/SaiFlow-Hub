@@ -7,8 +7,8 @@ import { X, Search, BookOpen, Unlink } from 'lucide-react'
 import {
   createMaterialSchema,
   type CreateMaterialInput,
-} from '@/lib/validations/inventory'
-import { useCreateMaterial, useUpdateMaterial } from '@/hooks/use-materials'
+} from '../validations/inventory'
+import { useCreateMaterial, useUpdateMaterial } from '../hooks/use-materials'
 import { cn } from '@/lib/utils'
 import type { MaterialDetail } from '@/types'
 

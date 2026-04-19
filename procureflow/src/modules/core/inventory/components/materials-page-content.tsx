@@ -8,19 +8,16 @@ import { PaginationBar } from '@/components/shared/pagination-bar'
 import { SkeletonRows } from '@/components/shared/skeleton-row'
 import { TableEmptyState } from '@/components/shared/table-empty-state'
 import { DeleteRowButton } from '@/components/shared/delete-row-button'
-import {
-  InventoryFiltersBar,
-  type InventoryFilters,
-} from '@/components/inventory/inventory-filters'
-import { StockLevelBadge } from '@/components/inventory/stock-level-badge'
-import { MaterialFormDialog } from '@/components/inventory/material-form-dialog'
+import { InventoryFiltersBar, type InventoryFilters } from './inventory-filters'
+import { StockLevelBadge } from './stock-level-badge'
+import { MaterialFormDialog } from './material-form-dialog'
 import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog'
 import { useDeleteRecord, useIsAdmin } from '@/hooks/use-delete-record'
-import { useMaterials } from '@/hooks/use-materials'
-import { useMaterialAlerts } from '@/hooks/use-forecast'
+import { useMaterials } from '../hooks/use-materials'
+import { useMaterialAlerts } from '../hooks/use-forecast'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { formatCurrency } from '@/lib/utils'
-import type { StockStatusKey } from '@/lib/constants/inventory'
+import type { StockStatusKey } from '../constants/inventory'
 
 const MATERIAL_CSV_COLUMNS = [
   { header: 'Codice', accessor: (m: { code: string }) => m.code },

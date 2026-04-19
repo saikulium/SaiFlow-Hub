@@ -10,7 +10,7 @@ import {
   executeWriteTool,
 } from '@/server/agents/tools/procurement.tools'
 import { NOTIFICATION_TOOLS } from '@/server/agents/tools/notification.tools'
-import { INVENTORY_TOOLS } from '@/server/agents/tools/inventory.tools'
+import { INVENTORY_TOOLS } from './inventory.tools'
 import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
 
 // ---------------------------------------------------------------------------
@@ -105,7 +105,9 @@ function buildCreateRequestTool(userId: string): BetaRunnableTool<any> {
  * Includes inventory tools, procurement READ tools, a write-enabled
  * create_request tool, and notification tools.
  */
-function getReorderAgentTools(userId: string): readonly BetaRunnableTool<any>[] {
+function getReorderAgentTools(
+  userId: string,
+): readonly BetaRunnableTool<any>[] {
   return [
     ...INVENTORY_TOOLS,
     searchRequestsTool,
@@ -127,17 +129,13 @@ function parseAgentResult(text: string): ReorderResult {
       const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>
       return {
         drafts_created:
-          typeof parsed.drafts_created === 'number'
-            ? parsed.drafts_created
-            : 0,
+          typeof parsed.drafts_created === 'number' ? parsed.drafts_created : 0,
         alerts_processed:
           typeof parsed.alerts_processed === 'number'
             ? parsed.alerts_processed
             : 0,
         skipped_budget:
-          typeof parsed.skipped_budget === 'number'
-            ? parsed.skipped_budget
-            : 0,
+          typeof parsed.skipped_budget === 'number' ? parsed.skipped_budget : 0,
         summary:
           typeof parsed.summary === 'string'
             ? parsed.summary
@@ -188,9 +186,7 @@ export async function runReorderAgent(
       max_tokens: MAX_TOKENS,
       max_iterations: MAX_ITERATIONS,
       tools: [...tools],
-      messages: [
-        { role: 'user' as const, content: userPrompt },
-      ],
+      messages: [{ role: 'user' as const, content: userPrompt }],
     })
 
     let lastTextContent = ''

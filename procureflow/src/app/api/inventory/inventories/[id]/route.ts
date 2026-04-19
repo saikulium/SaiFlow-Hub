@@ -8,8 +8,10 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { updateInventoryLineSchema } from '@/lib/validations/inventory'
-import { getNextMovementCode } from '@/server/services/inventory-db.service'
+import {
+  updateInventoryLineSchema,
+  getNextMovementCode,
+} from '@/modules/core/inventory'
 
 export async function GET(
   _req: NextRequest,
@@ -28,7 +30,9 @@ export async function GET(
         warehouse: { select: { name: true } },
         lines: {
           include: {
-            material: { select: { code: true, name: true, unit_primary: true } },
+            material: {
+              select: { code: true, name: true, unit_primary: true },
+            },
             lot: { select: { lot_number: true } },
             zone: { select: { name: true } },
           },
@@ -140,7 +144,8 @@ async function updateLines(inventoryId: string, body: unknown) {
       continue
     }
 
-    const variance = lineUpdate.counted_quantity - Number(line.expected_quantity)
+    const variance =
+      lineUpdate.counted_quantity - Number(line.expected_quantity)
 
     await prisma.stockInventoryLine.update({
       where: { id: lineUpdate.id },

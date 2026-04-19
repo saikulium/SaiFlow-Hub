@@ -6,7 +6,7 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { dismissAlert, resolveAlert } from '@/server/services/forecast.service'
+import { dismissAlert, resolveAlert } from '@/modules/core/inventory'
 
 const patchAlertSchema = z.object({
   resolved_by: z.string().min(1).optional(),

@@ -1,4 +1,4 @@
-import { MaterialDetailContent } from '@/components/inventory/material-detail-content'
+import { MaterialDetailContent } from '@/modules/core/inventory'
 
 export default function MaterialDetailPage({
   params,

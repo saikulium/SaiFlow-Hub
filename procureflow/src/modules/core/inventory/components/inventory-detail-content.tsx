@@ -8,8 +8,8 @@ import {
   useInventory,
   useUpdateInventoryLines,
   useCloseInventory,
-} from '@/hooks/use-inventory-check'
-import { INVENTORY_STATUS_CONFIG } from '@/lib/constants/inventory'
+} from '../hooks/use-inventory-check'
+import { INVENTORY_STATUS_CONFIG } from '../constants/inventory'
 import { cn } from '@/lib/utils'
 
 const quantityFormatter = new Intl.NumberFormat('it-IT', {
@@ -47,7 +47,8 @@ export function InventoryDetailContent() {
   const [counts, setCounts] = useState<Record<string, string>>({})
   const [confirmClose, setConfirmClose] = useState(false)
 
-  const isEditable = inventory?.status === 'IN_PROGRESS' || inventory?.status === 'DRAFT'
+  const isEditable =
+    inventory?.status === 'IN_PROGRESS' || inventory?.status === 'DRAFT'
 
   // Initialize counts from inventory data when loaded
   const lines = inventory?.lines ?? []
@@ -91,9 +92,10 @@ export function InventoryDetailContent() {
   const varianceSummary = useMemo(() => {
     let totalVariances = 0
     for (const line of lines) {
-      const counted = counts[line.id] !== undefined
-        ? Number(counts[line.id])
-        : line.countedQuantity
+      const counted =
+        counts[line.id] !== undefined
+          ? Number(counts[line.id])
+          : line.countedQuantity
       if (counted !== null && counted !== undefined) {
         const variance = counted - line.expectedQuantity
         if (variance !== 0) totalVariances++
@@ -118,7 +120,9 @@ export function InventoryDetailContent() {
     return (
       <PageTransition>
         <div className="py-16 text-center">
-          <p className="text-sm text-pf-text-secondary">Inventario non trovato</p>
+          <p className="text-sm text-pf-text-secondary">
+            Inventario non trovato
+          </p>
           <button
             onClick={() => router.push('/inventory/inventories')}
             className="mt-4 text-sm text-pf-accent hover:underline"
@@ -151,7 +155,11 @@ export function InventoryDetailContent() {
             </div>
             <p className="mt-1 text-sm text-pf-text-secondary">
               {inventory.warehouseName}
-              {inventory.notes && <span className="ml-2 text-pf-text-muted">&mdash; {inventory.notes}</span>}
+              {inventory.notes && (
+                <span className="ml-2 text-pf-text-muted">
+                  &mdash; {inventory.notes}
+                </span>
+              )}
             </p>
           </div>
 
@@ -159,16 +167,21 @@ export function InventoryDetailContent() {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleSave}
-                disabled={updateLinesMutation.isPending || Object.keys(counts).length === 0}
+                disabled={
+                  updateLinesMutation.isPending ||
+                  Object.keys(counts).length === 0
+                }
                 className={cn(
                   'inline-flex items-center gap-2 rounded-button border border-pf-border px-4 py-2 text-sm font-medium transition-colors',
                   Object.keys(counts).length === 0
-                    ? 'cursor-not-allowed text-pf-text-secondary/40'
+                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
                     : 'text-pf-text-secondary hover:text-pf-text-primary',
                 )}
               >
                 <Save className="h-4 w-4" />
-                {updateLinesMutation.isPending ? 'Salvataggio...' : 'Salva Conteggi'}
+                {updateLinesMutation.isPending
+                  ? 'Salvataggio...'
+                  : 'Salva Conteggi'}
               </button>
               <button
                 onClick={() => setConfirmClose(true)}
@@ -185,7 +198,10 @@ export function InventoryDetailContent() {
         {/* Summary */}
         <div className="flex items-center gap-6 text-sm">
           <span className="text-pf-text-secondary">
-            Righe: <span className="font-medium text-pf-text-primary">{lines.length}</span>
+            Righe:{' '}
+            <span className="font-medium text-pf-text-primary">
+              {lines.length}
+            </span>
           </span>
           <span className="text-pf-text-secondary">
             Varianze:{' '}
@@ -201,7 +217,7 @@ export function InventoryDetailContent() {
         </div>
 
         {/* Lines table */}
-        <div className="overflow-x-auto rounded-card border border-pf-border bg-pf-bg-secondary/60 backdrop-blur-xl">
+        <div className="bg-pf-bg-secondary/60 overflow-x-auto rounded-card border border-pf-border backdrop-blur-xl">
           <table className="w-full">
             <thead>
               <tr className="border-b border-pf-border">
@@ -228,13 +244,19 @@ export function InventoryDetailContent() {
             <tbody>
               {lines.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-pf-text-muted">
+                  <td
+                    colSpan={6}
+                    className="px-4 py-12 text-center text-sm text-pf-text-muted"
+                  >
                     Nessuna riga disponibile
                   </td>
                 </tr>
               )}
               {lines.map((line) => {
-                const countedStr = getCountedValue(line.id, line.countedQuantity)
+                const countedStr = getCountedValue(
+                  line.id,
+                  line.countedQuantity,
+                )
                 const counted = countedStr !== '' ? Number(countedStr) : null
                 const variance =
                   counted !== null ? counted - line.expectedQuantity : null
@@ -271,8 +293,10 @@ export function InventoryDetailContent() {
                           step="0.001"
                           min="0"
                           value={countedStr}
-                          onChange={(e) => handleCountChange(line.id, e.target.value)}
-                          className="w-24 rounded-button border border-pf-border bg-pf-bg-primary/50 px-2 py-1 text-right text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
+                          onChange={(e) =>
+                            handleCountChange(line.id, e.target.value)
+                          }
+                          className="bg-pf-bg-primary/50 w-24 rounded-button border border-pf-border px-2 py-1 text-right text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
                           placeholder="-"
                         />
                       ) : (
@@ -321,8 +345,8 @@ export function InventoryDetailContent() {
                 Chiudere inventario?
               </h3>
               <p className="mt-2 text-sm text-pf-text-secondary">
-                Una volta chiuso, non sara possibile modificare i conteggi.
-                Le varianze verranno registrate come movimenti di rettifica.
+                Una volta chiuso, non sara possibile modificare i conteggi. Le
+                varianze verranno registrate come movimenti di rettifica.
               </p>
               <div className="mt-4 flex items-center justify-end gap-3">
                 <button
@@ -339,7 +363,9 @@ export function InventoryDetailContent() {
                     closeMutation.isPending && 'cursor-not-allowed opacity-60',
                   )}
                 >
-                  {closeMutation.isPending ? 'Chiusura...' : 'Conferma Chiusura'}
+                  {closeMutation.isPending
+                    ? 'Chiusura...'
+                    : 'Conferma Chiusura'}
                 </button>
               </div>
             </div>

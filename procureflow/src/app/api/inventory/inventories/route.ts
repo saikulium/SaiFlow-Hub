@@ -7,8 +7,10 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { createInventorySchema } from '@/lib/validations/inventory'
-import { getNextInventoryCode } from '@/server/services/inventory-db.service'
+import {
+  createInventorySchema,
+  getNextInventoryCode,
+} from '@/modules/core/inventory'
 import type { InventoryListItem } from '@/types'
 
 export async function GET(req: NextRequest) {

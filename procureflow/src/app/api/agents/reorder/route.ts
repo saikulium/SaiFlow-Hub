@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api-response'
-import { runReorderAgent } from '@/server/agents/smart-reorder.agent'
+import { runReorderAgent } from '@/modules/core/inventory'
 
 // ---------------------------------------------------------------------------
 // POST /api/agents/reorder — Trigger smart reorder agent

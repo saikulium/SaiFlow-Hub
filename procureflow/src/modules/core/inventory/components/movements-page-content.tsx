@@ -3,13 +3,13 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Plus, ChevronLeft, ChevronRight, ArrowLeftRight } from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
-import { MovementFormDialog } from '@/components/inventory/movement-form-dialog'
-import { useMovements } from '@/hooks/use-stock'
-import { useWarehouses } from '@/hooks/use-stock'
+import { MovementFormDialog } from './movement-form-dialog'
+import { useMovements } from '../hooks/use-stock'
+import { useWarehouses } from '../hooks/use-stock'
 import {
   MOVEMENT_TYPE_CONFIG,
   MOVEMENT_REASON_LABELS,
-} from '@/lib/constants/inventory'
+} from '../constants/inventory'
 import { cn, formatDate } from '@/lib/utils'
 
 const DEFAULT_PAGE_SIZE = 20
@@ -97,10 +97,11 @@ export function MovementsPageContent() {
   }, [totalPages])
 
   const movementTypeOptions = useMemo(
-    () => Object.entries(MOVEMENT_TYPE_CONFIG).map(([key, cfg]) => ({
-      value: key,
-      label: cfg.label,
-    })),
+    () =>
+      Object.entries(MOVEMENT_TYPE_CONFIG).map(([key, cfg]) => ({
+        value: key,
+        label: cfg.label,
+      })),
     [],
   )
 
@@ -131,10 +132,12 @@ export function MovementsPageContent() {
         </div>
 
         {/* Filter bar */}
-        <div className="flex flex-wrap items-center gap-3 rounded-card border border-pf-border bg-pf-bg-secondary/60 px-4 py-3 backdrop-blur-xl">
+        <div className="bg-pf-bg-secondary/60 flex flex-wrap items-center gap-3 rounded-card border border-pf-border px-4 py-3 backdrop-blur-xl">
           <select
             value={filters.movement_type ?? ''}
-            onChange={(e) => handleFilterChange('movement_type', e.target.value)}
+            onChange={(e) =>
+              handleFilterChange('movement_type', e.target.value)
+            }
             className={cn(inputClassName, 'min-w-[160px]')}
           >
             <option value="">Tutti i tipi</option>
@@ -175,7 +178,7 @@ export function MovementsPageContent() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto rounded-card border border-pf-border bg-pf-bg-secondary/60 backdrop-blur-xl">
+        <div className="bg-pf-bg-secondary/60 overflow-x-auto rounded-card border border-pf-border backdrop-blur-xl">
           <table className="w-full">
             <thead>
               <tr className="border-b border-pf-border">
@@ -210,7 +213,9 @@ export function MovementsPageContent() {
             </thead>
             <tbody>
               {isLoading &&
-                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
+                Array.from({ length: 5 }).map((_, i) => (
+                  <SkeletonRow key={i} />
+                ))}
 
               {!isLoading && movements.length === 0 && (
                 <tr>
@@ -285,15 +290,17 @@ export function MovementsPageContent() {
 
         {/* Pagination */}
         {!isLoading && total > 0 && (
-          <div className="flex items-center justify-between rounded-card border border-pf-border bg-pf-bg-secondary/60 px-4 py-3 backdrop-blur-xl">
+          <div className="bg-pf-bg-secondary/60 flex items-center justify-between rounded-card border border-pf-border px-4 py-3 backdrop-blur-xl">
             <p className="text-sm text-pf-text-secondary">
               Pagina{' '}
-              <span className="font-medium text-pf-text-primary">{page}</span>
-              {' '}di{' '}
-              <span className="font-medium text-pf-text-primary">{totalPages}</span>
-              {' '}&middot;{' '}
-              <span className="font-medium text-pf-text-primary">{total}</span>
-              {' '}risultati
+              <span className="font-medium text-pf-text-primary">{page}</span>{' '}
+              di{' '}
+              <span className="font-medium text-pf-text-primary">
+                {totalPages}
+              </span>{' '}
+              &middot;{' '}
+              <span className="font-medium text-pf-text-primary">{total}</span>{' '}
+              risultati
             </p>
 
             <div className="flex items-center gap-2">
@@ -303,8 +310,8 @@ export function MovementsPageContent() {
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                   page <= 1
-                    ? 'cursor-not-allowed text-pf-text-secondary/40'
-                    : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
                 )}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -316,8 +323,8 @@ export function MovementsPageContent() {
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-button border border-pf-border px-3 py-1.5 text-sm font-medium transition-colors',
                   page >= totalPages
-                    ? 'cursor-not-allowed text-pf-text-secondary/40'
-                    : 'text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
+                    ? 'text-pf-text-secondary/40 cursor-not-allowed'
+                    : 'hover:border-pf-text-secondary/40 text-pf-text-secondary hover:text-pf-text-primary',
                 )}
               >
                 Successiva
