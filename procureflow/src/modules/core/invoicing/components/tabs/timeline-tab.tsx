@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { Clock } from 'lucide-react'
-import type { InvoiceDetail } from '@/hooks/use-invoice'
+import type { InvoiceDetail } from '../../hooks/use-invoice'
 import { formatRelativeTime } from '@/lib/utils'
 
 interface TimelineTabProps {

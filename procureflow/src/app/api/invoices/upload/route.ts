@@ -10,9 +10,9 @@ import {
 import {
   parseInvoiceWithAI,
   AiParseError,
-} from '@/server/services/invoice-ai-parser.service'
-import { matchInvoiceToOrder } from '@/server/services/invoice-matching.service'
-import { performThreeWayMatch } from '@/server/services/three-way-matching.service'
+  matchInvoiceToOrder,
+  performThreeWayMatch,
+} from '@/modules/core/invoicing'
 import { canTransition } from '@/lib/state-machine'
 import type { RequestStatus } from '@prisma/client'
 import type { ParsedInvoice } from '@/types/fatturapa'

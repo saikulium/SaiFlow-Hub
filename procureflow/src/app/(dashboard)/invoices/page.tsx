@@ -1,5 +1,4 @@
-import { InvoicesPageContent } from '@/components/invoices/invoices-page-content'
-
+import { InvoicesPageContent } from '@/modules/core/invoicing'
 
 export default function InvoicesPage() {
   return <InvoicesPageContent />

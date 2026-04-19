@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { CheckCheck, AlertTriangle, XCircle } from 'lucide-react'
-import type { InvoiceDetail } from '@/hooks/use-invoice'
+import type { InvoiceDetail } from '../../hooks/use-invoice'
 import { InvoiceStatusBadge } from '../invoice-status-badge'
 import { ReconciliationDialog } from '../reconciliation-dialog'
 import { formatCurrency, cn } from '@/lib/utils'
@@ -106,9 +106,7 @@ export function RiconciliazioneTab({ invoice }: RiconciliazioneTabProps) {
             </button>
             <button
               type="button"
-              onClick={() =>
-                setDialogState({ isOpen: true, action: 'reject' })
-              }
+              onClick={() => setDialogState({ isOpen: true, action: 'reject' })}
               className="inline-flex items-center gap-2 rounded-button border border-red-500/30 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
             >
               <XCircle className="h-4 w-4" />

@@ -6,7 +6,7 @@ import { Search, X } from 'lucide-react'
 import {
   INVOICE_MATCH_STATUS_CONFIG,
   RECONCILIATION_STATUS_CONFIG,
-} from '@/lib/constants/sdi'
+} from '../constants/sdi'
 import { cn } from '@/lib/utils'
 
 export interface InvoiceFilters {
@@ -20,7 +20,10 @@ interface InvoiceFiltersProps {
   onFiltersChange: (filters: InvoiceFilters) => void
 }
 
-export function InvoiceFiltersBar({ filters, onFiltersChange }: InvoiceFiltersProps) {
+export function InvoiceFiltersBar({
+  filters,
+  onFiltersChange,
+}: InvoiceFiltersProps) {
   const [searchValue, setSearchValue] = useState(filters.search ?? '')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -53,7 +56,9 @@ export function InvoiceFiltersBar({ filters, onFiltersChange }: InvoiceFiltersPr
 
   const toggleMatchStatus = useCallback(
     (statusKey: string) => {
-      const current = filters.match_status ? filters.match_status.split(',') : []
+      const current = filters.match_status
+        ? filters.match_status.split(',')
+        : []
       const updated = current.includes(statusKey)
         ? current.filter((s) => s !== statusKey)
         : [...current, statusKey]
@@ -75,7 +80,8 @@ export function InvoiceFiltersBar({ filters, onFiltersChange }: InvoiceFiltersPr
         : [...current, statusKey]
       onFiltersChange({
         ...filters,
-        reconciliation_status: updated.length > 0 ? updated.join(',') : undefined,
+        reconciliation_status:
+          updated.length > 0 ? updated.join(',') : undefined,
       })
     },
     [filters, onFiltersChange],
@@ -98,7 +104,7 @@ export function InvoiceFiltersBar({ filters, onFiltersChange }: InvoiceFiltersPr
   }, [onFiltersChange])
 
   return (
-    <div className="space-y-4 rounded-card border border-pf-border bg-pf-bg-secondary/60 p-4 backdrop-blur-xl">
+    <div className="bg-pf-bg-secondary/60 space-y-4 rounded-card border border-pf-border p-4 backdrop-blur-xl">
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pf-text-secondary" />
@@ -107,7 +113,7 @@ export function InvoiceFiltersBar({ filters, onFiltersChange }: InvoiceFiltersPr
           value={searchValue}
           onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Cerca per numero fattura, fornitore o P.IVA..."
-          className="w-full rounded-button border border-pf-border bg-pf-bg-primary/50 py-2 pl-10 pr-4 text-sm text-pf-text-primary placeholder:text-pf-text-secondary/60 focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
+          className="bg-pf-bg-primary/50 placeholder:text-pf-text-secondary/60 w-full rounded-button border border-pf-border py-2 pl-10 pr-4 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
         />
         {searchValue && (
           <button
@@ -126,28 +132,30 @@ export function InvoiceFiltersBar({ filters, onFiltersChange }: InvoiceFiltersPr
         </span>
         <div className="flex flex-wrap gap-2">
           <AnimatePresence mode="popLayout">
-            {Object.entries(INVOICE_MATCH_STATUS_CONFIG).map(([key, config]) => {
-              const isActive = activeMatchStatuses.includes(key)
-              return (
-                <motion.button
-                  key={key}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.15 }}
-                  onClick={() => toggleMatchStatus(key)}
-                  className={cn(
-                    'inline-flex items-center rounded-button px-3 py-1.5 text-xs font-medium transition-all',
-                    isActive
-                      ? cn(config.bgColor, config.color)
-                      : 'border border-pf-border text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
-                  )}
-                >
-                  {config.label}
-                </motion.button>
-              )
-            })}
+            {Object.entries(INVOICE_MATCH_STATUS_CONFIG).map(
+              ([key, config]) => {
+                const isActive = activeMatchStatuses.includes(key)
+                return (
+                  <motion.button
+                    key={key}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.15 }}
+                    onClick={() => toggleMatchStatus(key)}
+                    className={cn(
+                      'inline-flex items-center rounded-button px-3 py-1.5 text-xs font-medium transition-all',
+                      isActive
+                        ? cn(config.bgColor, config.color)
+                        : 'hover:border-pf-text-secondary/40 border border-pf-border text-pf-text-secondary hover:text-pf-text-primary',
+                    )}
+                  >
+                    {config.label}
+                  </motion.button>
+                )
+              },
+            )}
           </AnimatePresence>
         </div>
       </div>
@@ -159,28 +167,30 @@ export function InvoiceFiltersBar({ filters, onFiltersChange }: InvoiceFiltersPr
         </span>
         <div className="flex flex-wrap gap-2">
           <AnimatePresence mode="popLayout">
-            {Object.entries(RECONCILIATION_STATUS_CONFIG).map(([key, config]) => {
-              const isActive = activeReconciliationStatuses.includes(key)
-              return (
-                <motion.button
-                  key={key}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.15 }}
-                  onClick={() => toggleReconciliationStatus(key)}
-                  className={cn(
-                    'inline-flex items-center rounded-button px-3 py-1.5 text-xs font-medium transition-all',
-                    isActive
-                      ? cn(config.bgColor, config.color)
-                      : 'border border-pf-border text-pf-text-secondary hover:border-pf-text-secondary/40 hover:text-pf-text-primary',
-                  )}
-                >
-                  {config.label}
-                </motion.button>
-              )
-            })}
+            {Object.entries(RECONCILIATION_STATUS_CONFIG).map(
+              ([key, config]) => {
+                const isActive = activeReconciliationStatuses.includes(key)
+                return (
+                  <motion.button
+                    key={key}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.15 }}
+                    onClick={() => toggleReconciliationStatus(key)}
+                    className={cn(
+                      'inline-flex items-center rounded-button px-3 py-1.5 text-xs font-medium transition-all',
+                      isActive
+                        ? cn(config.bgColor, config.color)
+                        : 'hover:border-pf-text-secondary/40 border border-pf-border text-pf-text-secondary hover:text-pf-text-primary',
+                    )}
+                  >
+                    {config.label}
+                  </motion.button>
+                )
+              },
+            )}
           </AnimatePresence>
         </div>
       </div>

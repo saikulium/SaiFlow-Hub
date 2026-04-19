@@ -22,7 +22,7 @@ import {
   decideTenderGoNogoTool,
   validateStatusTransition,
 } from '@/modules/core/tenders'
-import { disputeInvoiceTool } from './invoice.tools'
+import { disputeInvoiceTool } from '@/modules/core/invoicing'
 import { COMMENT_TOOLS } from './comment.tools'
 import { ATTACHMENT_TOOLS } from './attachment.tools'
 import { getRequestTimelineTool } from './notification.tools'

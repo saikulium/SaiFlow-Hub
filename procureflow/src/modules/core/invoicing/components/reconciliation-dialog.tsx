@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { X, Loader2 } from 'lucide-react'
-import { useReconcileInvoice } from '@/hooks/use-invoice'
+import { useReconcileInvoice } from '../hooks/use-invoice'
 import { cn } from '@/lib/utils'
 
 interface ReconciliationDialogProps {

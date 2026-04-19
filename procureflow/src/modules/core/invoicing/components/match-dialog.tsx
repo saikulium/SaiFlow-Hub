@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Search, Loader2, Link as LinkIcon } from 'lucide-react'
 import { useRequests } from '@/hooks/use-requests'
-import { useMatchInvoice } from '@/hooks/use-invoice'
+import { useMatchInvoice } from '../hooks/use-invoice'
 import { useDebounce } from '@/hooks/use-debounce'
 import { formatCurrency } from '@/lib/utils'
 

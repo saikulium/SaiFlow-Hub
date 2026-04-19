@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { prisma } from '@/lib/db'
-import { performThreeWayMatch } from '@/server/services/three-way-matching.service'
+import { performThreeWayMatch } from './three-way-matching.service'
 import type { ZodTool } from '@/server/agents/tools/procurement.tools'
 
 // ---------------------------------------------------------------------------

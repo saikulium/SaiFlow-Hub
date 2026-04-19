@@ -11,7 +11,7 @@ import {
   Clock,
   Loader2,
 } from 'lucide-react'
-import { useInvoice, type InvoiceDetail } from '@/hooks/use-invoice'
+import { useInvoice, type InvoiceDetail } from '../hooks/use-invoice'
 import { InvoiceStatusBadge } from './invoice-status-badge'
 import { DettagliTab } from './tabs/dettagli-tab'
 import { RigheTab } from './tabs/righe-tab'
@@ -113,9 +113,7 @@ interface InvoiceDetailContentProps {
   invoiceId: string
 }
 
-export function InvoiceDetailContent({
-  invoiceId,
-}: InvoiceDetailContentProps) {
+export function InvoiceDetailContent({ invoiceId }: InvoiceDetailContentProps) {
   const { data, isLoading, error } = useInvoice(invoiceId)
   const [activeTab, setActiveTab] = useState<TabKey>('dettagli')
 

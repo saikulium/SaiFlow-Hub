@@ -4,17 +4,14 @@ import { useCallback, useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
 import { PaginationBar } from '@/components/shared/pagination-bar'
-import {
-  InvoiceFiltersBar,
-  type InvoiceFilters,
-} from '@/components/invoices/invoice-filters'
-import { InvoicesTable } from '@/components/invoices/invoices-table'
+import { InvoiceFiltersBar, type InvoiceFilters } from './invoice-filters'
+import { InvoicesTable } from './invoices-table'
 import {
   useInvoices,
   type InvoicesParams,
   type InvoiceListItem,
-} from '@/hooks/use-invoices'
-import { useUploadInvoice } from '@/hooks/use-invoice'
+} from '../hooks/use-invoices'
+import { useUploadInvoice } from '../hooks/use-invoice'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { cn } from '@/lib/utils'
 

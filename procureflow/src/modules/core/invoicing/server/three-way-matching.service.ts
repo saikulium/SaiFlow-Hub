@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import type { DiscrepancyType, ReconciliationStatus } from '@prisma/client'
-import { evaluateDiscrepancy } from '@/lib/constants/reconciliation-thresholds'
+import { evaluateDiscrepancy } from '../constants/reconciliation-thresholds'
 import { canTransition } from '@/lib/state-machine'
 import type { RequestStatus } from '@prisma/client'
 
@@ -57,7 +57,9 @@ export async function performThreeWayMatch(
   }
 
   const orderedAmount = Number(request.estimated_amount ?? 0)
-  const receivedAmount = Number(request.actual_amount ?? request.estimated_amount ?? 0)
+  const receivedAmount = Number(
+    request.actual_amount ?? request.estimated_amount ?? 0,
+  )
   const invoicedAmount = Number(invoice.total_amount)
 
   // Discrepanza importo totale
@@ -78,7 +80,12 @@ export async function performThreeWayMatch(
       field: 'total_amount',
       ordered: orderedAmount,
       invoiced: invoicedAmount,
-      severity: evaluation === 'FAIL' ? 'high' : evaluation === 'WARNING' ? 'medium' : 'low',
+      severity:
+        evaluation === 'FAIL'
+          ? 'high'
+          : evaluation === 'WARNING'
+            ? 'medium'
+            : 'low',
     })
   }
 
@@ -105,7 +112,9 @@ export async function performThreeWayMatch(
     const matchedItem = request.items.find(
       (item) =>
         (item.sku && item.sku === invoiceLine.matched_item_id) ||
-        item.name.toLowerCase().includes(invoiceLine.description.toLowerCase().slice(0, 20)),
+        item.name
+          .toLowerCase()
+          .includes(invoiceLine.description.toLowerCase().slice(0, 20)),
     )
 
     if (matchedItem) {

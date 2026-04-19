@@ -1,4 +1,4 @@
-import type { InvoiceDetail } from '@/hooks/use-invoice'
+import type { InvoiceDetail } from '../../hooks/use-invoice'
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
 
 function InfoField({
@@ -15,7 +15,9 @@ function InfoField({
       <dt className="text-xs font-medium uppercase tracking-wider text-pf-text-secondary">
         {label}
       </dt>
-      <dd className={cn('mt-1 text-sm text-pf-text-primary', mono && 'font-mono')}>
+      <dd
+        className={cn('mt-1 text-sm text-pf-text-primary', mono && 'font-mono')}
+      >
         {value ?? '—'}
       </dd>
     </div>
@@ -33,11 +35,7 @@ export function DettagliTab({ invoice }: DettagliTabProps) {
         Dati Fattura
       </h3>
       <dl className="grid grid-cols-2 gap-6 md:grid-cols-3">
-        <InfoField
-          label="Numero Fattura"
-          value={invoice.invoice_number}
-          mono
-        />
+        <InfoField label="Numero Fattura" value={invoice.invoice_number} mono />
         <InfoField
           label="Data Fattura"
           value={invoice.invoice_date ? formatDate(invoice.invoice_date) : null}
@@ -49,11 +47,7 @@ export function DettagliTab({ invoice }: DettagliTabProps) {
           value={invoice.supplier_vat_id}
           mono
         />
-        <InfoField
-          label="P.IVA Cliente"
-          value={invoice.customer_vat_id}
-          mono
-        />
+        <InfoField label="P.IVA Cliente" value={invoice.customer_vat_id} mono />
         <InfoField
           label="Imponibile"
           value={

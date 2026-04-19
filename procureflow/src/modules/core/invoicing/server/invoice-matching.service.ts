@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db'
 import { Prisma } from '@prisma/client'
 import type { InvoiceMatchStatus } from '@prisma/client'
-import { MATCHING_THRESHOLDS } from '@/lib/constants/sdi'
+import { MATCHING_THRESHOLDS } from '../constants/sdi'
 
 // ---------------------------------------------------------------------------
 // Servizio di matching fattura ↔ ordine (PurchaseRequest)

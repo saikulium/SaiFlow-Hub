@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowUpDown, ArrowUp, ArrowDown, FileX2, Trash2 } from 'lucide-react'
-import { InvoiceStatusBadge } from '@/components/invoices/invoice-status-badge'
+import { InvoiceStatusBadge } from './invoice-status-badge'
 import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog'
 import {
   useDeleteRecord,
@@ -12,7 +12,7 @@ import {
   useIsAdmin,
 } from '@/hooks/use-delete-record'
 import { formatCurrency, formatDate, formatRelativeTime, cn } from '@/lib/utils'
-import type { InvoiceListItem } from '@/hooks/use-invoices'
+import type { InvoiceListItem } from '../hooks/use-invoices'
 
 interface SortState {
   sort: string

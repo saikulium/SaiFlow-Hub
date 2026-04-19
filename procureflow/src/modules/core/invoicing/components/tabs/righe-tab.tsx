@@ -1,4 +1,4 @@
-import type { InvoiceLineItemDetail } from '@/hooks/use-invoice'
+import type { InvoiceLineItemDetail } from '../../hooks/use-invoice'
 import { formatCurrency } from '@/lib/utils'
 import { List } from 'lucide-react'
 
@@ -13,9 +13,7 @@ export function RigheTab({ lineItems }: RigheTabProps) {
         <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-pf-bg-tertiary">
           <List className="h-6 w-6 text-pf-text-secondary" />
         </div>
-        <p className="text-sm font-medium text-pf-text-primary">
-          Nessuna riga
-        </p>
+        <p className="text-sm font-medium text-pf-text-primary">Nessuna riga</p>
         <p className="mt-1 text-xs text-pf-text-secondary">
           Questa fattura non contiene righe di dettaglio.
         </p>

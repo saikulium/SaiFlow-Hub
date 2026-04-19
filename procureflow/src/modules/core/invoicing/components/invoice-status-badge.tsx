@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import {
   INVOICE_MATCH_STATUS_CONFIG,
   RECONCILIATION_STATUS_CONFIG,
-} from '@/lib/constants/sdi'
+} from '../constants/sdi'
 
 interface InvoiceStatusBadgeProps {
   type: 'match' | 'reconciliation'

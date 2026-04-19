@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
-import { sdiInvoiceWebhookSchema } from '@/lib/validations/sdi-invoice'
-import { SDI_CONFIG, MATCHING_THRESHOLDS } from '@/lib/constants/sdi'
+import {
+  sdiInvoiceWebhookSchema,
+  SDI_CONFIG,
+  MATCHING_THRESHOLDS,
+  matchInvoiceToOrder,
+  performThreeWayMatch,
+} from '@/modules/core/invoicing'
 import { prisma } from '@/lib/db'
 import {
   parseFatturaPA,
   FatturaParseError,
 } from '@/server/services/fatturapa-parser.service'
-import { matchInvoiceToOrder } from '@/server/services/invoice-matching.service'
-import { performThreeWayMatch } from '@/server/services/three-way-matching.service'
 import { canTransition } from '@/lib/state-machine'
 import {
   createNotification,

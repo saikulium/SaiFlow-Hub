@@ -5,7 +5,7 @@ import { MODELS } from '@/lib/ai/models'
 import {
   InvoiceExtractionSchema,
   type InvoiceExtraction,
-} from '@/lib/ai/schemas/invoice-extraction.schema'
+} from '../schemas/invoice-extraction.schema'
 import type { ParsedInvoice, ParsedLineItem } from '@/types/fatturapa'
 import { DOCUMENT_TYPES, PAYMENT_METHODS } from '@/types/fatturapa'
 

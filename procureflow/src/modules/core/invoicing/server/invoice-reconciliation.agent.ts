@@ -1,6 +1,6 @@
 import { getClaudeClient } from '@/lib/ai/claude-client'
 import { MODELS } from '@/lib/ai/models'
-import { INVOICE_TOOLS } from '@/server/agents/tools/invoice.tools'
+import { INVOICE_TOOLS } from './invoice.tools'
 import { NOTIFICATION_TOOLS } from '@/server/agents/tools/notification.tools'
 import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
 
@@ -81,19 +81,26 @@ export interface ReconciliationResult {
  * Combine invoice tools and notification tools for the agent.
  */
 function getReconciliationTools(): readonly BetaRunnableTool<any>[] {
-  return [...INVOICE_TOOLS, ...NOTIFICATION_TOOLS] as readonly BetaRunnableTool<any>[]
+  return [
+    ...INVOICE_TOOLS,
+    ...NOTIFICATION_TOOLS,
+  ] as readonly BetaRunnableTool<any>[]
 }
 
 /**
  * Parse the final JSON result from the agent's text response.
  */
 function parseAgentResult(text: string): ReconciliationResult {
-  const jsonMatch = text.match(/\{[\s\S]*"status"[\s\S]*"recommendation"[\s\S]*\}/)
+  const jsonMatch = text.match(
+    /\{[\s\S]*"status"[\s\S]*"recommendation"[\s\S]*\}/,
+  )
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>
       return {
-        status: isValidStatus(parsed.status) ? parsed.status : 'DISCREPANZA_GRAVE',
+        status: isValidStatus(parsed.status)
+          ? parsed.status
+          : 'DISCREPANZA_GRAVE',
         recommendation: isValidRecommendation(parsed.recommendation)
           ? parsed.recommendation
           : 'ATTESA',
@@ -174,8 +181,7 @@ export async function reconcileInvoice(
     ? ` Al termine, invia una notifica all'utente con user_id "${notifyUserId}" con il risultato della riconciliazione.`
     : ''
 
-  const userPrompt =
-    `Riconcilia la fattura con ID "${invoiceId}".${notifyInstruction} Concludi con il riepilogo JSON.`
+  const userPrompt = `Riconcilia la fattura con ID "${invoiceId}".${notifyInstruction} Concludi con il riepilogo JSON.`
 
   try {
     const runner = client.beta.messages.toolRunner({
@@ -184,9 +190,7 @@ export async function reconcileInvoice(
       max_tokens: MAX_TOKENS,
       max_iterations: MAX_ITERATIONS,
       tools: [...tools],
-      messages: [
-        { role: 'user' as const, content: userPrompt },
-      ],
+      messages: [{ role: 'user' as const, content: userPrompt }],
     })
 
     let lastTextContent = ''

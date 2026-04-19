@@ -2,7 +2,7 @@ export { getTenderDashboardStats } from '@/modules/core/tenders'
 export { getInventoryDashboardStats } from '@/modules/core/inventory'
 import { prisma } from '@/lib/db'
 import { REQUEST_STATUS_CONFIG, type RequestStatusKey } from '@/lib/constants'
-import { INVOICE_MATCH_STATUS_CONFIG } from '@/lib/constants/sdi'
+import { INVOICE_MATCH_STATUS_CONFIG } from '@/modules/core/invoicing'
 import { getBudgetDashboardStats as computeBudgetDashboardStats } from '@/modules/core/budgets'
 
 const MONTH_NAMES = [
