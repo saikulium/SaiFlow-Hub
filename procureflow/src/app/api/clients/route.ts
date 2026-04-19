@@ -6,7 +6,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { createClientSchema } from '@/lib/validations/client'
+import { createClientSchema } from '@/modules/core/clients'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 import type { Prisma } from '@prisma/client'
 import { requireAuth } from '@/lib/auth'

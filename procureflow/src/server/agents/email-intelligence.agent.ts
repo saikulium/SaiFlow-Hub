@@ -17,7 +17,7 @@ import { NOTIFICATION_TOOLS } from '@/server/agents/tools/notification.tools'
 import { COMMESSA_TOOLS } from '@/modules/core/commesse'
 import { ARTICLE_TOOLS } from '@/modules/core/articles'
 import { VENDOR_TOOLS } from '@/server/agents/tools/vendor.tools'
-import { CLIENT_TOOLS } from '@/server/agents/tools/client.tools'
+import { CLIENT_TOOLS } from '@/modules/core/clients'
 import { listCommentsTool } from '@/server/agents/tools/comment.tools'
 import { listAttachmentsTool } from '@/server/agents/tools/attachment.tools'
 import {

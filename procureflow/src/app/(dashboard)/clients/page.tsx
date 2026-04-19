@@ -1,5 +1,5 @@
 import { PageTransition } from '@/components/shared/page-transition'
-import { ClientsPageContent } from '@/components/clients/clients-page-content'
+import { ClientsPageContent } from '@/modules/core/clients'
 
 export default function ClientsPage() {
   return (

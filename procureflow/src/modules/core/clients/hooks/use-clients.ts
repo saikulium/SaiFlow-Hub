@@ -1,7 +1,10 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { CreateClientInput, UpdateClientInput } from '@/lib/validations/client'
+import type {
+  CreateClientInput,
+  UpdateClientInput,
+} from '../validations/client'
 import type { ClientListItem, ClientDetail } from '@/types'
 
 interface ClientListParams {

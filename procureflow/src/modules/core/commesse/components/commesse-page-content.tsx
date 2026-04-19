@@ -13,7 +13,7 @@ import {
   ClipboardList,
 } from 'lucide-react'
 import { useCommesse } from '@/hooks/use-commesse'
-import { useClients } from '@/hooks/use-clients'
+import { useClients } from '@/modules/core/clients'
 import { CommessaCreateDialog } from './commessa-create-dialog'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { useDebounce } from '@/hooks/use-debounce'

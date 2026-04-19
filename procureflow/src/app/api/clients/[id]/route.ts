@@ -7,7 +7,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { updateClientSchema } from '@/lib/validations/client'
+import { updateClientSchema } from '@/modules/core/clients'
 import { requireAuth } from '@/lib/auth'
 
 export async function GET(

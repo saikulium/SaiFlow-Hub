@@ -2,9 +2,17 @@
 
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Plus, Building2, Mail, Phone, User, Briefcase } from 'lucide-react'
-import { useClients } from '@/hooks/use-clients'
-import { ClientDialog } from '@/components/clients/client-dialog'
+import {
+  Search,
+  Plus,
+  Building2,
+  Mail,
+  Phone,
+  User,
+  Briefcase,
+} from 'lucide-react'
+import { useClients } from '../hooks/use-clients'
+import { ClientDialog } from './client-dialog'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
@@ -92,7 +100,9 @@ export function ClientsPageContent() {
   const [searchInput, setSearchInput] = useState('')
   const [activeStatus, setActiveStatus] = useState('ALL')
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingClient, setEditingClient] = useState<ClientListItem | null>(null)
+  const [editingClient, setEditingClient] = useState<ClientListItem | null>(
+    null,
+  )
 
   const debouncedSearch = useDebounce(searchInput, 300)
 
@@ -296,7 +306,7 @@ export function ClientsPageContent() {
           transition={{ duration: 0.4 }}
           className="flex min-h-[40vh] flex-col items-center justify-center rounded-card border border-pf-border bg-pf-bg-secondary p-8"
         >
-          <div className="flex h-14 w-14 items-center justify-center rounded-card bg-pf-accent/10">
+          <div className="bg-pf-accent/10 flex h-14 w-14 items-center justify-center rounded-card">
             <Building2 className="h-7 w-7 text-pf-accent" />
           </div>
           <h3 className="mt-4 font-display text-lg font-semibold text-pf-text-primary">

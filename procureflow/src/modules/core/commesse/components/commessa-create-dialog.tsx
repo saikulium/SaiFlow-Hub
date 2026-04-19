@@ -9,7 +9,7 @@ import {
   type CreateCommessaInput,
 } from '../validations/commesse'
 import { useCreateCommessa } from '@/hooks/use-commesse'
-import { useClients } from '@/hooks/use-clients'
+import { useClients } from '@/modules/core/clients'
 import { cn } from '@/lib/utils'
 import type { z } from 'zod'
 

@@ -8,8 +8,8 @@ import {
   updateClientSchema,
   type CreateClientInput,
   type UpdateClientInput,
-} from '@/lib/validations/client'
-import { useCreateClient, useUpdateClient } from '@/hooks/use-clients'
+} from '../validations/client'
+import { useCreateClient, useUpdateClient } from '../hooks/use-clients'
 import { cn } from '@/lib/utils'
 import type { ClientListItem } from '@/types'
 
