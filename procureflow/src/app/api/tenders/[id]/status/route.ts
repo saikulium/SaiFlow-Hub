@@ -8,6 +8,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
+import { assertModuleEnabled } from '@/lib/module-guard'
 import { statusTransitionSchema } from '@/lib/validations/tenders'
 import { validateStatusTransition } from '@/server/services/tenders.service'
 
@@ -15,6 +16,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const packGate = assertModuleEnabled('tenders')
+  if (packGate) return packGate
   const blocked = await requireModule('/api/tenders')
   if (blocked) return blocked
   try {
@@ -29,7 +32,10 @@ export async function PATCH(
     const tender = await prisma.tender.findUnique({ where: { id } })
     if (!tender) return notFoundResponse('Gara non trovata')
 
-    const validation = validateStatusTransition(tender.status, parsed.data.status)
+    const validation = validateStatusTransition(
+      tender.status,
+      parsed.data.status,
+    )
     if (!validation.valid) {
       return errorResponse('INVALID_TRANSITION', validation.reason!, 400)
     }
@@ -55,10 +61,6 @@ export async function PATCH(
     return successResponse({ id, status: newStatus })
   } catch (error) {
     console.error('PATCH /api/tenders/[id]/status error:', error)
-    return errorResponse(
-      'INTERNAL_ERROR',
-      'Errore nel cambio stato gara',
-      500,
-    )
+    return errorResponse('INTERNAL_ERROR', 'Errore nel cambio stato gara', 500)
   }
 }

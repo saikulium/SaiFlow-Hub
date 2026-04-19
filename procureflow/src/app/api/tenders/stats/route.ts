@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
+import { assertModuleEnabled } from '@/lib/module-guard'
 import { getTenderDashboardStats } from '@/server/services/tenders.service'
 
 export async function GET() {
+  const packGate = assertModuleEnabled('tenders')
+  if (packGate) return packGate
   const blocked = await requireModule('/api/tenders')
   if (blocked) return blocked
   try {

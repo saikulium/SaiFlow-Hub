@@ -8,6 +8,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
+import { assertModuleEnabled } from '@/lib/module-guard'
 import { goNoGoSchema } from '@/lib/validations/tenders'
 import { computeGoNoGoScore } from '@/server/services/tenders.service'
 
@@ -15,6 +16,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const packGate = assertModuleEnabled('tenders')
+  if (packGate) return packGate
   const blocked = await requireModule('/api/tenders')
   if (blocked) return blocked
   try {
@@ -37,7 +40,9 @@ export async function POST(
       )
     }
 
-    const { totalScore, recommendation } = computeGoNoGoScore(parsed.data.scores)
+    const { totalScore, recommendation } = computeGoNoGoScore(
+      parsed.data.scores,
+    )
 
     await prisma.$transaction([
       prisma.tender.update({

@@ -4,10 +4,8 @@ import type { UserRole } from '@prisma/client'
 import type { ZodType, ZodError } from 'zod'
 import { requireAuth, requireRole } from '@/lib/auth'
 import { requireModule } from '@/lib/modules/require-module'
-import {
-  errorResponse,
-  validationErrorResponse,
-} from '@/lib/api-response'
+import { assertModuleEnabled } from '@/lib/module-guard'
+import { errorResponse, validationErrorResponse } from '@/lib/api-response'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,8 +32,10 @@ type HandlerFn<TBody = unknown, TQuery = unknown> = (
 ) => Promise<NextResponse> | NextResponse
 
 interface ApiHandlerConfig<TBody = unknown, TQuery = unknown> {
-  /** Module guard — pathname like '/api/budgets'. If set, checks module is enabled. */
+  /** Module guard — pathname like '/api/budgets'. If set, checks module is enabled via DB config. */
   readonly module?: string
+  /** Pack/env module guard — module name like 'tenders'. If set, checks `ENABLED_MODULES` env var. */
+  readonly packModule?: string
   /** Auth requirement. `true` = any authenticated user. Array = role whitelist. */
   readonly auth?: true | readonly UserRole[]
   /** Zod schema for request body (POST/PUT/PATCH). */
@@ -54,7 +54,9 @@ interface ApiHandlerConfig<TBody = unknown, TQuery = unknown> {
 // Default error handling
 // ---------------------------------------------------------------------------
 
-function handlePrismaP2002(error: Prisma.PrismaClientKnownRequestError): NextResponse {
+function handlePrismaP2002(
+  error: Prisma.PrismaClientKnownRequestError,
+): NextResponse {
   const target = (error.meta?.target as string[]) ?? []
   const field = target.length > 0 ? target.join(', ') : 'campo'
   return errorResponse('DUPLICATE', `Valore duplicato: ${field}`, 409)
@@ -64,10 +66,7 @@ function handlePrismaP2025(): NextResponse {
   return errorResponse('NOT_FOUND', 'Risorsa non trovata', 404)
 }
 
-function handleDefaultError(
-  error: unknown,
-  message: string,
-): NextResponse {
+function handleDefaultError(error: unknown, message: string): NextResponse {
   console.error(`[api-handler] ${message}:`, error)
   return errorResponse('INTERNAL_ERROR', message, 500)
 }
@@ -117,7 +116,13 @@ export function withApiHandler<TBody = unknown, TQuery = unknown>(
     req: NextRequest,
     ...rest: unknown[]
   ): Promise<NextResponse> => {
-    // 1. Module guard
+    // 1a. Pack/env module guard (compile-time pack filter)
+    if (config.packModule) {
+      const packGate = assertModuleEnabled(config.packModule)
+      if (packGate) return packGate
+    }
+
+    // 1b. DB module guard (runtime toggle)
     if (config.module) {
       const blocked = await requireModule(config.module)
       if (blocked) return blocked
@@ -146,13 +151,15 @@ export function withApiHandler<TBody = unknown, TQuery = unknown>(
         try {
           rawBody = await req.json()
         } catch {
-          return errorResponse('INVALID_BODY', 'Corpo della richiesta non valido', 400)
+          return errorResponse(
+            'INVALID_BODY',
+            'Corpo della richiesta non valido',
+            400,
+          )
         }
         const parsed = config.bodySchema.safeParse(rawBody)
         if (!parsed.success) {
-          return validationErrorResponse(
-            (parsed.error as ZodError).flatten(),
-          )
+          return validationErrorResponse((parsed.error as ZodError).flatten())
         }
         body = parsed.data
       }
@@ -163,9 +170,7 @@ export function withApiHandler<TBody = unknown, TQuery = unknown>(
         const raw = Object.fromEntries(req.nextUrl.searchParams)
         const parsed = config.querySchema.safeParse(raw)
         if (!parsed.success) {
-          return validationErrorResponse(
-            (parsed.error as ZodError).flatten(),
-          )
+          return validationErrorResponse((parsed.error as ZodError).flatten())
         }
         query = parsed.data
       }

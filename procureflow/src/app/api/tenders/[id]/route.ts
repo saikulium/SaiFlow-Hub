@@ -11,6 +11,7 @@ import type { TenderDetail } from '@/types'
 export const GET = withApiHandler(
   {
     module: '/api/tenders',
+    packModule: 'tenders',
     auth: ['ADMIN', 'MANAGER', 'REQUESTER'],
     errorMessage: 'Errore nel recupero gara',
   },
@@ -80,9 +81,7 @@ export const GET = withApiHandler(
         ? Number(tender.our_total_score)
         : null,
       winnerName: tender.winner_name,
-      winnerAmount: tender.winner_amount
-        ? Number(tender.winner_amount)
-        : null,
+      winnerAmount: tender.winner_amount ? Number(tender.winner_amount) : null,
       participantsCount: tender.participants_count,
       department: tender.department,
       costCenter: tender.cost_center,
@@ -119,6 +118,7 @@ export const GET = withApiHandler(
 export const PATCH = withApiHandler(
   {
     module: '/api/tenders',
+    packModule: 'tenders',
     auth: ['ADMIN', 'MANAGER'],
     bodySchema: updateTenderSchema,
     errorMessage: 'Errore aggiornamento gara',
@@ -162,6 +162,7 @@ export const PATCH = withApiHandler(
 export const DELETE = withApiHandler(
   {
     module: '/api/tenders',
+    packModule: 'tenders',
     auth: ['ADMIN'],
     errorMessage: 'Errore eliminazione gara',
   },

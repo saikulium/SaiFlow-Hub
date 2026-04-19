@@ -7,11 +7,17 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { createTenderSchema, tenderQuerySchema } from '@/lib/validations/tenders'
+import { assertModuleEnabled } from '@/lib/module-guard'
+import {
+  createTenderSchema,
+  tenderQuerySchema,
+} from '@/lib/validations/tenders'
 import { getNextTenderCode } from '@/server/services/tenders.service'
 import type { TenderListItem } from '@/types'
 
 export async function GET(req: NextRequest) {
+  const packGate = assertModuleEnabled('tenders')
+  if (packGate) return packGate
   const blocked = await requireModule('/api/tenders')
   if (blocked) return blocked
   try {
@@ -111,6 +117,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const packGate = assertModuleEnabled('tenders')
+  if (packGate) return packGate
   const blocked = await requireModule('/api/tenders')
   if (blocked) return blocked
   try {
