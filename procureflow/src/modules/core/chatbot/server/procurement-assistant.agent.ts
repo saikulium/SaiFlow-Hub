@@ -2,7 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { getClaudeClient } from '@/lib/ai/claude-client'
 import { AGENT_SYSTEM_PROMPT } from '@/lib/ai/prompts'
 import { MODELS } from '@/lib/ai/models'
-import { storePendingAction } from '@/lib/ai/pending-actions'
+import { storePendingAction } from './pending-actions'
 import {
   getToolsForRole,
   isWriteTool,

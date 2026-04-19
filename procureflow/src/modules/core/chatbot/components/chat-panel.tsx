@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { X, Send, Trash2, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useChat } from '@/hooks/use-chat'
+import { useChat } from '../hooks/use-chat'
 import { ChatMessageBubble } from './chat-message'
 import { ActionConfirmationDialog } from './action-confirmation'
 

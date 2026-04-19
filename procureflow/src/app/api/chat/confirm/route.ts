@@ -6,8 +6,11 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { getPendingAction, removePendingAction } from '@/lib/ai/pending-actions'
-import { executeWriteTool } from '@/server/agents/procurement-assistant.agent'
+import {
+  getPendingAction,
+  removePendingAction,
+  executeWriteTool,
+} from '@/modules/core/chatbot'
 
 const confirmSchema = z.object({
   actionId: z.string().min(1, 'actionId richiesto'),

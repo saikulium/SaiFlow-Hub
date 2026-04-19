@@ -45,7 +45,7 @@ vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
 }))
 
-vi.mock('@/lib/ai/pending-actions', () => ({
+vi.mock('@/modules/core/chatbot/server/pending-actions', () => ({
   storePendingAction: mockStorePendingAction,
 }))
 
@@ -84,7 +84,7 @@ vi.mock('@/lib/constants/agent', () => ({
 import {
   streamAssistantResponse,
   executeWriteTool,
-} from '@/server/agents/procurement-assistant.agent'
+} from '@/modules/core/chatbot'
 import {
   getToolsForRole,
   isWriteTool,

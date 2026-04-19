@@ -66,7 +66,7 @@ vi.mock('@/lib/constants/agent', () => ({
   PENDING_ACTION_TTL_MS: 300_000,
 }))
 
-vi.mock('@/lib/ai/pending-actions', () => ({
+vi.mock('@/modules/core/chatbot/server/pending-actions', () => ({
   storePendingAction: vi.fn().mockReturnValue('test-action-id'),
 }))
 
@@ -80,7 +80,17 @@ vi.mock('@/lib/ai/prompts', () => ({
 // Helper: create async iterable from messages
 // ---------------------------------------------------------------------------
 
-function createMockRunner(messages: Array<{ content: Array<{ type: string; text?: string; name?: string; id?: string; input?: unknown }> }>) {
+function createMockRunner(
+  messages: Array<{
+    content: Array<{
+      type: string
+      text?: string
+      name?: string
+      id?: string
+      input?: unknown
+    }>
+  }>,
+) {
   const iterator = {
     [Symbol.asyncIterator]() {
       let index = 0

@@ -3,8 +3,8 @@
 import React from 'react'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { getToolLabel } from '@/hooks/use-chat'
-import type { ChatMessage } from '@/hooks/use-chat'
+import { getToolLabel } from '../hooks/use-chat'
+import type { ChatMessage } from '../hooks/use-chat'
 
 // ---------------------------------------------------------------------------
 // Singolo messaggio chat con markdown base e tool indicator

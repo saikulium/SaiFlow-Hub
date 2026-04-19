@@ -80,7 +80,7 @@ vi.mock('@/lib/constants/agent', () => ({
   PENDING_ACTION_TTL_MS: 300_000,
 }))
 
-vi.mock('@/lib/ai/pending-actions', () => ({
+vi.mock('@/modules/core/chatbot/server/pending-actions', () => ({
   storePendingAction: vi.fn().mockReturnValue('test-action-id'),
 }))
 
