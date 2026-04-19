@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { EmailClassificationSchema } from '@/lib/ai/schemas/email-classification.schema'
+import { EmailClassificationSchema } from '@/modules/core/email-intelligence'
 
 describe('EmailClassificationSchema', () => {
   it('validates a correct classification', () => {

@@ -5,9 +5,11 @@ import { MODELS } from '@/lib/ai/models'
 import {
   EmailClassificationSchema,
   type EmailClassification,
-} from '@/lib/ai/schemas/email-classification.schema'
-import type { EmailIngestionPayload } from '@/lib/validations/email-ingestion'
-import type { ActionType } from '@/lib/validations/email-ingestion'
+} from '../schemas/email-classification.schema'
+import type {
+  EmailIngestionPayload,
+  ActionType,
+} from '../validations/email-ingestion'
 
 // ---------------------------------------------------------------------------
 // Email AI Classifier — Classifica l'intent delle email con Claude

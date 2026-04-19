@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
-import { emailIngestionSchema } from '@/lib/validations/email-ingestion'
-import { processEmailIngestion } from '@/server/services/email-ingestion.service'
+import {
+  emailIngestionSchema,
+  processEmailIngestion,
+} from '@/modules/core/email-intelligence'
 import {
   checkWebhookProcessed,
   recordWebhookProcessed,

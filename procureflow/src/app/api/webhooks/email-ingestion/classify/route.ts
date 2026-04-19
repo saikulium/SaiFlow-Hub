@@ -10,9 +10,9 @@ import {
   classifyEmailIntent,
   mapClassificationToPayload,
   EmailClassificationError,
-} from '@/server/services/email-ai-classifier.service'
-import type { RawEmailData } from '@/server/services/email-ai-classifier.service'
-import { processEmailIngestion } from '@/server/services/email-ingestion.service'
+  processEmailIngestion,
+  type RawEmailData,
+} from '@/modules/core/email-intelligence'
 import { prisma } from '@/lib/db'
 import {
   createNotification,

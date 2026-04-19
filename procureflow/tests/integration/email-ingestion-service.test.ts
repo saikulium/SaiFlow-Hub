@@ -86,8 +86,10 @@ vi.mock('@/server/services/notification.service', () => ({
 // Import del service dopo i mock
 // ---------------------------------------------------------------------------
 
-import { processEmailIngestion } from '@/server/services/email-ingestion.service'
-import type { EmailIngestionPayload } from '@/lib/validations/email-ingestion'
+import {
+  processEmailIngestion,
+  type EmailIngestionPayload,
+} from '@/modules/core/email-intelligence'
 
 // ---------------------------------------------------------------------------
 // Fixture di base

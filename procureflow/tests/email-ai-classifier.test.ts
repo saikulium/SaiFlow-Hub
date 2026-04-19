@@ -2,11 +2,9 @@ import { describe, it, expect } from 'vitest'
 import {
   mapAiResponseToClassification,
   mapClassificationToPayload,
-} from '@/server/services/email-ai-classifier.service'
-import type {
-  RawEmailData,
-  ClassificationResult,
-} from '@/server/services/email-ai-classifier.service'
+  type RawEmailData,
+  type ClassificationResult,
+} from '@/modules/core/email-intelligence'
 
 // ---------------------------------------------------------------------------
 // Test per mapAiResponseToClassification

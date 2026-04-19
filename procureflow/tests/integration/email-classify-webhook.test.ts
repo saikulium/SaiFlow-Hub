@@ -27,21 +27,27 @@ vi.mock('@/lib/webhook-auth', () => ({
 
 const mockClassifyEmailIntent = vi.fn()
 const mockMapClassificationToPayload = vi.fn()
-vi.mock('@/server/services/email-ai-classifier.service', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/server/services/email-ai-classifier.service')
-  >('@/server/services/email-ai-classifier.service')
-  return {
-    ...actual,
-    classifyEmailIntent: mockClassifyEmailIntent,
-    mapClassificationToPayload: mockMapClassificationToPayload,
-  }
-})
+vi.mock(
+  '@/modules/core/email-intelligence/server/email-ai-classifier.service',
+  async () => {
+    const actual = await vi.importActual<
+      typeof import('@/modules/core/email-intelligence/server/email-ai-classifier.service')
+    >('@/modules/core/email-intelligence/server/email-ai-classifier.service')
+    return {
+      ...actual,
+      classifyEmailIntent: mockClassifyEmailIntent,
+      mapClassificationToPayload: mockMapClassificationToPayload,
+    }
+  },
+)
 
 const mockProcessEmailIngestion = vi.fn()
-vi.mock('@/server/services/email-ingestion.service', () => ({
-  processEmailIngestion: mockProcessEmailIngestion,
-}))
+vi.mock(
+  '@/modules/core/email-intelligence/server/email-ingestion.service',
+  () => ({
+    processEmailIngestion: mockProcessEmailIngestion,
+  }),
+)
 
 const mockCheckWebhookProcessed = vi.fn()
 const mockRecordWebhookProcessed = vi.fn()
@@ -197,7 +203,7 @@ describe('POST /api/webhooks/email-ingestion/classify', () => {
 
   it('risponde 503 quando AI non è configurata', async () => {
     const { EmailClassificationError } =
-      await import('@/server/services/email-ai-classifier.service')
+      await import('@/modules/core/email-intelligence/server/email-ai-classifier.service')
     mockClassifyEmailIntent.mockRejectedValue(
       new EmailClassificationError(
         'AI_NOT_CONFIGURED',
@@ -215,7 +221,7 @@ describe('POST /api/webhooks/email-ingestion/classify', () => {
 
   it('risponde 504 quando la classificazione AI va in timeout', async () => {
     const { EmailClassificationError } =
-      await import('@/server/services/email-ai-classifier.service')
+      await import('@/modules/core/email-intelligence/server/email-ai-classifier.service')
     mockClassifyEmailIntent.mockRejectedValue(
       new EmailClassificationError(
         'AI_TIMEOUT',

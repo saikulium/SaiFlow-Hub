@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api-response'
-import { getEmailLogs } from '@/server/services/email-log.service'
+import { getEmailLogs } from '@/modules/core/email-intelligence'
 
 export const dynamic = 'force-dynamic'
 

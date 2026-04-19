@@ -5,7 +5,7 @@ import { Plus, Mail, FileText, Loader2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { EmailImportDialog } from '@/components/dashboard/email-import-dialog'
+import { EmailImportDialog } from '@/modules/core/email-intelligence'
 
 export function QuickActions() {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)

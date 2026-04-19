@@ -5,8 +5,8 @@ import { successResponse, errorResponse } from '@/lib/api-response'
 import {
   processEmail,
   type EmailAttachmentFile,
-} from '@/server/agents/email-intelligence.agent'
-import type { RawEmailData } from '@/server/services/email-ai-classifier.service'
+  type RawEmailData,
+} from '@/modules/core/email-intelligence'
 
 // ---------------------------------------------------------------------------
 // POST /api/email-import

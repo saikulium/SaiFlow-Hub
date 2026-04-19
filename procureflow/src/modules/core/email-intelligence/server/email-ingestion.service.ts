@@ -1,15 +1,18 @@
 import { prisma } from '@/lib/db'
 import { Prisma } from '@prisma/client'
 import { canAutoApproveByRole } from '@/lib/constants/approval-thresholds'
-import { initiateApprovalWorkflow } from './approval.service'
-import { generateNextCodeAtomic } from './code-generator.service'
+import { initiateApprovalWorkflow } from '@/server/services/approval.service'
+import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 import { canTransition } from '@/lib/state-machine'
 import type { RequestStatus } from '@prisma/client'
-import { createNotification, NOTIFICATION_TYPES } from './notification.service'
+import {
+  createNotification,
+  NOTIFICATION_TYPES,
+} from '@/server/services/notification.service'
 import type {
   EmailIngestionPayload,
   ActionType,
-} from '@/lib/validations/email-ingestion'
+} from '../validations/email-ingestion'
 
 // ---------------------------------------------------------------------------
 // Tipi di risultato

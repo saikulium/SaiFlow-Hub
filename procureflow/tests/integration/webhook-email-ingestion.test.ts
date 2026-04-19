@@ -24,9 +24,12 @@ vi.mock('@/lib/webhook-auth', () => ({
     },
   ),
 }))
-vi.mock('@/server/services/email-ingestion.service', () => ({
-  processEmailIngestion: mockProcessEmailIngestion,
-}))
+vi.mock(
+  '@/modules/core/email-intelligence/server/email-ingestion.service',
+  () => ({
+    processEmailIngestion: mockProcessEmailIngestion,
+  }),
+)
 vi.mock('@/server/services/webhook-idempotency.service', () => ({
   checkWebhookProcessed: mockCheckWebhookProcessed,
   recordWebhookProcessed: mockRecordWebhookProcessed,
@@ -88,9 +91,7 @@ describe('POST /api/webhooks/email-ingestion', () => {
       ai_confidence: 0.92,
     })
 
-    const { POST } = await import(
-      '@/app/api/webhooks/email-ingestion/route'
-    )
+    const { POST } = await import('@/app/api/webhooks/email-ingestion/route')
     const res = await POST(makeRequest(validPayload))
     const body = await res.json()
 
@@ -101,9 +102,7 @@ describe('POST /api/webhooks/email-ingestion', () => {
   })
 
   it('rejects unauthorized requests', async () => {
-    const { POST } = await import(
-      '@/app/api/webhooks/email-ingestion/route'
-    )
+    const { POST } = await import('@/app/api/webhooks/email-ingestion/route')
     const req = new NextRequest(
       'http://localhost:3000/api/webhooks/email-ingestion',
       {
@@ -131,9 +130,7 @@ describe('POST /api/webhooks/email-ingestion', () => {
       response: cachedResponse,
     })
 
-    const { POST } = await import(
-      '@/app/api/webhooks/email-ingestion/route'
-    )
+    const { POST } = await import('@/app/api/webhooks/email-ingestion/route')
     const res = await POST(makeRequest(validPayload))
     const body = await res.json()
 
@@ -143,9 +140,7 @@ describe('POST /api/webhooks/email-ingestion', () => {
   })
 
   it('rejects invalid JSON body', async () => {
-    const { POST } = await import(
-      '@/app/api/webhooks/email-ingestion/route'
-    )
+    const { POST } = await import('@/app/api/webhooks/email-ingestion/route')
     const req = new NextRequest(
       'http://localhost:3000/api/webhooks/email-ingestion',
       {
@@ -166,9 +161,7 @@ describe('POST /api/webhooks/email-ingestion', () => {
   })
 
   it('rejects payload missing required fields', async () => {
-    const { POST } = await import(
-      '@/app/api/webhooks/email-ingestion/route'
-    )
+    const { POST } = await import('@/app/api/webhooks/email-ingestion/route')
     const res = await POST(
       makeRequest({ email_from: 'a@b.com' }), // missing action, email_subject, etc.
     )
@@ -187,9 +180,7 @@ describe('POST /api/webhooks/email-ingestion', () => {
       ai_confidence: 0.8,
     })
 
-    const { POST } = await import(
-      '@/app/api/webhooks/email-ingestion/route'
-    )
+    const { POST } = await import('@/app/api/webhooks/email-ingestion/route')
     await POST(makeRequest(validPayload))
 
     expect(mockRecordWebhookProcessed).toHaveBeenCalledWith(

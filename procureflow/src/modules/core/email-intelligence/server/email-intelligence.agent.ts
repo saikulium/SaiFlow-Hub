@@ -32,8 +32,8 @@ import {
   getApprovalDetailTool,
 } from '@/server/agents/tools/approval.tools'
 import { createPriceVarianceReviewTool } from '@/server/agents/tools/price-variance.tools'
-import { createEmailLog } from '@/server/services/email-log.service'
-import type { RawEmailData } from '@/server/services/email-ai-classifier.service'
+import { createEmailLog } from './email-log.service'
+import type { RawEmailData } from './email-ai-classifier.service'
 import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
 
 // ---------------------------------------------------------------------------
