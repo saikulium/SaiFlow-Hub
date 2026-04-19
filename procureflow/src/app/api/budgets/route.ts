@@ -1,7 +1,10 @@
 import { prisma } from '@/lib/db'
 import { successResponse } from '@/lib/api-response'
-import { createBudgetSchema, budgetQuerySchema } from '@/lib/validations/budget'
-import { computeBudgetCapacity } from '@/server/services/budget.service'
+import {
+  createBudgetSchema,
+  budgetQuerySchema,
+  computeBudgetCapacity,
+} from '@/modules/core/budgets'
 import { withApiHandler } from '@/lib/api-handler'
 
 export const GET = withApiHandler(

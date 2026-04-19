@@ -4,9 +4,12 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Plus } from 'lucide-react'
-import { createBudgetSchema, type CreateBudgetInput } from '@/lib/validations/budget'
-import { useCreateBudget } from '@/hooks/use-budgets'
-import { BUDGET_PERIOD_LABELS, BUDGET_ENFORCEMENT_LABELS } from '@/lib/constants/budget'
+import {
+  createBudgetSchema,
+  type CreateBudgetInput,
+} from '../validations/budget'
+import { useCreateBudget } from '../hooks/use-budgets'
+import { BUDGET_PERIOD_LABELS, BUDGET_ENFORCEMENT_LABELS } from '../constants'
 
 export function BudgetFormDialog() {
   const [open, setOpen] = useState(false)
@@ -74,7 +77,9 @@ export function BudgetFormDialog() {
                 className="w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none"
               />
               {errors.cost_center && (
-                <p className="mt-1 text-xs text-red-400">{errors.cost_center.message}</p>
+                <p className="mt-1 text-xs text-red-400">
+                  {errors.cost_center.message}
+                </p>
               )}
             </div>
             <div>
@@ -99,7 +104,9 @@ export function BudgetFormDialog() {
                 className="w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none"
               >
                 {Object.entries(BUDGET_PERIOD_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -113,7 +120,9 @@ export function BudgetFormDialog() {
                 className="w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none"
               />
               {errors.period_start && (
-                <p className="mt-1 text-xs text-red-400">{errors.period_start.message}</p>
+                <p className="mt-1 text-xs text-red-400">
+                  {errors.period_start.message}
+                </p>
               )}
             </div>
             <div>
@@ -126,7 +135,9 @@ export function BudgetFormDialog() {
                 className="w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none"
               />
               {errors.period_end && (
-                <p className="mt-1 text-xs text-red-400">{errors.period_end.message}</p>
+                <p className="mt-1 text-xs text-red-400">
+                  {errors.period_end.message}
+                </p>
               )}
             </div>
           </div>
@@ -144,7 +155,9 @@ export function BudgetFormDialog() {
                 className="w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none"
               />
               {errors.allocated_amount && (
-                <p className="mt-1 text-xs text-red-400">{errors.allocated_amount.message}</p>
+                <p className="mt-1 text-xs text-red-400">
+                  {errors.allocated_amount.message}
+                </p>
               )}
             </div>
             <div>
@@ -153,7 +166,9 @@ export function BudgetFormDialog() {
               </label>
               <input
                 type="number"
-                {...register('alert_threshold_percent', { valueAsNumber: true })}
+                {...register('alert_threshold_percent', {
+                  valueAsNumber: true,
+                })}
                 className="w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none"
               />
             </div>
@@ -165,9 +180,13 @@ export function BudgetFormDialog() {
                 {...register('enforcement_mode')}
                 className="w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none"
               >
-                {Object.entries(BUDGET_ENFORCEMENT_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
+                {Object.entries(BUDGET_ENFORCEMENT_LABELS).map(
+                  ([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ),
+                )}
               </select>
             </div>
           </div>

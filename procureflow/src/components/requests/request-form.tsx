@@ -30,7 +30,7 @@ import {
 import { useAdminConfig } from '@/hooks/use-admin-config'
 import { useCommesse } from '@/hooks/use-commesse'
 import { useRequestSuggestions } from '@/hooks/use-request-suggestions'
-import { BudgetCapacityBanner } from '@/components/requests/budget-capacity-banner'
+import { BudgetCapacityBanner } from '@/modules/core/budgets'
 import { SuggestionPanel } from '@/components/requests/suggestion-panel'
 import type { RequestSuggestion } from '@/server/services/suggest.service'
 

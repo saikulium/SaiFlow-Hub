@@ -3,7 +3,7 @@ export { getInventoryDashboardStats } from '@/server/services/inventory-db.servi
 import { prisma } from '@/lib/db'
 import { REQUEST_STATUS_CONFIG, type RequestStatusKey } from '@/lib/constants'
 import { INVOICE_MATCH_STATUS_CONFIG } from '@/lib/constants/sdi'
-import { getBudgetDashboardStats as computeBudgetDashboardStats } from '@/server/services/budget.service'
+import { getBudgetDashboardStats as computeBudgetDashboardStats } from '@/modules/core/budgets'
 
 const MONTH_NAMES = [
   'Gen',

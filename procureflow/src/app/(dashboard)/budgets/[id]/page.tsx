@@ -1,4 +1,4 @@
-import { BudgetDetailContent } from '@/components/budgets/budget-detail-content'
+import { BudgetDetailContent } from '@/modules/core/budgets'
 
 export default function BudgetDetailPage({
   params,

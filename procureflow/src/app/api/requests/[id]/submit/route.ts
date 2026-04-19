@@ -10,7 +10,7 @@ import {
   checkBudgetCapacity,
   sendBudgetAlerts,
   refreshSnapshotsForCostCenter,
-} from '@/server/services/budget.service'
+} from '@/modules/core/budgets'
 import { requireAuth } from '@/lib/auth'
 
 // ---------------------------------------------------------------------------

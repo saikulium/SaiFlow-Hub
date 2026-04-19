@@ -5,8 +5,7 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { budgetCheckSchema } from '@/lib/validations/budget'
-import { checkBudgetCapacity } from '@/server/services/budget.service'
+import { budgetCheckSchema, checkBudgetCapacity } from '@/modules/core/budgets'
 import { requireModule } from '@/lib/modules/require-module'
 
 export async function POST(req: NextRequest) {

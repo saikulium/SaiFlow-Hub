@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUDGET_TOOLS } from '@/server/agents/tools/budget.tools'
+import { BUDGET_TOOLS } from '@/modules/core/budgets'
 
 describe('budget.tools', () => {
   it('exports 1 tool', () => {

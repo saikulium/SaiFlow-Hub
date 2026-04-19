@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { COMMITTED_STATUSES, SPENT_STATUSES } from '@/lib/constants/budget'
+import { COMMITTED_STATUSES, SPENT_STATUSES } from '../constants'
 import {
   createBulkNotifications,
   NOTIFICATION_TYPES,

@@ -7,12 +7,13 @@ import {
   notFoundResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { updateBudgetSchema } from '@/lib/validations/budget'
 import {
+  updateBudgetSchema,
   computeBudgetCapacity,
   computeForecast,
-} from '@/server/services/budget.service'
-import { COMMITTED_STATUSES, SPENT_STATUSES } from '@/lib/constants/budget'
+  COMMITTED_STATUSES,
+  SPENT_STATUSES,
+} from '@/modules/core/budgets'
 import { requireModule } from '@/lib/modules/require-module'
 
 export async function GET(

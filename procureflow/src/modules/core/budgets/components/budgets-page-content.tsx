@@ -4,18 +4,22 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { PiggyBank, Search } from 'lucide-react'
-import { useBudgets } from '@/hooks/use-budgets'
-import { BudgetFormDialog } from '@/components/budgets/budget-form-dialog'
+import { useBudgets } from '../hooks/use-budgets'
+import { BudgetFormDialog } from './budget-form-dialog'
 import { PageTransition } from '@/components/shared/page-transition'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { BUDGET_PERIOD_LABELS } from '@/lib/constants/budget'
+import { BUDGET_PERIOD_LABELS } from '../constants'
 
 export function BudgetsPageContent() {
   const router = useRouter()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const { data, isLoading } = useBudgets({ page, pageSize: 20, cost_center: search || undefined })
+  const { data, isLoading } = useBudgets({
+    page,
+    pageSize: 20,
+    cost_center: search || undefined,
+  })
 
   const budgets = data?.data ?? []
   const total = data?.meta?.total ?? 0
@@ -41,7 +45,10 @@ export function BudgetsPageContent() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pf-text-muted" />
           <input
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
             placeholder="Cerca centro di costo..."
             className="w-full rounded-lg border border-pf-border bg-pf-bg-secondary py-2 pl-9 pr-3 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none"
           />
@@ -75,7 +82,10 @@ export function BudgetsPageContent() {
                 ))}
               {!isLoading && budgets.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-pf-text-secondary">
+                  <td
+                    colSpan={8}
+                    className="px-4 py-12 text-center text-pf-text-secondary"
+                  >
                     <PiggyBank className="mx-auto mb-3 h-10 w-10 text-pf-text-muted" />
                     <p>Nessun budget configurato</p>
                     <p className="mt-1 text-xs text-pf-text-muted">
@@ -96,7 +106,9 @@ export function BudgetsPageContent() {
                   <td className="px-4 py-3 font-medium text-pf-text-primary">
                     {b.costCenter}
                     {b.department && (
-                      <span className="ml-2 text-xs text-pf-text-muted">{b.department}</span>
+                      <span className="ml-2 text-xs text-pf-text-muted">
+                        {b.department}
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-pf-text-secondary">
@@ -111,10 +123,12 @@ export function BudgetsPageContent() {
                   <td className="px-4 py-3 text-right font-mono text-amber-400">
                     {formatCurrency(b.committed)}
                   </td>
-                  <td className={cn(
-                    'px-4 py-3 text-right font-mono',
-                    b.available < 0 ? 'text-red-400' : 'text-pf-text-primary',
-                  )}>
+                  <td
+                    className={cn(
+                      'px-4 py-3 text-right font-mono',
+                      b.available < 0 ? 'text-red-400' : 'text-pf-text-primary',
+                    )}
+                  >
                     {formatCurrency(b.available)}
                   </td>
                   <td className="px-4 py-3">
@@ -123,21 +137,29 @@ export function BudgetsPageContent() {
                         <div
                           className={cn(
                             'h-full rounded-full transition-all',
-                            b.isOverBudget ? 'bg-red-500' : b.isWarning ? 'bg-amber-500' : 'bg-green-500',
+                            b.isOverBudget
+                              ? 'bg-red-500'
+                              : b.isWarning
+                                ? 'bg-amber-500'
+                                : 'bg-green-500',
                           )}
                           style={{ width: `${Math.min(100, b.usagePercent)}%` }}
                         />
                       </div>
-                      <span className="text-xs text-pf-text-muted">{b.usagePercent}%</span>
+                      <span className="text-xs text-pf-text-muted">
+                        {b.usagePercent}%
+                      </span>
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={cn(
-                      'rounded-md px-2 py-0.5 text-xs font-medium',
-                      b.enforcementMode === 'HARD'
-                        ? 'bg-red-500/10 text-red-400'
-                        : 'bg-amber-500/10 text-amber-400',
-                    )}>
+                    <span
+                      className={cn(
+                        'rounded-md px-2 py-0.5 text-xs font-medium',
+                        b.enforcementMode === 'HARD'
+                          ? 'bg-red-500/10 text-red-400'
+                          : 'bg-amber-500/10 text-amber-400',
+                      )}
+                    >
                       {b.enforcementMode === 'HARD' ? 'Blocco' : 'Avviso'}
                     </span>
                   </td>
@@ -150,9 +172,7 @@ export function BudgetsPageContent() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
-            <p className="text-xs text-pf-text-muted">
-              {total} budget totali
-            </p>
+            <p className="text-xs text-pf-text-muted">{total} budget totali</p>
             <div className="flex gap-2">
               <button
                 disabled={page <= 1}
