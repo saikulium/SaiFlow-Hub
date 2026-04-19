@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
-import type { CsvRow } from '@/lib/validations/article'
+import type { CsvRow } from '../validations/article'
 import type { ArticleImportResult, ArticleImportError } from '@/types'
 
 interface ArticleGroup {
@@ -20,7 +20,10 @@ interface ArticleGroup {
 
 /** Group CSV rows by codice_interno, collecting aliases per article */
 export function parseCsvRows(rows: readonly CsvRow[]): ArticleGroup[] {
-  const map = new Map<string, ArticleGroup & { aliases: Array<ArticleGroup['aliases'][number]> }>()
+  const map = new Map<
+    string,
+    ArticleGroup & { aliases: Array<ArticleGroup['aliases'][number]> }
+  >()
 
   for (const row of rows) {
     if (!map.has(row.codice_interno)) {
@@ -86,7 +89,10 @@ async function createAliasesForArticle(
 
   for (const alias of aliases) {
     try {
-      const aliasType = alias.tipo_alias.toUpperCase() as 'VENDOR' | 'CLIENT' | 'STANDARD'
+      const aliasType = alias.tipo_alias.toUpperCase() as
+        | 'VENDOR'
+        | 'CLIENT'
+        | 'STANDARD'
       const entityId = await resolveEntityId(alias.entita, alias.tipo_alias)
       await prisma.articleAlias.create({
         data: {
@@ -132,52 +138,67 @@ export async function importArticles(
         : null
 
       if (existing) {
-        const aliasResults = await createAliasesForArticle(existing.id, group.aliases)
+        const aliasResults = await createAliasesForArticle(
+          existing.id,
+          group.aliases,
+        )
         aliases_created += aliasResults.created
         skipped += aliasResults.skipped + 1
         errors.push(...aliasResults.errors)
       } else {
-        const result = await prisma.$transaction(async (tx) => {
-          const code = await generateNextCodeAtomic('ART', 'articles', tx)
-          const article = await tx.article.create({
-            data: {
-              code,
-              name: group.nome,
-              category: group.categoria || null,
-              unit_of_measure: group.um,
-              manufacturer: group.produttore || null,
-              manufacturer_code: group.codice_produttore || null,
-            },
-          })
+        const result = await prisma.$transaction(
+          async (tx) => {
+            const code = await generateNextCodeAtomic('ART', 'articles', tx)
+            const article = await tx.article.create({
+              data: {
+                code,
+                name: group.nome,
+                category: group.categoria || null,
+                unit_of_measure: group.um,
+                manufacturer: group.produttore || null,
+                manufacturer_code: group.codice_produttore || null,
+              },
+            })
 
-          let aliasCount = 0
-          let aliasSkipped = 0
-          for (const alias of group.aliases) {
-            const aliasType = alias.tipo_alias.toUpperCase() as 'VENDOR' | 'CLIENT' | 'STANDARD'
-            const entityId = await resolveEntityId(alias.entita, alias.tipo_alias)
+            let aliasCount = 0
+            let aliasSkipped = 0
+            for (const alias of group.aliases) {
+              const aliasType = alias.tipo_alias.toUpperCase() as
+                | 'VENDOR'
+                | 'CLIENT'
+                | 'STANDARD'
+              const entityId = await resolveEntityId(
+                alias.entita,
+                alias.tipo_alias,
+              )
 
-            try {
-              await tx.articleAlias.create({
-                data: {
-                  article_id: article.id,
-                  alias_type: aliasType,
-                  alias_code: alias.codice_alias.toUpperCase(),
-                  alias_label: alias.note_alias || null,
-                  entity_id: entityId,
-                },
-              })
-              aliasCount++
-            } catch (e) {
-              if (e instanceof Error && e.message.includes('Unique constraint')) {
-                aliasSkipped++
-              } else {
-                throw e
+              try {
+                await tx.articleAlias.create({
+                  data: {
+                    article_id: article.id,
+                    alias_type: aliasType,
+                    alias_code: alias.codice_alias.toUpperCase(),
+                    alias_label: alias.note_alias || null,
+                    entity_id: entityId,
+                  },
+                })
+                aliasCount++
+              } catch (e) {
+                if (
+                  e instanceof Error &&
+                  e.message.includes('Unique constraint')
+                ) {
+                  aliasSkipped++
+                } else {
+                  throw e
+                }
               }
             }
-          }
 
-          return { aliasCount, aliasSkipped }
-        }, { timeout: 10000 })
+            return { aliasCount, aliasSkipped }
+          },
+          { timeout: 10000 },
+        )
 
         articles_created++
         aliases_created += result.aliasCount

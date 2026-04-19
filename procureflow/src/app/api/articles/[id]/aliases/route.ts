@@ -8,7 +8,7 @@ import {
 } from '@/lib/api-response'
 import { requireRole } from '@/lib/auth'
 import { requireModule } from '@/lib/modules/require-module'
-import { createAliasSchema } from '@/lib/validations/article'
+import { createAliasSchema } from '@/modules/core/articles'
 
 export async function GET(
   _req: NextRequest,
@@ -71,10 +71,7 @@ export async function POST(
 
     return successResponse(alias)
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes('Unique constraint')
-    ) {
+    if (error instanceof Error && error.message.includes('Unique constraint')) {
       return errorResponse(
         'DUPLICATE_ALIAS',
         'Questo codice alias esiste già per questa entità',

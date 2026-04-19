@@ -8,7 +8,7 @@ import {
 } from '@/lib/api-response'
 import { requireRole } from '@/lib/auth'
 import { requireModule } from '@/lib/modules/require-module'
-import { createPriceSchema } from '@/lib/validations/article'
+import { createPriceSchema } from '@/modules/core/articles'
 import { Prisma } from '@prisma/client'
 
 export async function GET(

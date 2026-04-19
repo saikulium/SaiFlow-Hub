@@ -624,7 +624,7 @@ export interface CommessaDashboardStats {
 
 // --- Anagrafica Articoli ---
 
-import type { AliasTypeKey, PriceSourceKey } from '@/lib/constants/article'
+import type { AliasTypeKey, PriceSourceKey } from '@/modules/core/articles'
 
 export interface ArticleListItem {
   readonly id: string

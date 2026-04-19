@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { X, Upload, Loader2, CheckCircle, AlertTriangle } from 'lucide-react'
-import { useImportArticles } from '@/hooks/use-articles'
+import { useImportArticles } from '../hooks/use-articles'
 import { cn } from '@/lib/utils'
 import type { ArticleImportResult } from '@/types'
 

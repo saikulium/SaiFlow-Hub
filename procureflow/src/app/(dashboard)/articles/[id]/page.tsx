@@ -1,5 +1,5 @@
 import { PageTransition } from '@/components/shared/page-transition'
-import { ArticleDetailView } from '@/components/articles/article-detail'
+import { ArticleDetailView } from '@/modules/core/articles'
 
 export default function ArticleDetailPage({
   params,

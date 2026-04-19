@@ -32,7 +32,7 @@ import {
   ARTICLE_TOOLS,
   findOrCreateArticleTool,
   linkArticleToRequestItemTool,
-} from './article.tools'
+} from '@/modules/core/articles'
 import {
   PRICE_VARIANCE_TOOLS,
   listPriceVarianceReviewsTool,

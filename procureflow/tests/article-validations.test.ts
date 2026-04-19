@@ -4,7 +4,7 @@ import {
   articleQuerySchema,
   createAliasSchema,
   createPriceSchema,
-} from '../src/lib/validations/article'
+} from '@/modules/core/articles'
 
 describe('createArticleSchema', () => {
   it('accepts valid article data', () => {

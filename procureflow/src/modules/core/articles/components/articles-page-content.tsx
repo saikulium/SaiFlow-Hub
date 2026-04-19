@@ -14,10 +14,10 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react'
-import { useArticles, useUpdateArticle } from '@/hooks/use-articles'
-import { useUnverifiedArticlesCount } from '@/hooks/use-unverified-articles-count'
-import { ArticleCreateDialog } from '@/components/articles/article-create-dialog'
-import { ArticleImportDialog } from '@/components/articles/article-import-dialog'
+import { useArticles, useUpdateArticle } from '../hooks/use-articles'
+import { useUnverifiedArticlesCount } from '../hooks/use-unverified-articles-count'
+import { ArticleCreateDialog } from './article-create-dialog'
+import { ArticleImportDialog } from './article-import-dialog'
 import { cn } from '@/lib/utils'
 import { useQueryClient } from '@tanstack/react-query'
 

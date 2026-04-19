@@ -6,7 +6,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { articleSearchSchema } from '@/lib/validations/article'
+import { articleSearchSchema } from '@/modules/core/articles'
 import { requireAuth } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {

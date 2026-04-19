@@ -1,11 +1,25 @@
 import { describe, it, expect } from 'vitest'
-import { parseCsvRows } from '../src/server/services/article-import.service'
+import { parseCsvRows } from '@/modules/core/articles'
 
 describe('parseCsvRows', () => {
   it('groups rows by codice_interno', () => {
     const rows = [
-      { codice_interno: 'ART-001', nome: 'Test', um: 'pz', tipo_alias: 'vendor' as const, codice_alias: 'V-001', entita: 'Amphenol' },
-      { codice_interno: 'ART-001', nome: 'Test', um: 'pz', tipo_alias: 'client' as const, codice_alias: 'C-001', entita: 'Leonardo' },
+      {
+        codice_interno: 'ART-001',
+        nome: 'Test',
+        um: 'pz',
+        tipo_alias: 'vendor' as const,
+        codice_alias: 'V-001',
+        entita: 'Amphenol',
+      },
+      {
+        codice_interno: 'ART-001',
+        nome: 'Test',
+        um: 'pz',
+        tipo_alias: 'client' as const,
+        codice_alias: 'C-001',
+        entita: 'Leonardo',
+      },
       { codice_interno: 'ART-002', nome: 'Other', um: 'kg' },
     ]
 
@@ -19,7 +33,12 @@ describe('parseCsvRows', () => {
 
   it('ignores rows without codice_alias in alias list', () => {
     const rows = [
-      { codice_interno: 'ART-001', nome: 'Test', um: 'pz', tipo_alias: 'vendor' as const },
+      {
+        codice_interno: 'ART-001',
+        nome: 'Test',
+        um: 'pz',
+        tipo_alias: 'vendor' as const,
+      },
     ]
 
     const groups = parseCsvRows(rows)

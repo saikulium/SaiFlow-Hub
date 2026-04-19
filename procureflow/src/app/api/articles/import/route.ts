@@ -5,11 +5,11 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireRole } from '@/lib/auth'
-import { csvRowSchema } from '@/lib/validations/article'
 import {
+  csvRowSchema,
   parseCsvRows,
   importArticles,
-} from '@/server/services/article-import.service'
+} from '@/modules/core/articles'
 
 const MAX_ROWS = 10_000
 

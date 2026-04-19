@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Search, Loader2 } from 'lucide-react'
-import { useArticleSearch } from '@/hooks/use-article-search'
+import { useArticleSearch } from '../hooks/use-article-search'
 import { cn } from '@/lib/utils'
 import type { ArticleSearchResult } from '@/types'
 

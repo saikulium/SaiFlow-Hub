@@ -2,9 +2,9 @@
 
 import { useState, useCallback } from 'react'
 import { Loader2, X } from 'lucide-react'
-import { useAddAlias } from '@/hooks/use-articles'
-import { ALIAS_TYPE_CONFIG } from '@/lib/constants/article'
-import type { AliasTypeKey } from '@/lib/constants/article'
+import { useAddAlias } from '../hooks/use-articles'
+import { ALIAS_TYPE_CONFIG } from '../constants'
+import type { AliasTypeKey } from '../constants'
 
 interface ArticleAliasFormProps {
   readonly articleId: string
@@ -13,7 +13,10 @@ interface ArticleAliasFormProps {
 
 const ALIAS_TYPES = Object.keys(ALIAS_TYPE_CONFIG) as AliasTypeKey[]
 
-export function ArticleAliasForm({ articleId, onClose }: ArticleAliasFormProps) {
+export function ArticleAliasForm({
+  articleId,
+  onClose,
+}: ArticleAliasFormProps) {
   const [aliasType, setAliasType] = useState<AliasTypeKey>('VENDOR')
   const [aliasCode, setAliasCode] = useState('')
   const [aliasLabel, setAliasLabel] = useState('')
@@ -38,7 +41,15 @@ export function ArticleAliasForm({ articleId, onClose }: ArticleAliasFormProps) 
         // Error handled by mutation state
       }
     },
-    [aliasType, aliasCode, aliasLabel, entityId, isPrimary, addAliasMutation, onClose],
+    [
+      aliasType,
+      aliasCode,
+      aliasLabel,
+      entityId,
+      isPrimary,
+      addAliasMutation,
+      onClose,
+    ],
   )
 
   return (
@@ -47,9 +58,7 @@ export function ArticleAliasForm({ articleId, onClose }: ArticleAliasFormProps) 
       className="rounded-card border border-pf-border bg-pf-bg-secondary p-4"
     >
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-medium text-pf-text-primary">
-          Nuovo Alias
-        </p>
+        <p className="text-sm font-medium text-pf-text-primary">Nuovo Alias</p>
         <button
           type="button"
           onClick={onClose}

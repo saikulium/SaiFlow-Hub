@@ -13,7 +13,7 @@ import type {
   UpdateArticleInput,
   CreateAliasInput,
   CreatePriceInput,
-} from '@/lib/validations/article'
+} from '../validations/article'
 
 interface ApiResponse<T> {
   success: boolean

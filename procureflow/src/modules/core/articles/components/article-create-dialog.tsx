@@ -2,8 +2,8 @@
 
 import { useState, useCallback } from 'react'
 import { X, Loader2, Package } from 'lucide-react'
-import { useCreateArticle } from '@/hooks/use-articles'
-import type { CreateArticleInput } from '@/lib/validations/article'
+import { useCreateArticle } from '../hooks/use-articles'
+import type { CreateArticleInput } from '../validations/article'
 
 interface ArticleCreateDialogProps {
   readonly open: boolean

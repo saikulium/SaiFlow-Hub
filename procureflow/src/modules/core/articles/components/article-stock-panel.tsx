@@ -11,7 +11,7 @@ import {
   X,
   Warehouse,
 } from 'lucide-react'
-import { useArticleStock, useStockMovement } from '@/hooks/use-articles'
+import { useArticleStock, useStockMovement } from '../hooks/use-articles'
 import { cn } from '@/lib/utils'
 
 interface ArticleStockPanelProps {

@@ -2,9 +2,9 @@
 
 import { useState, useCallback } from 'react'
 import { X, Loader2 } from 'lucide-react'
-import { useAddPrice } from '@/hooks/use-articles'
-import { PRICE_SOURCE_CONFIG } from '@/lib/constants/article'
-import type { PriceSourceKey } from '@/lib/constants/article'
+import { useAddPrice } from '../hooks/use-articles'
+import { PRICE_SOURCE_CONFIG } from '../constants'
+import type { PriceSourceKey } from '../constants'
 
 interface ArticlePriceDialogProps {
   readonly articleId: string
@@ -66,7 +66,19 @@ export function ArticlePriceDialog({
         // Error handled by mutation state
       }
     },
-    [vendorId, unitPrice, currency, minQuantity, validFrom, validUntil, source, notes, addPriceMutation, resetForm, onOpenChange],
+    [
+      vendorId,
+      unitPrice,
+      currency,
+      minQuantity,
+      validFrom,
+      validUntil,
+      source,
+      notes,
+      addPriceMutation,
+      resetForm,
+      onOpenChange,
+    ],
   )
 
   if (!open) return null
@@ -214,7 +226,8 @@ export function ArticlePriceDialog({
           {/* Error */}
           {addPriceMutation.isError && (
             <p className="text-sm text-red-400">
-              {addPriceMutation.error?.message ?? 'Errore durante il salvataggio'}
+              {addPriceMutation.error?.message ??
+                'Errore durante il salvataggio'}
             </p>
           )}
 

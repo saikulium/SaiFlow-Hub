@@ -10,7 +10,7 @@ import { requireModule } from '@/lib/modules/require-module'
 import {
   createArticleSchema,
   articleQuerySchema,
-} from '@/lib/validations/article'
+} from '@/modules/core/articles'
 import { Prisma } from '@prisma/client'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 

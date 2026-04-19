@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useInvoiceBadgeCount } from '@/hooks/use-invoice-stats'
 import { useSidebarBadges } from '@/hooks/use-sidebar-badges'
-import { useUnverifiedArticlesCount } from '@/hooks/use-unverified-articles-count'
+import { useUnverifiedArticlesCount } from '@/modules/core/articles'
 import type { NavItem } from '@/lib/constants'
 
 interface SidebarNavItemProps {

@@ -8,7 +8,7 @@ import {
 } from '@/lib/api-response'
 import { requireRole } from '@/lib/auth'
 import { requireModule } from '@/lib/modules/require-module'
-import { updateArticleSchema } from '@/lib/validations/article'
+import { updateArticleSchema } from '@/modules/core/articles'
 
 async function findArticle(idOrCode: string) {
   const article = await prisma.article.findUnique({
