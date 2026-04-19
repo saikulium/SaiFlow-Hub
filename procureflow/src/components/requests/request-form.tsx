@@ -29,10 +29,12 @@ import {
 } from '@/hooks/use-request'
 import { useAdminConfig } from '@/hooks/use-admin-config'
 import { useCommesse } from '@/hooks/use-commesse'
-import { useRequestSuggestions } from '@/hooks/use-request-suggestions'
+import {
+  useRequestSuggestions,
+  SuggestionPanel,
+  type RequestSuggestion,
+} from '@/modules/core/smartfill'
 import { BudgetCapacityBanner } from '@/modules/core/budgets'
-import { SuggestionPanel } from '@/components/requests/suggestion-panel'
-import type { RequestSuggestion } from '@/server/services/suggest.service'
 
 // --- Constants ---
 

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Sparkles, X, ChevronDown, Check } from 'lucide-react'
-import type { RequestSuggestion } from '@/server/services/suggest.service'
+import type { RequestSuggestion } from '../server/suggest.service'
 import { cn, formatCurrency } from '@/lib/utils'
 import { PRIORITY_CONFIG, type PriorityKey } from '@/lib/constants'
 

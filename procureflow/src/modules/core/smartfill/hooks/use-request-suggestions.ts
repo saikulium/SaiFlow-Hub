@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useModules } from '@/components/providers/modules-provider'
-import type { RequestSuggestion } from '@/server/services/suggest.service'
+import type { RequestSuggestion } from '../server/suggest.service'
 
 interface SuggestResponse {
   readonly success: boolean
