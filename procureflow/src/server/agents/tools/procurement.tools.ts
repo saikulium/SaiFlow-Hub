@@ -11,7 +11,7 @@ import {
 import { createNotification } from '@/server/services/notification.service'
 import { REQUEST_STATUS_TOOLS } from './request-status.tools'
 import { APPROVAL_TOOLS } from './approval.tools'
-import { updateVendorTool } from './vendor.tools'
+import { updateVendorTool } from '@/modules/core/vendors'
 import {
   updateCommessaStatusTool,
   updateCommessaStatus,

@@ -9,7 +9,7 @@ import {
   createNotification,
   NOTIFICATION_TYPES,
 } from '@/server/services/notification.service'
-import { sendOrderToVendor } from '@/server/services/vendor-order.service'
+import { sendOrderToVendor } from '@/modules/core/vendors'
 import { assertTransition } from '@/lib/state-machine'
 
 /**

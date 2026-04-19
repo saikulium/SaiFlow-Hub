@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type {
   CreateVendorInput,
   UpdateVendorInput,
-} from '@/lib/validations/vendor'
+} from '../validations/vendor'
 
 interface VendorListParams {
   search?: string

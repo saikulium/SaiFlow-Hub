@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import { successResponse } from '@/lib/api-response'
-import { createVendorSchema } from '@/lib/validations/vendor'
+import { createVendorSchema } from '@/modules/core/vendors'
 import { withApiHandler } from '@/lib/api-handler'
 
 export const GET = withApiHandler(

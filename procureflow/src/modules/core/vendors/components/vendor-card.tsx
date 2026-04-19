@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import { VENDOR_STATUS_CONFIG } from '@/lib/constants'
 import { DeleteConfirmDialog } from '@/components/shared/delete-confirm-dialog'
 import { useDeleteRecord, useIsAdmin } from '@/hooks/use-delete-record'
-import type { VendorListItem } from '@/hooks/use-vendors'
+import type { VendorListItem } from '../hooks/use-vendors'
 
 interface VendorCardProps {
   vendor: VendorListItem

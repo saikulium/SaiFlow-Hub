@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import { successResponse } from '@/lib/api-response'
-import { quickCreateVendorSchema } from '@/lib/validations/vendor'
+import { quickCreateVendorSchema } from '@/modules/core/vendors'
 import { withApiHandler } from '@/lib/api-handler'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 

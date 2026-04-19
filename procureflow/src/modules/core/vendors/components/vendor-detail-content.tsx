@@ -16,8 +16,8 @@ import {
   StickyNote,
   Building2,
 } from 'lucide-react'
-import { useVendor } from '@/hooks/use-vendors'
-import { VendorEditDialog } from '@/components/vendors/vendor-edit-dialog'
+import { useVendor } from '../hooks/use-vendors'
+import { VendorEditDialog } from './vendor-edit-dialog'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { PriorityBadge } from '@/components/shared/priority-badge'
 import { VENDOR_STATUS_CONFIG } from '@/lib/constants'

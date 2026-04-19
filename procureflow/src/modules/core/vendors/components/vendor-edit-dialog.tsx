@@ -1,19 +1,28 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useForm, type SubmitHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Loader2, AlertCircle } from 'lucide-react'
-import { createVendorSchema } from '@/lib/validations/vendor'
-import type { CreateVendorInput } from '@/lib/validations/vendor'
-import { useCreateVendor } from '@/hooks/use-vendors'
+import {
+  updateVendorSchema,
+  type UpdateVendorInput,
+} from '../validations/vendor'
+import { useUpdateVendor, type VendorDetail } from '../hooks/use-vendors'
 import { cn } from '@/lib/utils'
 
-type FormValues = CreateVendorInput
-
-interface VendorCreateDialogProps {
+interface VendorEditDialogProps {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
+  readonly vendor: VendorDetail
 }
+
+const STATUS_OPTIONS = [
+  { value: 'ACTIVE', label: 'Attivo' },
+  { value: 'INACTIVE', label: 'Inattivo' },
+  { value: 'BLACKLISTED', label: 'Bloccato' },
+  { value: 'PENDING_REVIEW', label: 'In Revisione' },
+] as const
 
 const PORTAL_TYPE_OPTIONS = [
   { value: '', label: 'Nessuno' },
@@ -24,44 +33,49 @@ const PORTAL_TYPE_OPTIONS = [
   { value: 'PHONE', label: 'Telefono' },
 ] as const
 
-export function VendorCreateDialog({
+function buildDefaults(v: VendorDetail): UpdateVendorInput {
+  return {
+    name: v.name,
+    code: v.code,
+    email: v.email ?? '',
+    phone: v.phone ?? '',
+    website: v.website ?? '',
+    portal_url: v.portal_url ?? '',
+    portal_type:
+      (v.portal_type as UpdateVendorInput['portal_type']) ?? undefined,
+    category: v.category,
+    payment_terms: v.payment_terms ?? '',
+    rating: v.rating ?? undefined,
+    notes: v.notes ?? '',
+    status: (v.status as UpdateVendorInput['status']) ?? undefined,
+  }
+}
+
+export function VendorEditDialog({
   open,
   onOpenChange,
-}: VendorCreateDialogProps) {
-  const createVendor = useCreateVendor()
+  vendor,
+}: VendorEditDialogProps) {
+  const updateVendor = useUpdateVendor(vendor.id)
 
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(createVendorSchema) as any,
-    defaultValues: {
-      name: '',
-      code: '',
-      email: '',
-      phone: '',
-      website: '',
-      portal_url: '',
-      portal_type: undefined,
-      category: [],
-      payment_terms: '',
-      rating: undefined,
-      notes: '',
-    },
+    formState: { errors, isSubmitting, isDirty },
+  } = useForm<UpdateVendorInput>({
+    resolver: zodResolver(updateVendorSchema),
+    defaultValues: buildDefaults(vendor),
   })
 
-  const onSubmit: SubmitHandler<FormValues> = async (data) => {
-    await createVendor.mutateAsync(data)
-    reset()
-    onOpenChange(false)
-  }
+  useEffect(() => {
+    if (open) {
+      reset(buildDefaults(vendor))
+    }
+  }, [open, vendor, reset])
 
-  const handleClose = () => {
-    reset()
-    createVendor.reset()
+  const onSubmit: SubmitHandler<UpdateVendorInput> = async (data) => {
+    await updateVendor.mutateAsync(data)
     onOpenChange(false)
   }
 
@@ -71,22 +85,20 @@ export function VendorCreateDialog({
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-[5vh]">
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={handleClose}
+        onClick={() => onOpenChange(false)}
       />
       <div className="relative w-full max-w-2xl rounded-card border border-pf-border bg-pf-bg-secondary shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-pf-border px-6 py-4">
           <div>
             <h2 className="font-display text-lg font-semibold text-pf-text-primary">
-              Nuovo Fornitore
+              Modifica Fornitore
             </h2>
-            <p className="text-sm text-pf-text-secondary">
-              Compila i dati per registrare un nuovo fornitore
-            </p>
+            <p className="text-sm text-pf-text-secondary">{vendor.code}</p>
           </div>
           <button
             type="button"
-            onClick={handleClose}
+            onClick={() => onOpenChange(false)}
             className="rounded-button p-2 text-pf-text-secondary hover:bg-pf-bg-hover hover:text-pf-text-primary"
           >
             <X className="h-5 w-5" />
@@ -103,7 +115,6 @@ export function VendorCreateDialog({
               </label>
               <input
                 {...register('name')}
-                placeholder="Es: Tecnoufficio Srl"
                 className="w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none"
               />
               {errors.name && (
@@ -119,7 +130,6 @@ export function VendorCreateDialog({
               </label>
               <input
                 {...register('code')}
-                placeholder="Es: V-001"
                 className="w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none"
               />
               {errors.code && (
@@ -131,6 +141,23 @@ export function VendorCreateDialog({
             </div>
           </div>
 
+          {/* Status */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-pf-text-primary">
+              Stato
+            </label>
+            <select
+              {...register('status')}
+              className="w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 py-2 text-sm text-pf-text-primary focus:border-pf-accent focus:outline-none"
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Email + Phone */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -140,7 +167,6 @@ export function VendorCreateDialog({
               <input
                 {...register('email')}
                 type="email"
-                placeholder="info@fornitore.it"
                 className="w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none"
               />
               {errors.email && (
@@ -156,13 +182,12 @@ export function VendorCreateDialog({
               </label>
               <input
                 {...register('phone')}
-                placeholder="+39 02 1234567"
                 className="w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none"
               />
             </div>
           </div>
 
-          {/* Website + Portal Type */}
+          {/* Website + Portal URL */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-pf-text-primary">
@@ -232,17 +257,16 @@ export function VendorCreateDialog({
             <textarea
               {...register('notes')}
               rows={3}
-              placeholder="Note aggiuntive sul fornitore..."
               className="w-full rounded-button border border-pf-border bg-pf-bg-primary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none"
             />
           </div>
 
           {/* Error */}
-          {createVendor.error && (
+          {updateVendor.error && (
             <p className="text-sm text-red-400">
-              {createVendor.error instanceof Error
-                ? createVendor.error.message
-                : 'Errore nella creazione'}
+              {updateVendor.error instanceof Error
+                ? updateVendor.error.message
+                : 'Errore nel salvataggio'}
             </p>
           )}
 
@@ -250,23 +274,23 @@ export function VendorCreateDialog({
           <div className="flex justify-end gap-3 border-t border-pf-border pt-4">
             <button
               type="button"
-              onClick={handleClose}
+              onClick={() => onOpenChange(false)}
               className="rounded-button border border-pf-border px-4 py-2 text-sm font-medium text-pf-text-secondary hover:bg-pf-bg-hover hover:text-pf-text-primary"
             >
               Annulla
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !isDirty}
               className={cn(
                 'inline-flex items-center gap-2 rounded-button px-4 py-2 text-sm font-medium text-white transition-colors',
-                isSubmitting
+                isSubmitting || !isDirty
                   ? 'bg-pf-accent/50 cursor-not-allowed'
                   : 'bg-pf-accent hover:bg-pf-accent-hover',
               )}
             >
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Crea Fornitore
+              Salva modifiche
             </button>
           </div>
         </form>

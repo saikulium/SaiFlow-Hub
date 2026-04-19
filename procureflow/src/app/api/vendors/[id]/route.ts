@@ -7,7 +7,7 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { updateVendorSchema } from '@/lib/validations/vendor'
+import { updateVendorSchema } from '@/modules/core/vendors'
 
 export async function GET(
   _req: NextRequest,

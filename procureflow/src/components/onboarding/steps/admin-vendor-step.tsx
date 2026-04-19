@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Store, Plus, Check } from 'lucide-react'
-import { useCreateVendor } from '@/hooks/use-vendors'
+import { useCreateVendor } from '@/modules/core/vendors'
 
 interface AdminVendorStepProps {
   readonly existingVendorCount: number
@@ -17,7 +17,10 @@ interface VendorForm {
 
 const EMPTY_FORM: VendorForm = { name: '', email: '', category: '' }
 
-export function AdminVendorStep({ existingVendorCount, onVendorCreated }: AdminVendorStepProps) {
+export function AdminVendorStep({
+  existingVendorCount,
+  onVendorCreated,
+}: AdminVendorStepProps) {
   const [form, setForm] = useState<VendorForm>(EMPTY_FORM)
   const [created, setCreated] = useState<string[]>([])
   const createVendor = useCreateVendor()
@@ -61,7 +64,10 @@ export function AdminVendorStep({ existingVendorCount, onVendorCreated }: AdminV
       {created.length > 0 && (
         <div className="space-y-2">
           {created.map((name) => (
-            <div key={name} className="flex items-center gap-2 rounded-lg bg-pf-bg-tertiary px-3 py-2 text-sm">
+            <div
+              key={name}
+              className="flex items-center gap-2 rounded-lg bg-pf-bg-tertiary px-3 py-2 text-sm"
+            >
               <Check className="h-4 w-4 text-pf-success" />
               <span className="text-pf-text-primary">{name}</span>
             </div>
@@ -75,21 +81,21 @@ export function AdminVendorStep({ existingVendorCount, onVendorCreated }: AdminV
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
           placeholder="Nome fornitore *"
-          className="w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-4 py-2.5 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-2 focus:ring-pf-accent/40"
+          className="focus:ring-pf-accent/40 w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-4 py-2.5 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-2"
         />
         <input
           type="email"
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
           placeholder="Email (opzionale)"
-          className="w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-4 py-2.5 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-2 focus:ring-pf-accent/40"
+          className="focus:ring-pf-accent/40 w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-4 py-2.5 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-2"
         />
         <input
           type="text"
           value={form.category}
           onChange={(e) => setForm({ ...form, category: e.target.value })}
           placeholder="Categoria (es: IT, Ufficio)"
-          className="w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-4 py-2.5 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-2 focus:ring-pf-accent/40"
+          className="focus:ring-pf-accent/40 w-full rounded-lg border border-pf-border bg-pf-bg-tertiary px-4 py-2.5 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-2"
         />
         <button
           onClick={handleAdd}
@@ -100,7 +106,9 @@ export function AdminVendorStep({ existingVendorCount, onVendorCreated }: AdminV
           {createVendor.isPending ? 'Creazione...' : 'Aggiungi fornitore'}
         </button>
         {createVendor.isError && (
-          <p className="text-xs text-pf-danger">Errore nella creazione del fornitore</p>
+          <p className="text-xs text-pf-danger">
+            Errore nella creazione del fornitore
+          </p>
         )}
       </div>
 
