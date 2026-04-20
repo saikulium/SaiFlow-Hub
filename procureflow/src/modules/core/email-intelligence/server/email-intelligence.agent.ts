@@ -32,6 +32,7 @@ import {
   getApprovalDetailTool,
 } from '@/server/agents/tools/approval.tools'
 import { createPriceVarianceReviewTool } from '@/server/agents/tools/price-variance.tools'
+import { createOrderConfirmationTool } from './tools/order-confirmation.tools'
 import { createEmailLog } from './email-log.service'
 import type { RawEmailData } from './email-ai-classifier.service'
 import type { BetaRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool'
@@ -83,11 +84,28 @@ AZIONI PER INTENT:
 CONFERMA_ORDINE:
   1. search_requests per external_ref o codice ordine menzionato nell'email
   2. Se il fornitore citato non e in anagrafica → find_or_create_vendor
-  3. Se PR trovata in stato APPROVED → mark_ordered (con external_ref del fornitore)
-  4. Se PR trovata in stato ORDERED → create_timeline_event ("Conferma ricevuta da fornitore")
-  5. Se allegati PDF presenti → add_attachment per collegare alla PR
-  6. add_comment con riepilogo email ("Conferma ordine ricevuta da [vendor]: ref [ref], data consegna prevista [data]")
-  7. create_notification al requester
+  3. get_request_detail sulla PR trovata per avere gli articoli originali
+     (request_item_id, nome, sku, unit_price, quantity, expected_delivery)
+  4. Chiama create_order_confirmation passando:
+     - request_id (della PR trovata)
+     - email_log_id (se noto)
+     - source: "EMAIL"
+     - vendor_reference: riferimento ordine del fornitore
+     - subject: oggetto email (max 500 char)
+     - received_at: data/ora email in ISO
+     - lines: array con una riga per articolo nell'email. Per ogni riga:
+       * request_item_id (preferito) OPPURE match_by_sku OPPURE match_by_name
+       * confirmed_unit_price, confirmed_quantity, confirmed_delivery (ISO), confirmed_name
+       * Omettere i campi confirmed_* se il fornitore non li ha modificati.
+     Il tool calcola automaticamente price_delta_pct e delivery_delay_days per ogni riga.
+  5. Se PR in stato APPROVED → mark_ordered (con external_ref del fornitore)
+  6. Se PR in stato ORDERED → create_timeline_event ("Conferma ricevuta da fornitore")
+  7. Se allegati PDF presenti → add_attachment per collegare alla PR
+  8. add_comment con riepilogo email ("Conferma ordine ricevuta da [vendor]: ref [ref], data consegna prevista [data]")
+  9. create_notification al requester
+  Nota: se create_order_confirmation restituisce requires_decision=true (prezzi/ritardi
+  oltre soglia), il sistema avvisa gia MANAGER/ADMIN e la pagina PR mostra il review
+  per decidere apply/reject — NON serve chiamare anche create_price_variance_review.
 
 RITARDO_CONSEGNA:
   1. search_requests per codice ordine / external_ref
@@ -103,16 +121,20 @@ RITARDO_CONSEGNA:
 VARIAZIONE_PREZZO:
   1. search_requests per codice ordine
   2. get_request_detail per avere i prezzi originali (RequestItem.unit_price)
-  3. Calcola delta EUR e percentuale per OGNI riga
+  3. Usa SEMPRE create_order_confirmation (tool canonico) — NON create_price_variance_review.
+     Il vecchio tool e deprecato: serve solo per record legacy senza OrderConfirmation.
+     Passa a create_order_confirmation request_id, source="EMAIL", vendor_reference,
+     email_log_id, e lines[] con i nuovi prezzi (confirmed_unit_price, eventualmente
+     confirmed_quantity/confirmed_delivery) linkate via request_item_id/match_by_sku/
+     match_by_name. Il tool calcola price_delta_pct per ogni riga.
   4. create_timeline_event tipo 'price_variance' con metadata {old_price, new_price, delta_pct, per_item: [...]}
   5. Se variazione > 2% su qualsiasi riga:
      - requires_human_decision=true
      - decision_reason con dettaglio per riga
-     - Chiama create_price_variance_review con i dati per-item:
-       request_id, items (array con item_name, old_price, new_price, delta_pct, quantity),
-       total_old_amount, total_new_amount
+     - (Nessuna azione extra: create_order_confirmation notifica gia il MANAGER se
+       requires_decision=true.)
   6. add_comment con tabella comparativa (vecchio vs nuovo vs delta)
-  7. create_notification al MANAGER (non solo requester)
+  7. create_notification al requester (il MANAGER e gia notificato dal tool)
   8. Se allegati (conferma ordine con nuovi prezzi) → add_attachment
 
 ORDINE_CLIENTE (il piu importante — fai TUTTI gli step in ordine):
@@ -451,7 +473,10 @@ function getEmailAgentTools(
     ...VENDOR_TOOLS,
     ...CLIENT_TOOLS,
 
-    // --- WRITE: price variance review (direct execution) ---
+    // --- WRITE: order confirmation (canonical — preferred) ---
+    createOrderConfirmationTool,
+
+    // --- WRITE: price variance review (legacy — kept for backward compat) ---
     createPriceVarianceReviewTool,
 
     // --- WRITE: autonomous execution via executeWriteTool ---
