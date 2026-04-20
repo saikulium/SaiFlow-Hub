@@ -13,6 +13,12 @@ import type {
   EmailIngestionPayload,
   ActionType,
 } from '../validations/email-ingestion'
+import { fetchAttachmentBytes } from './attachment-fetch'
+import {
+  processEmail,
+  type EmailAttachmentFile,
+} from './email-intelligence.agent'
+import type { RawEmailData } from './email-ai-classifier.service'
 
 // ---------------------------------------------------------------------------
 // Tipi di risultato
@@ -885,4 +891,113 @@ async function notifyRequestUpdate(
     type: NOTIFICATION_TYPES.STATUS_CHANGED,
     link: `/requests/${requestId}`,
   })
+}
+
+// ---------------------------------------------------------------------------
+// Agent enrichment — downloads PDF attachments and invokes the AI agent.
+//
+// Called by the webhook AFTER processEmailIngestion when the payload has
+// attachment URLs. Best-effort: any failure is logged and swallowed — the
+// structured ingestion path has already produced a valid result.
+//
+// Typical outcome: the agent reads the PDF, matches the PR by code/external
+// ref via search_requests, then calls create_order_confirmation with
+// extracted lines so price/delivery deltas become first-class records.
+// ---------------------------------------------------------------------------
+
+const AGENT_MAX_ATTACHMENTS = 3
+const AGENT_ATTACHMENT_TIMEOUT_MS = 5_000
+const AGENT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024 // 10 MB
+
+export interface AgentEnrichmentResult {
+  readonly attempted: boolean
+  readonly attachments_downloaded: number
+  readonly attachments_skipped: number
+  readonly agent_invoked: boolean
+  readonly agent_error?: string
+}
+
+export async function enrichWithAgent(
+  payload: EmailIngestionPayload,
+  userId?: string,
+): Promise<AgentEnrichmentResult> {
+  const pdfCandidates = payload.attachments.filter(
+    (a) =>
+      (a.mime_type ?? '').toLowerCase() === 'application/pdf' ||
+      a.filename.toLowerCase().endsWith('.pdf'),
+  )
+
+  if (pdfCandidates.length === 0) {
+    return {
+      attempted: false,
+      attachments_downloaded: 0,
+      attachments_skipped: 0,
+      agent_invoked: false,
+    }
+  }
+
+  const capped = pdfCandidates.slice(0, AGENT_MAX_ATTACHMENTS)
+  const skipped = pdfCandidates.length - capped.length
+
+  const downloaded: EmailAttachmentFile[] = []
+  let failedDownloads = 0
+
+  for (const attachment of capped) {
+    const fetched = await fetchAttachmentBytes(attachment.url, {
+      filename: attachment.filename,
+      timeoutMs: AGENT_ATTACHMENT_TIMEOUT_MS,
+      maxBytes: AGENT_ATTACHMENT_MAX_BYTES,
+    })
+    if (fetched) {
+      downloaded.push({
+        filename: fetched.filename,
+        content: fetched.content,
+        mimeType: fetched.mimeType,
+      })
+    } else {
+      failedDownloads += 1
+    }
+  }
+
+  if (downloaded.length === 0) {
+    return {
+      attempted: true,
+      attachments_downloaded: 0,
+      attachments_skipped: skipped + failedDownloads,
+      agent_invoked: false,
+    }
+  }
+
+  const emailData: RawEmailData = {
+    email_from: payload.email_from,
+    email_subject: payload.email_subject,
+    email_body: payload.email_body,
+    email_date: payload.email_date ?? undefined,
+    email_message_id: payload.email_message_id ?? undefined,
+    attachments: capped.map((a) => ({
+      filename: a.filename,
+      url: a.url,
+      mime_type: a.mime_type ?? 'application/pdf',
+    })),
+  }
+
+  try {
+    await processEmail(emailData, userId ?? 'system', downloaded)
+    return {
+      attempted: true,
+      attachments_downloaded: downloaded.length,
+      attachments_skipped: skipped + failedDownloads,
+      agent_invoked: true,
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(`[email-ingestion] agent enrichment failed: ${msg}`)
+    return {
+      attempted: true,
+      attachments_downloaded: downloaded.length,
+      attachments_skipped: skipped + failedDownloads,
+      agent_invoked: false,
+      agent_error: msg,
+    }
+  }
 }

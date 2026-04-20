@@ -4,6 +4,7 @@ import { verifyWebhookAuth } from '@/lib/webhook-auth'
 import {
   emailIngestionSchema,
   processEmailIngestion,
+  enrichWithAgent,
 } from '@/modules/core/email-intelligence'
 import {
   checkWebhookProcessed,
@@ -107,7 +108,35 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const responseData = { success: true, data: result }
+    // --- Agent enrichment (fail-soft): downloads PDF attachments and lets
+    //     the AI agent extract structured order confirmations from them.
+    //     Only skipped when the commessa path ran or when no PDFs are present. ---
+    let agentEnrichment: Awaited<ReturnType<typeof enrichWithAgent>> | null =
+      null
+    if (
+      result.action !== 'create_commessa' &&
+      parsed.data.attachments.length > 0 &&
+      process.env.ANTHROPIC_API_KEY
+    ) {
+      try {
+        agentEnrichment = await enrichWithAgent(parsed.data)
+        if (agentEnrichment.attempted) {
+          console.log(
+            `[email-ingestion] Agent enrichment: invoked=${agentEnrichment.agent_invoked}` +
+              ` downloaded=${agentEnrichment.attachments_downloaded}` +
+              ` skipped=${agentEnrichment.attachments_skipped}`,
+          )
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.warn(`[email-ingestion] Agent enrichment threw: ${msg}`)
+      }
+    }
+
+    const responseData = {
+      success: true,
+      data: { ...result, agent_enrichment: agentEnrichment },
+    }
 
     // Registra idempotency
     if (webhookId) {

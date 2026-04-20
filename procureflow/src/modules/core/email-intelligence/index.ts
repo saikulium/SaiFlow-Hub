@@ -24,7 +24,18 @@ export type {
 } from './server/email-ai-classifier.service'
 
 // Server — ingestion
-export { processEmailIngestion } from './server/email-ingestion.service'
+export {
+  processEmailIngestion,
+  enrichWithAgent,
+} from './server/email-ingestion.service'
+export type { AgentEnrichmentResult } from './server/email-ingestion.service'
+
+// Server — attachment fetcher
+export { fetchAttachmentBytes } from './server/attachment-fetch'
+export type {
+  FetchAttachmentOptions,
+  FetchedAttachment,
+} from './server/attachment-fetch'
 
 // Server — log
 export {
