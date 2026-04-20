@@ -25,6 +25,8 @@ import { ApprovazioniTab } from './tabs/approvazioni-tab'
 import { AllegatiTab } from './tabs/allegati-tab'
 import { CommentiTab } from './tabs/commenti-tab'
 import { PriceVarianceBanner } from './price-variance-banner'
+import { OrderConfirmationReview } from './order-confirmation-review'
+import { useOrderConfirmations } from '../hooks/use-order-confirmations'
 
 // --- Types ---
 
@@ -130,6 +132,7 @@ function SubmitButton({ requestId }: { requestId: string }) {
 
 export function RequestDetailContent({ requestId }: RequestDetailContentProps) {
   const { data, isLoading, error } = useRequest(requestId)
+  const { data: confirmations } = useOrderConfirmations(requestId)
   const [activeTab, setActiveTab] = useState<TabKey>('dettagli')
   const [editOpen, setEditOpen] = useState(false)
 
@@ -204,14 +207,33 @@ export function RequestDetailContent({ requestId }: RequestDetailContentProps) {
         <StatusStepper currentStatus={request.status} />
       </div>
 
-      {/* Price Variance Banner */}
-      {request.price_variance_reviews &&
-        request.price_variance_reviews.length > 0 && (
-          <PriceVarianceBanner
-            reviews={request.price_variance_reviews}
-            requestId={request.id}
-          />
-        )}
+      {/* Order Confirmation Review (new canonical UI) */}
+      <OrderConfirmationReview requestId={request.id} />
+
+      {/* Legacy Price Variance Banner — nascosto se esiste già una conferma
+          d'ordine per lo stesso email_log_id (evita doppio rendering della
+          stessa anomalia tra vecchio e nuovo flusso). */}
+      {(() => {
+        const reviews = request.price_variance_reviews
+        if (!reviews || reviews.length === 0) return null
+
+        const confirmationEmailLogIds = new Set(
+          (confirmations ?? [])
+            .map((c) => c.email_log_id)
+            .filter((id): id is string => id != null),
+        )
+
+        const legacyReviews = reviews.filter(
+          (r) =>
+            r.email_log_id == null ||
+            !confirmationEmailLogIds.has(r.email_log_id),
+        )
+
+        if (legacyReviews.length === 0) return null
+        return (
+          <PriceVarianceBanner reviews={legacyReviews} requestId={request.id} />
+        )
+      })()}
 
       {/* Tabs */}
       <div className="border-b border-pf-border">
