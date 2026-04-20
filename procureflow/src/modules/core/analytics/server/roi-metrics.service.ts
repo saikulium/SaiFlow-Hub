@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { DEFAULT_ROI_BENCHMARKS } from '@/lib/constants/roi'
+import { DEFAULT_ROI_BENCHMARKS } from '../constants/roi'
 import type {
   RoiPeriod,
   RoiMetrics,
@@ -12,12 +12,25 @@ import type {
 } from '@/types'
 
 const MONTH_NAMES = [
-  'Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu',
-  'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic',
+  'Gen',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mag',
+  'Giu',
+  'Lug',
+  'Ago',
+  'Set',
+  'Ott',
+  'Nov',
+  'Dic',
 ]
 
 const COMPLETED_STATUSES = [
-  'DELIVERED', 'INVOICED', 'RECONCILED', 'CLOSED',
+  'DELIVERED',
+  'INVOICED',
+  'RECONCILED',
+  'CLOSED',
 ] as const
 
 const RECONCILED_STATUSES = ['MATCHED', 'APPROVED', 'PAID'] as const
@@ -58,7 +71,8 @@ export function computePeriodRange(period: RoiPeriod): {
       months = Math.max(
         1,
         (end.getFullYear() - start.getFullYear()) * 12 +
-          (end.getMonth() - start.getMonth()) + 1,
+          (end.getMonth() - start.getMonth()) +
+          1,
       )
       break
   }
@@ -90,7 +104,8 @@ export function computeRoiSummary(params: {
   } = params
   const b = DEFAULT_ROI_BENCHMARKS
 
-  const hoursSavedPerRequest = b.manualHoursPerRequest - b.platformHoursPerRequest
+  const hoursSavedPerRequest =
+    b.manualHoursPerRequest - b.platformHoursPerRequest
   const estimatedHoursSaved = requestCount * hoursSavedPerRequest
   const totalTimeSavedHours = estimatedHoursSaved + automationTimeSavedHours
   const hoursSavedValue = totalTimeSavedHours * b.hourlyLaborCost
@@ -139,7 +154,10 @@ function safePercent(numerator: number, denominator: number): number {
   return Math.round((numerator / denominator) * 1000) / 10
 }
 
-function computeChangePercent(trend: readonly TrendPoint[], halfIdx: number): number {
+function computeChangePercent(
+  trend: readonly TrendPoint[],
+  halfIdx: number,
+): number {
   if (trend.length < 2) return 0
   const firstHalf = trend.slice(0, halfIdx)
   const secondHalf = trend.slice(halfIdx)
@@ -339,11 +357,16 @@ export async function getRoiMetrics(period: RoiPeriod): Promise<RoiMetrics> {
 
   const cycleDays = deliveredPRs
     .filter((pr) => pr.delivered_at)
-    .map((pr) => (pr.delivered_at!.getTime() - pr.created_at.getTime()) / MS_PER_DAY)
+    .map(
+      (pr) =>
+        (pr.delivered_at!.getTime() - pr.created_at.getTime()) / MS_PER_DAY,
+    )
 
   const approvalHours = approvedApprovals
     .filter((a) => a.decision_at)
-    .map((a) => (a.decision_at!.getTime() - a.created_at.getTime()) / MS_PER_HOUR)
+    .map(
+      (a) => (a.decision_at!.getTime() - a.created_at.getTime()) / MS_PER_HOUR,
+    )
 
   const deliveredWithExpected = deliveredPRs.filter(
     (pr) => pr.delivered_at && pr.expected_delivery,
@@ -360,7 +383,10 @@ export async function getRoiMetrics(period: RoiPeriod): Promise<RoiMetrics> {
 
   const totalEstimated = Number(estimatedSum._sum.estimated_amount ?? 0)
   const totalActual = Number(actualSum._sum.actual_amount ?? 0)
-  const negotiationSavings = computeNegotiationSavings(totalEstimated, totalActual)
+  const negotiationSavings = computeNegotiationSavings(
+    totalEstimated,
+    totalActual,
+  )
   const discrepanciesCaught = Math.abs(
     Number(discrepancySum._sum.amount_discrepancy ?? 0),
   )
@@ -368,21 +394,28 @@ export async function getRoiMetrics(period: RoiPeriod): Promise<RoiMetrics> {
   // --- Automation calculations ---
 
   // Email time saved: each email = manualMinutesPerEmail saved
-  const emailTimeSavedHours = (emailIngestedCount * b.manualMinutesPerEmail) / 60
+  const emailTimeSavedHours =
+    (emailIngestedCount * b.manualMinutesPerEmail) / 60
 
   // Invoice time saved: each invoice = (manual - platform) minutes saved
-  const invoiceSavedMinutes = b.manualMinutesPerInvoice - b.platformMinutesPerInvoice
+  const invoiceSavedMinutes =
+    b.manualMinutesPerInvoice - b.platformMinutesPerInvoice
   const invoiceTimeSavedHours = (totalInvoices * invoiceSavedMinutes) / 60
 
   // Invoice processing time (received_at → matched_at)
   const invoiceProcessingHours = invoiceProcessingTimes
     .filter((inv) => inv.matched_at)
-    .map((inv) => (inv.matched_at!.getTime() - inv.received_at.getTime()) / MS_PER_HOUR)
+    .map(
+      (inv) =>
+        (inv.matched_at!.getTime() - inv.received_at.getTime()) / MS_PER_HOUR,
+    )
   const avgInvoiceProcessingHours = safeAvg(invoiceProcessingHours)
 
   // Reconciliation time saved
-  const reconSavedMinutes = b.manualMinutesPerReconciliation - b.platformMinutesPerReconciliation
-  const reconciliationTimeSavedHours = (reconciledCount * reconSavedMinutes) / 60
+  const reconSavedMinutes =
+    b.manualMinutesPerReconciliation - b.platformMinutesPerReconciliation
+  const reconciliationTimeSavedHours =
+    (reconciledCount * reconSavedMinutes) / 60
 
   // Auto-approval detection: decision_at - created_at < threshold
   const thresholdMs = b.autoApprovalThresholdSeconds * 1000
@@ -390,7 +423,8 @@ export async function getRoiMetrics(period: RoiPeriod): Promise<RoiMetrics> {
     (a) => a.decision_at!.getTime() - a.created_at.getTime() < thresholdMs,
   ).length
   const totalApproved = allApprovedApprovals.length
-  const autoApprovalTimeSavedHours = (autoApprovedCount * b.manualMinutesPerApproval) / 60
+  const autoApprovalTimeSavedHours =
+    (autoApprovedCount * b.manualMinutesPerApproval) / 60
 
   const automationTimeSavedHours =
     emailTimeSavedHours +
@@ -448,10 +482,12 @@ export async function getRoiMetrics(period: RoiPeriod): Promise<RoiMetrics> {
   // Cycle time trend: group deliveredPRs by month
   const cycleTimeTrend: TrendPoint[] = monthRanges.map((r) => {
     const monthPRs = deliveredPRs.filter(
-      (pr) => pr.created_at >= r.start && pr.created_at <= r.end && pr.delivered_at,
+      (pr) =>
+        pr.created_at >= r.start && pr.created_at <= r.end && pr.delivered_at,
     )
     const days = monthPRs.map(
-      (pr) => (pr.delivered_at!.getTime() - pr.created_at.getTime()) / MS_PER_DAY,
+      (pr) =>
+        (pr.delivered_at!.getTime() - pr.created_at.getTime()) / MS_PER_DAY,
     )
     return { period: r.label, value: safeAvg(days) }
   })
@@ -492,7 +528,10 @@ export async function getRoiMetrics(period: RoiPeriod): Promise<RoiMetrics> {
   // Change percentages: compare first half vs second half of trend
   const halfIdx = Math.floor(cycleTimeTrend.length / 2)
   const cycleTimeChangePercent = computeChangePercent(cycleTimeTrend, halfIdx)
-  const approvalTimeChangePercent = computeChangePercent(approvalTimeTrend, halfIdx)
+  const approvalTimeChangePercent = computeChangePercent(
+    approvalTimeTrend,
+    halfIdx,
+  )
 
   const timeSavings: TimeSavingsMetrics = {
     avgCycleTimeDays: safeAvg(cycleDays),
@@ -514,7 +553,8 @@ export async function getRoiMetrics(period: RoiPeriod): Promise<RoiMetrics> {
   }
 
   const efficiency: OperationalEfficiencyMetrics = {
-    requestsPerMonth: months > 0 ? Math.round((totalRequests / months) * 10) / 10 : 0,
+    requestsPerMonth:
+      months > 0 ? Math.round((totalRequests / months) * 10) / 10 : 0,
     requestsTrend,
     autoMatchRate: safePercent(autoMatchedCount, totalMatchedInvoices),
     onTimeDeliveryRate: safePercent(onTimeCount, totalDelivered),
@@ -537,10 +577,12 @@ export async function getRoiMetrics(period: RoiPeriod): Promise<RoiMetrics> {
     reconciled: reconciledCount,
     reconciledAuto: reconciledAutoCount,
     autoReconciliationRate: safePercent(reconciledAutoCount, reconciledCount),
-    reconciliationTimeSavedHours: Math.round(reconciliationTimeSavedHours * 10) / 10,
+    reconciliationTimeSavedHours:
+      Math.round(reconciliationTimeSavedHours * 10) / 10,
     autoApprovedCount,
     autoApprovalRate: safePercent(autoApprovedCount, totalApproved),
-    autoApprovalTimeSavedHours: Math.round(autoApprovalTimeSavedHours * 10) / 10,
+    autoApprovalTimeSavedHours:
+      Math.round(autoApprovalTimeSavedHours * 10) / 10,
     activeBudgets: activeBudgetCount,
   }
 

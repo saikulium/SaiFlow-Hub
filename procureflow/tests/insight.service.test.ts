@@ -27,11 +27,17 @@ describe('insight.service', () => {
 
   it('getActiveInsights returns non-dismissed, non-expired insights', async () => {
     const mockInsights = [
-      { id: '1', type: 'SPEND_ANOMALY', severity: 'HIGH', title: 'Test', dismissed: false },
+      {
+        id: '1',
+        type: 'SPEND_ANOMALY',
+        severity: 'HIGH',
+        title: 'Test',
+        dismissed: false,
+      },
     ]
     mockPrisma.aiInsight.findMany.mockResolvedValue(mockInsights)
 
-    const { getActiveInsights } = await import('@/server/services/insight.service')
+    const { getActiveInsights } = await import('@/modules/core/analytics')
     const result = await getActiveInsights()
 
     expect(result).toEqual(mockInsights)
@@ -47,7 +53,7 @@ describe('insight.service', () => {
   it('dismissInsight updates dismissed field', async () => {
     mockPrisma.aiInsight.update.mockResolvedValue({ id: '1', dismissed: true })
 
-    const { dismissInsight } = await import('@/server/services/insight.service')
+    const { dismissInsight } = await import('@/modules/core/analytics')
     await dismissInsight('1')
 
     expect(mockPrisma.aiInsight.update).toHaveBeenCalledWith({
@@ -65,7 +71,7 @@ describe('insight.service', () => {
     mockPrisma.aiInsight.findMany.mockResolvedValue([])
     mockPrisma.aiInsight.deleteMany.mockResolvedValue({ count: 0 })
 
-    const { generateInsights } = await import('@/server/services/insight.service')
+    const { generateInsights } = await import('@/modules/core/analytics')
     const result = await generateInsights()
 
     expect(result.generated).toBe(0)

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api-response'
-import { dismissInsight } from '@/server/services/insight.service'
+import { dismissInsight } from '@/modules/core/analytics'
 
 export async function PATCH(
   _req: NextRequest,

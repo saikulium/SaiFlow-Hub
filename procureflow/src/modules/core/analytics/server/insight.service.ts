@@ -6,7 +6,7 @@ import {
   INSIGHT_TTL_HOURS,
   INSIGHT_SEVERITY_ORDER,
   MAX_ACTIVE_INSIGHTS,
-} from '@/lib/constants/insights'
+} from '../constants/insights'
 import type { GenerateInsightsResult } from '@/types/ai'
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,15 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Clock, Banknote, TrendingDown, Target, Mail, FileText } from 'lucide-react'
-import { CountUpNumber } from '@/components/dashboard/count-up-number'
+import {
+  Clock,
+  Banknote,
+  TrendingDown,
+  Target,
+  Mail,
+  FileText,
+} from 'lucide-react'
+import { CountUpNumber } from '../dashboard/count-up-number'
 import type { RoiSummary, RoiMetrics } from '@/types'
 
 interface RoiSummaryCardsProps {
@@ -121,7 +128,11 @@ export function RoiSummaryCards({ summary, automation }: RoiSummaryCardsProps) {
             key={card.key}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: (BASE_CARDS.length + index) * 0.1, duration: 0.4, ease: 'easeOut' }}
+            transition={{
+              delay: (BASE_CARDS.length + index) * 0.1,
+              duration: 0.4,
+              ease: 'easeOut',
+            }}
             whileHover={{ y: -2, transition: { duration: 0.2 } }}
             className="gradient-border group relative overflow-hidden rounded-card border border-pf-border bg-pf-bg-secondary p-5 transition-all duration-200 hover:border-pf-border-hover"
           >
@@ -164,7 +175,9 @@ export function RoiSummaryMini({ summary }: { readonly summary: RoiSummary }) {
               <Icon className={`h-4 w-4 ${card.iconColor}`} />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xs text-pf-text-muted">{card.title}</p>
+              <p className="truncate text-xs text-pf-text-muted">
+                {card.title}
+              </p>
               <p className="font-display text-sm font-bold text-pf-text-primary">
                 {card.format === 'currency'
                   ? `\u20AC${value.toLocaleString('it-IT')}`

@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
 import { PageTransition } from '@/components/shared/page-transition'
-import { StatsRow } from '@/components/dashboard/stats-row'
-import { StatsRowSkeleton } from '@/components/dashboard/stat-card-skeleton'
-import { DashboardTabs } from '@/components/dashboard/dashboard-tabs'
 import {
+  StatsRow,
+  StatsRowSkeleton,
+  DashboardTabs,
   getDashboardStats,
   getRecentRequests,
   getUpcomingDeliveries,
@@ -20,8 +20,8 @@ import {
   getBudgetDashboardStats,
   getTenderDashboardStats,
   getInventoryDashboardStats,
-} from '@/server/services/dashboard.service'
-import { getRoiSummaryOnly } from '@/server/services/roi-metrics.service'
+  getRoiSummaryOnly,
+} from '@/modules/core/analytics'
 import { getEnabledModules } from '@/server/services/module.service'
 
 const DEFAULT_INVOICE_STATS = {

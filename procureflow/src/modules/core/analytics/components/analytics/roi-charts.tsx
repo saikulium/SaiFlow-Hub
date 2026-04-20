@@ -13,7 +13,7 @@ import {
   ReferenceLine,
 } from 'recharts'
 import type { TooltipContentProps } from 'recharts'
-import { DEFAULT_ROI_BENCHMARKS } from '@/lib/constants/roi'
+import { DEFAULT_ROI_BENCHMARKS } from '../../constants/roi'
 import type {
   TimeSavingsMetrics,
   CostSavingsMetrics,

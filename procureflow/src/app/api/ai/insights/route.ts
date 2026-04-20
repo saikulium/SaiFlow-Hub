@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
-import {
-  generateInsights,
-  getActiveInsights,
-} from '@/server/services/insight.service'
+import { generateInsights, getActiveInsights } from '@/modules/core/analytics'
 
 export async function GET() {
   try {

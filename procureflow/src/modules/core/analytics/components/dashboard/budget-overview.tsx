@@ -1,7 +1,7 @@
 import { PiggyBank, Receipt, Clock, Wallet, AlertTriangle } from 'lucide-react'
-import { StatCard } from '@/components/dashboard/stat-card'
-import { BudgetBarsChart } from '@/components/dashboard/budget-bars-chart'
-import { BudgetTrendChart } from '@/components/dashboard/budget-trend-chart'
+import { StatCard } from './stat-card'
+import { BudgetBarsChart } from './budget-bars-chart'
+import { BudgetTrendChart } from './budget-trend-chart'
 import type { BudgetDashboardStats } from '@/types'
 
 interface BudgetOverviewProps {

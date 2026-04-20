@@ -10,7 +10,7 @@ import {
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useInsights } from '@/hooks/use-insights'
+import { useInsights } from '../../hooks/use-insights'
 import type { InsightCard } from '@/types/ai'
 
 const SEVERITY_STYLES = {

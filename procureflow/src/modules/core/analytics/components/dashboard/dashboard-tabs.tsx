@@ -18,7 +18,7 @@ import { RecentRequestsList } from './recent-requests-list'
 import { QuickActions } from './quick-actions'
 import { DeliveryTimeline } from './delivery-timeline'
 import { InvoiceStatsRow } from './invoice-stats-row'
-import { RoiSummaryMini } from '@/components/analytics/roi-summary-cards'
+import { RoiSummaryMini } from '../analytics/roi-summary-cards'
 import { InsightCards } from './insight-cards'
 import { CommesseTab } from './commesse-tab'
 
