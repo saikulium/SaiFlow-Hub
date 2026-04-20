@@ -27,3 +27,5 @@ export type {
 } from './server/audit.types'
 
 export { auditQuerySchema, type AuditQuery } from './validations/audit'
+
+export { AuditLogViewer } from './components/audit-log-viewer'
