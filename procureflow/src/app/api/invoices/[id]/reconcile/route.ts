@@ -7,7 +7,10 @@ import {
 } from '@/lib/api-response'
 import { withApiHandler } from '@/lib/api-handler'
 import { canTransition } from '@/lib/state-machine'
-import { createNotification, NOTIFICATION_TYPES } from '@/modules/core/requests'
+import {
+  createNotification,
+  NOTIFICATION_TYPES,
+} from '@/modules/core/notifications'
 import type { RequestStatus } from '@prisma/client'
 
 // ---------------------------------------------------------------------------

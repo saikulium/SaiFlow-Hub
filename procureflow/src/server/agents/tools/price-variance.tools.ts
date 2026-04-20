@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { prisma } from '@/lib/db'
-import { createNotification } from '@/modules/core/requests'
+import { createNotification } from '@/modules/core/notifications'
 
 // ---------------------------------------------------------------------------
 // Price Variance Review Tools

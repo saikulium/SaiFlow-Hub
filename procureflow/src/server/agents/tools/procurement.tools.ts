@@ -7,10 +7,10 @@ import { assertTransition } from '@/lib/state-machine'
 import {
   initiateApprovalWorkflow,
   decideApproval,
-  createNotification,
   createComment,
   createAttachmentRecord,
 } from '@/modules/core/requests'
+import { createNotification } from '@/modules/core/notifications'
 import { REQUEST_STATUS_TOOLS } from './request-status.tools'
 import { APPROVAL_TOOLS } from './approval.tools'
 import { updateVendorTool } from '@/modules/core/vendors'

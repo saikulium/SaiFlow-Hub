@@ -3,7 +3,7 @@ import { COMMITTED_STATUSES, SPENT_STATUSES } from '../constants'
 import {
   createBulkNotifications,
   NOTIFICATION_TYPES,
-} from '@/modules/core/requests'
+} from '@/modules/core/notifications'
 import type {
   BudgetCapacity,
   BudgetCheckResult,

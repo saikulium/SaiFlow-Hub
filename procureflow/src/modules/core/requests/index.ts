@@ -19,13 +19,7 @@ export { createAttachmentRecord } from './server/attachment.service'
 // Server — comments
 export { createComment } from './server/comment.service'
 
-// Server — notifications
-export {
-  NOTIFICATION_TYPES,
-  createNotification,
-  createBulkNotifications,
-} from './server/notification.service'
-export type { NotificationType } from './server/notification.service'
+// Notifications moved to @/modules/core/notifications (feat/email-notifications).
 
 // Hooks — requests
 export { useRequests } from './hooks/use-requests'
@@ -67,13 +61,7 @@ export type { Comment, CommentAuthor } from './hooks/use-comments'
 export { useAttachments, useUploadAttachment } from './hooks/use-attachments'
 export type { Attachment } from './hooks/use-attachments'
 
-// Hooks — notifications
-export {
-  useNotifications,
-  useMarkAsRead,
-  useMarkSingleRead,
-} from './hooks/use-notifications'
-export type { NotificationItem } from './hooks/use-notifications'
+// Notification hooks moved to @/modules/core/notifications.
 
 // Components — pages
 export { RequestsPageContent } from './components/requests-page-content'
@@ -130,21 +118,10 @@ export type {
 } from './validations/approval'
 
 // Validations — comments
-export {
-  createCommentSchema,
-  commentQuerySchema,
-} from './validations/comment'
+export { createCommentSchema, commentQuerySchema } from './validations/comment'
 export type { CreateCommentInput, CommentQuery } from './validations/comment'
 
-// Validations — notifications
-export {
-  notificationQuerySchema,
-  markReadSchema,
-} from './validations/notification'
-export type {
-  NotificationQuery,
-  MarkReadInput,
-} from './validations/notification'
+// Notification validations moved to @/modules/core/notifications.
 
 // Validations — attachments
 export {

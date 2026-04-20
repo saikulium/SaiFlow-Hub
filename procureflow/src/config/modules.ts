@@ -80,6 +80,13 @@ export const MODULE_REGISTRY: Record<string, ModuleDefinition> = {
     description:
       'Audit trail immutabile di tutte le modifiche ai dati critici.',
   },
+  notifications: {
+    name: 'notifications',
+    pack: 'core',
+    alwaysOn: true,
+    dependencies: ['core'],
+    description: 'Sistema notifiche multi-canale (in-app + email).',
+  },
 
   // ============ CORE OPZIONALI (attivabili per cliente) ============
   invoicing: {

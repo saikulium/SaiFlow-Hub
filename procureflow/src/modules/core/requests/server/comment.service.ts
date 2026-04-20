@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/db'
-import { createNotification, NOTIFICATION_TYPES } from './notification.service'
+import {
+  createNotification,
+  NOTIFICATION_TYPES,
+} from '@/modules/core/notifications'
 
 interface CreateCommentInput {
   readonly requestId: string

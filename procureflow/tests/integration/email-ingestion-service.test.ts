@@ -71,7 +71,7 @@ vi.mock('@/modules/core/requests/server/approval.service', () => ({
   initiateApprovalWorkflow: mockInitiateApprovalWorkflow,
 }))
 
-vi.mock('@/modules/core/requests/server/notification.service', () => ({
+vi.mock('@/modules/core/notifications', () => ({
   createNotification: mockCreateNotification,
   NOTIFICATION_TYPES: {
     STATUS_CHANGED: 'STATUS_CHANGED',
