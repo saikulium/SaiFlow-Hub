@@ -2,11 +2,11 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { Upload, Loader2, AlertCircle } from 'lucide-react'
-import { useUploadAttachment } from '@/hooks/use-attachments'
+import { useUploadAttachment } from '../hooks/use-attachments'
 import {
   validateAttachment,
   ALLOWED_EXTENSIONS_LABEL,
-} from '@/lib/validations/attachment'
+} from '../validations/attachment'
 import { cn } from '@/lib/utils'
 
 interface AttachmentUploadProps {
@@ -35,9 +35,7 @@ export function AttachmentUpload({ requestId }: AttachmentUploadProps) {
         try {
           await mutateAsync(file)
         } catch (err) {
-          setError(
-            err instanceof Error ? err.message : "Errore nell'upload",
-          )
+          setError(err instanceof Error ? err.message : "Errore nell'upload")
           return
         }
       }
@@ -71,7 +69,7 @@ export function AttachmentUpload({ requestId }: AttachmentUploadProps) {
         className={cn(
           'flex cursor-pointer flex-col items-center justify-center rounded-card border-2 border-dashed p-8 transition-colors',
           isDragOver
-            ? 'border-pf-accent bg-pf-accent/5'
+            ? 'bg-pf-accent/5 border-pf-accent'
             : 'border-pf-border hover:border-pf-border-hover hover:bg-pf-bg-secondary',
           isPending && 'pointer-events-none opacity-50',
         )}

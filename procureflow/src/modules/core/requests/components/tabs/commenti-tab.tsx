@@ -2,8 +2,8 @@
 
 import { MessageSquare, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { formatRelativeTime, getInitials } from '@/lib/utils'
-import { CommentForm } from '@/components/requests/comment-form'
-import { useComments } from '@/hooks/use-comments'
+import { CommentForm } from '../comment-form'
+import { useComments } from '../../hooks/use-comments'
 import { EmptyState } from './empty-state'
 
 export function CommentiTab({ requestId }: { readonly requestId: string }) {

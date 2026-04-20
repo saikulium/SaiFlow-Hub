@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
-import { useDecideApproval } from '@/hooks/use-approvals'
+import { useDecideApproval } from '../hooks/use-approvals'
 import { cn } from '@/lib/utils'
 
 interface ApprovalActionsProps {
@@ -41,7 +41,9 @@ export function ApprovalActions({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={() => setShowForm(showForm === 'APPROVED' ? null : 'APPROVED')}
+          onClick={() =>
+            setShowForm(showForm === 'APPROVED' ? null : 'APPROVED')
+          }
           disabled={isPending}
           className={cn(
             'inline-flex items-center gap-1.5 rounded-button px-4 py-2 text-sm font-medium transition-colors',
@@ -55,7 +57,9 @@ export function ApprovalActions({
         </button>
         <button
           type="button"
-          onClick={() => setShowForm(showForm === 'REJECTED' ? null : 'REJECTED')}
+          onClick={() =>
+            setShowForm(showForm === 'REJECTED' ? null : 'REJECTED')
+          }
           disabled={isPending}
           className={cn(
             'inline-flex items-center gap-1.5 rounded-button px-4 py-2 text-sm font-medium transition-colors',
@@ -78,7 +82,7 @@ export function ApprovalActions({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="rounded-card border border-pf-border bg-pf-bg-primary p-4 space-y-3">
+            <div className="space-y-3 rounded-card border border-pf-border bg-pf-bg-primary p-4">
               <p className="text-xs text-pf-text-secondary">
                 {showForm === 'APPROVED'
                   ? `Stai approvando come ${approverName}`
@@ -112,10 +116,12 @@ export function ApprovalActions({
                     showForm === 'APPROVED'
                       ? 'bg-green-500 hover:bg-green-600'
                       : 'bg-red-500 hover:bg-red-600',
-                    isPending && 'opacity-50 cursor-not-allowed',
+                    isPending && 'cursor-not-allowed opacity-50',
                   )}
                 >
-                  {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {isPending && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
                   Conferma
                 </button>
               </div>

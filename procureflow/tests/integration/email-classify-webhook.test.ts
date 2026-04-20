@@ -57,7 +57,7 @@ vi.mock('@/server/services/webhook-idempotency.service', () => ({
 }))
 
 const mockCreateNotification = vi.fn()
-vi.mock('@/server/services/notification.service', () => ({
+vi.mock('@/modules/core/requests/server/notification.service', () => ({
   createNotification: mockCreateNotification,
   NOTIFICATION_TYPES: {
     EMAIL_INGESTION: 'EMAIL_INGESTION',

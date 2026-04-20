@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { prisma } from '@/lib/db'
-import { createNotification } from '@/server/services/notification.service'
+import { createNotification } from '@/modules/core/requests'
 
 // ---------------------------------------------------------------------------
 // Price Variance Review Tools
@@ -42,9 +42,7 @@ const listPriceVarianceInputSchema = z.object({
 
 const decidePriceVarianceInputSchema = z.object({
   review_id: z.string().describe('ID della review'),
-  status: z
-    .enum(['ACCEPTED', 'REJECTED', 'NEGOTIATING'])
-    .describe('Decisione'),
+  status: z.enum(['ACCEPTED', 'REJECTED', 'NEGOTIATING']).describe('Decisione'),
   notes: z.string().optional().describe('Note sulla decisione'),
 })
 

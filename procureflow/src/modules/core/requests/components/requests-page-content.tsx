@@ -5,17 +5,14 @@ import Link from 'next/link'
 import { LayoutList, Kanban, Plus } from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
 import { PaginationBar } from '@/components/shared/pagination-bar'
-import {
-  RequestFiltersBar,
-  type RequestFilters,
-} from '@/components/requests/request-filters'
-import { RequestsTable } from '@/components/requests/requests-table'
-import { RequestsKanban } from '@/components/requests/requests-kanban'
+import { RequestFiltersBar, type RequestFilters } from './request-filters'
+import { RequestsTable } from './requests-table'
+import { RequestsKanban } from './requests-kanban'
 import {
   useRequests,
   type RequestsParams,
   type RequestListItem,
-} from '@/hooks/use-requests'
+} from '../hooks/use-requests'
 import { ExportCsvButton } from '@/components/shared/export-csv-button'
 import { cn } from '@/lib/utils'
 

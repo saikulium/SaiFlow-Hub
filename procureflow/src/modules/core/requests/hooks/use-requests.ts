@@ -1,4 +1,4 @@
-import { createListHook } from './create-list-hook'
+import { createListHook } from '@/hooks/create-list-hook'
 import type { RequestStatusKey, PriorityKey } from '@/lib/constants'
 
 export interface RequestListItem {

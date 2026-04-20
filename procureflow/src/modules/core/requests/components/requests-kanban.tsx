@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { REQUEST_STATUS_CONFIG, type RequestStatusKey } from '@/lib/constants'
 import { PriorityBadge } from '@/components/shared/priority-badge'
 import { formatCurrency, cn } from '@/lib/utils'
-import type { RequestListItem } from '@/hooks/use-requests'
+import type { RequestListItem } from '../hooks/use-requests'
 
 const KANBAN_STATUSES: readonly RequestStatusKey[] = [
   'DRAFT',

@@ -3,17 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  CheckCircle2,
-  Clock,
-  XCircle,
-  Loader2,
-  Inbox,
-} from 'lucide-react'
+import { CheckCircle2, Clock, XCircle, Loader2, Inbox } from 'lucide-react'
 import { PageTransition } from '@/components/shared/page-transition'
 import { PriorityBadge } from '@/components/shared/priority-badge'
-import { ApprovalActions } from '@/components/requests/approval-actions'
-import { useMyApprovals, type ApprovalItem } from '@/hooks/use-approvals'
+import {
+  ApprovalActions,
+  useMyApprovals,
+  type ApprovalItem,
+} from '@/modules/core/requests'
 import { APPROVAL_STATUS_CONFIG } from '@/lib/constants'
 import type { PriorityKey } from '@/lib/constants'
 import { formatCurrency, formatRelativeTime, cn } from '@/lib/utils'
@@ -55,7 +52,7 @@ function ApprovalCard({ approval }: { approval: ApprovalItem }) {
           <div className="flex items-center gap-2">
             <Link
               href={`/requests/${approval.request.id}`}
-              className="truncate text-sm font-semibold text-pf-text-primary hover:text-pf-accent transition-colors"
+              className="truncate text-sm font-semibold text-pf-text-primary transition-colors hover:text-pf-accent"
             >
               {approval.request.title}
             </Link>
@@ -181,7 +178,7 @@ export default function ApprovalsPage() {
 
         {approvals && approvals.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-pf-bg-elevated">
+            <div className="bg-pf-bg-elevated mb-3 flex h-12 w-12 items-center justify-center rounded-full">
               <Inbox className="h-6 w-6 text-pf-text-secondary" />
             </div>
             <p className="text-sm font-medium text-pf-text-primary">

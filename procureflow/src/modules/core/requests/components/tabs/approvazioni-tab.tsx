@@ -2,8 +2,8 @@ import { CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
 import { APPROVAL_STATUS_CONFIG } from '@/lib/constants'
-import { ApprovalActions } from '@/components/requests/approval-actions'
-import type { RequestApproval } from '@/hooks/use-request'
+import { ApprovalActions } from '../approval-actions'
+import type { RequestApproval } from '../../hooks/use-request'
 import { EmptyState } from './empty-state'
 
 export function ApprovazioniTab({

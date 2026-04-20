@@ -1,5 +1,5 @@
 import { formatCurrency, formatDate } from '@/lib/utils'
-import type { RequestDetail } from '@/hooks/use-request'
+import type { RequestDetail } from '../../hooks/use-request'
 
 function InfoField({
   label,

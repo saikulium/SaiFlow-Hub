@@ -8,7 +8,7 @@ import {
 import {
   createRequestSchema,
   requestQuerySchema,
-} from '@/lib/validations/request'
+} from '@/modules/core/requests'
 import { Prisma } from '@prisma/client'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 import { requireAuth } from '@/lib/auth'

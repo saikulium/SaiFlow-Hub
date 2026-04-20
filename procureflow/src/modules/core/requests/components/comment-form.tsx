@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Send, Loader2, Eye, EyeOff } from 'lucide-react'
-import { useCreateComment } from '@/hooks/use-comments'
+import { useCreateComment } from '../hooks/use-comments'
 import { cn } from '@/lib/utils'
 
 interface CommentFormProps {
@@ -34,7 +34,7 @@ export function CommentForm({ requestId }: CommentFormProps) {
   }
 
   return (
-    <div className="rounded-card border border-pf-border bg-pf-bg-secondary p-4 space-y-3">
+    <div className="space-y-3 rounded-card border border-pf-border bg-pf-bg-secondary p-4">
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
@@ -75,7 +75,7 @@ export function CommentForm({ requestId }: CommentFormProps) {
           type="button"
           onClick={handleSubmit}
           disabled={!content.trim() || isPending}
-          className="inline-flex items-center gap-1.5 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pf-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 rounded-button bg-pf-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pf-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
           {isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />

@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import { FileText, Paperclip, Download, Loader2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-import { AttachmentUpload } from '@/components/requests/attachment-upload'
-import { AttachmentPreview } from '@/components/requests/attachment-preview'
-import { useAttachments, type Attachment } from '@/hooks/use-attachments'
+import { AttachmentUpload } from '../attachment-upload'
+import { AttachmentPreview } from '../attachment-preview'
+import { useAttachments, type Attachment } from '../../hooks/use-attachments'
 import { EmptyState } from './empty-state'
 
 function formatFileSize(bytes: number): string {

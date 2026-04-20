@@ -5,10 +5,7 @@ import {
   canAutoApproveByRole,
   getApprovalTier,
 } from '@/lib/constants/approval-thresholds'
-import {
-  createNotification,
-  NOTIFICATION_TYPES,
-} from '@/server/services/notification.service'
+import { createNotification, NOTIFICATION_TYPES } from './notification.service'
 import { sendOrderToVendor } from '@/modules/core/vendors'
 import { assertTransition } from '@/lib/state-machine'
 

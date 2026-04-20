@@ -4,7 +4,7 @@ import { withApiHandler } from '@/lib/api-handler'
 import {
   notificationQuerySchema,
   markReadSchema,
-} from '@/lib/validations/notification'
+} from '@/modules/core/requests'
 
 export const GET = withApiHandler(
   {

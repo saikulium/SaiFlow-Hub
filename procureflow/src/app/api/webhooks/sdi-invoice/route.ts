@@ -19,7 +19,7 @@ import {
   createNotification,
   createBulkNotifications,
   NOTIFICATION_TYPES,
-} from '@/server/services/notification.service'
+} from '@/modules/core/requests'
 import {
   checkWebhookProcessed,
   recordWebhookProcessed,

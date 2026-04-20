@@ -13,7 +13,7 @@ import {
   useIsAdmin,
 } from '@/hooks/use-delete-record'
 import { formatCurrency, formatRelativeTime, cn } from '@/lib/utils'
-import type { RequestListItem } from '@/hooks/use-requests'
+import type { RequestListItem } from '../hooks/use-requests'
 
 interface SortState {
   sort: string

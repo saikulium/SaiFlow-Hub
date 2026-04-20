@@ -67,11 +67,11 @@ vi.mock('@/server/services/code-generator.service', () => ({
   generateNextCodeAtomic: mockGenerateNextCode,
 }))
 
-vi.mock('@/server/services/approval.service', () => ({
+vi.mock('@/modules/core/requests/server/approval.service', () => ({
   initiateApprovalWorkflow: mockInitiateApprovalWorkflow,
 }))
 
-vi.mock('@/server/services/notification.service', () => ({
+vi.mock('@/modules/core/requests/server/notification.service', () => ({
   createNotification: mockCreateNotification,
   NOTIFICATION_TYPES: {
     STATUS_CHANGED: 'STATUS_CHANGED',

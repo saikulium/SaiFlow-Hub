@@ -16,7 +16,7 @@ import {
   Search,
   AlertCircle,
 } from 'lucide-react'
-import { createRequestSchema } from '@/lib/validations/request'
+import { createRequestSchema } from '../validations/request'
 import type { z } from 'zod'
 
 type CreateRequestFormValues = z.input<typeof createRequestSchema>
@@ -26,7 +26,7 @@ import {
   useCreateRequest,
   useVendors,
   useQuickCreateVendor,
-} from '@/hooks/use-request'
+} from '../hooks/use-request'
 import { useAdminConfig } from '@/hooks/use-admin-config'
 import { useCommesse } from '@/hooks/use-commesse'
 import {

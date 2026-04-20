@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { RequestStatusKey, PriorityKey } from '@/lib/constants'
 import type { ApiResponse } from '@/lib/api-response'
-import type { UpdateRequestInput } from '@/lib/validations/request'
+import type { UpdateRequestInput } from '../validations/request'
 
 // --- Types ---
 

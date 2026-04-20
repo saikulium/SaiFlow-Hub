@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { Clock } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils'
-import type { TimelineEvent } from '@/hooks/use-request'
+import type { TimelineEvent } from '../../hooks/use-request'
 import { EmptyState } from './empty-state'
 
 export function TimelineTab({

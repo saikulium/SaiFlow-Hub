@@ -7,8 +7,10 @@ import { assertTransition } from '@/lib/state-machine'
 import {
   initiateApprovalWorkflow,
   decideApproval,
-} from '@/server/services/approval.service'
-import { createNotification } from '@/server/services/notification.service'
+  createNotification,
+  createComment,
+  createAttachmentRecord,
+} from '@/modules/core/requests'
 import { REQUEST_STATUS_TOOLS } from './request-status.tools'
 import { APPROVAL_TOOLS } from './approval.tools'
 import { updateVendorTool } from '@/modules/core/vendors'
@@ -38,8 +40,6 @@ import {
   listPriceVarianceReviewsTool,
   decidePriceVarianceTool,
 } from './price-variance.tools'
-import { createComment } from '@/server/services/comment.service'
-import { createAttachmentRecord } from '@/server/services/attachment.service'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 
 // ---------------------------------------------------------------------------

@@ -7,12 +7,12 @@ import { X, Plus, Trash2, Loader2, AlertCircle } from 'lucide-react'
 import {
   updateRequestSchema,
   type UpdateRequestInput,
-} from '@/lib/validations/request'
+} from '../validations/request'
 import {
   useUpdateRequest,
   useVendors,
   type RequestDetail,
-} from '@/hooks/use-request'
+} from '../hooks/use-request'
 import { useCommesse } from '@/hooks/use-commesse'
 import { PRIORITY_CONFIG, type PriorityKey } from '@/lib/constants'
 import { cn } from '@/lib/utils'

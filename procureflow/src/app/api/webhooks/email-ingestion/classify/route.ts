@@ -14,10 +14,7 @@ import {
   type RawEmailData,
 } from '@/modules/core/email-intelligence'
 import { prisma } from '@/lib/db'
-import {
-  createNotification,
-  NOTIFICATION_TYPES,
-} from '@/server/services/notification.service'
+import { createNotification, NOTIFICATION_TYPES } from '@/modules/core/requests'
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/email-ingestion/classify

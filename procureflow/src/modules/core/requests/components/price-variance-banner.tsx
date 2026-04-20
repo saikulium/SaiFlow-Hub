@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { AlertTriangle, Check, X, MessageSquare, Loader2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import type { PriceVarianceReview } from '@/hooks/use-request'
+import type { PriceVarianceReview } from '../hooks/use-request'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -76,7 +76,7 @@ function ReviewCard({ review, requestId, onDecided }: ReviewCardProps) {
   }
 
   return (
-    <div className="rounded-card border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+    <div className="space-y-3 rounded-card border border-amber-500/30 bg-amber-500/5 p-4">
       {/* Header */}
       <div className="flex items-center gap-2 text-amber-400">
         <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -107,7 +107,7 @@ function ReviewCard({ review, requestId, onDecided }: ReviewCardProps) {
               return (
                 <tr
                   key={`${review.id}-${idx}`}
-                  className="border-b border-pf-border/50"
+                  className="border-pf-border/50 border-b"
                 >
                   <td className="py-2 pr-4 text-pf-text-primary">
                     {item.item_name}
@@ -164,9 +164,7 @@ function ReviewCard({ review, requestId, onDecided }: ReviewCardProps) {
       </div>
 
       {/* Error */}
-      {error && (
-        <p className="text-xs text-red-400">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-400">{error}</p>}
 
       {/* Action buttons */}
       <div className="flex items-center gap-2 pt-1">
@@ -200,7 +198,7 @@ function ReviewCard({ review, requestId, onDecided }: ReviewCardProps) {
           type="button"
           disabled={loading !== null}
           onClick={() => handleDecision('NEGOTIATING')}
-          className="inline-flex h-8 items-center gap-1.5 rounded-button border border-pf-border bg-pf-bg-elevated px-3 text-xs font-medium text-pf-text-primary transition-colors hover:bg-pf-bg-secondary disabled:opacity-50"
+          className="bg-pf-bg-elevated inline-flex h-8 items-center gap-1.5 rounded-button border border-pf-border px-3 text-xs font-medium text-pf-text-primary transition-colors hover:bg-pf-bg-secondary disabled:opacity-50"
         >
           {loading === 'NEGOTIATING' ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
