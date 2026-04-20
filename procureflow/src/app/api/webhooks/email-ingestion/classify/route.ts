@@ -17,7 +17,7 @@ import { prisma } from '@/lib/db'
 import {
   createNotification,
   NOTIFICATION_TYPES,
-} from '@/server/services/notification.service'
+} from '@/modules/core/notifications'
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/email-ingestion/classify

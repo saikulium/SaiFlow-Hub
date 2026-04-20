@@ -1,4 +1,4 @@
-import { StatsRowSkeleton } from '@/components/dashboard/stat-card-skeleton'
+import { StatsRowSkeleton } from '@/modules/core/analytics'
 
 export default function DashboardLoading() {
   return (

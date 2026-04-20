@@ -5,8 +5,10 @@ import {
   errorResponse,
   notFoundResponse,
 } from '@/lib/api-response'
-import { validateAttachment } from '@/lib/validations/attachment'
-import { createAttachmentRecord } from '@/server/services/attachment.service'
+import {
+  validateAttachment,
+  createAttachmentRecord,
+} from '@/modules/core/requests'
 import crypto from 'crypto'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'

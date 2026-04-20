@@ -6,7 +6,8 @@ describe('pending-actions', () => {
   })
 
   it('storePendingAction stores and getPendingAction retrieves', async () => {
-    const { storePendingAction, getPendingAction } = await import('@/lib/ai/pending-actions')
+    const { storePendingAction, getPendingAction } =
+      await import('@/modules/core/chatbot')
     const actionId = storePendingAction({
       tool: 'create_request',
       params: { title: 'Test' },
@@ -20,7 +21,8 @@ describe('pending-actions', () => {
   })
 
   it('getPendingAction returns null for wrong userId', async () => {
-    const { storePendingAction, getPendingAction } = await import('@/lib/ai/pending-actions')
+    const { storePendingAction, getPendingAction } =
+      await import('@/modules/core/chatbot')
     const actionId = storePendingAction({
       tool: 'create_request',
       params: {},
@@ -33,9 +35,8 @@ describe('pending-actions', () => {
   })
 
   it('removePendingAction removes the action', async () => {
-    const { storePendingAction, getPendingAction, removePendingAction } = await import(
-      '@/lib/ai/pending-actions'
-    )
+    const { storePendingAction, getPendingAction, removePendingAction } =
+      await import('@/modules/core/chatbot')
     const actionId = storePendingAction({
       tool: 'create_request',
       params: {},
@@ -49,7 +50,8 @@ describe('pending-actions', () => {
 
   it('expired actions are cleaned up on access', async () => {
     vi.useFakeTimers()
-    const { storePendingAction, getPendingAction } = await import('@/lib/ai/pending-actions')
+    const { storePendingAction, getPendingAction } =
+      await import('@/modules/core/chatbot')
 
     const actionId = storePendingAction({
       tool: 'create_request',

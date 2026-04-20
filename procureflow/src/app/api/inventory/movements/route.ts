@@ -220,15 +220,17 @@ export async function POST(req: NextRequest) {
       movementCode: movement.code,
     })
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Errore nella registrazione movimento'
     console.error('POST /api/inventory/movements error:', error)
+
+    const message = error instanceof Error ? error.message : ''
 
     if (message.includes('Quantità insufficiente')) {
       return errorResponse('INSUFFICIENT_STOCK', message, 400)
     }
-    return errorResponse('INTERNAL_ERROR', message, 500)
+    return errorResponse(
+      'INTERNAL_ERROR',
+      'Errore nella registrazione movimento',
+      500,
+    )
   }
 }

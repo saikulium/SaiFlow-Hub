@@ -1,14 +1,14 @@
 import { prisma } from '@/lib/db'
 import { Prisma } from '@prisma/client'
 import { canAutoApproveByRole } from '@/lib/constants/approval-thresholds'
-import { initiateApprovalWorkflow } from '@/server/services/approval.service'
-import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
-import { canTransition } from '@/lib/state-machine'
-import type { RequestStatus } from '@prisma/client'
+import { initiateApprovalWorkflow } from '@/modules/core/requests'
 import {
   createNotification,
   NOTIFICATION_TYPES,
-} from '@/server/services/notification.service'
+} from '@/modules/core/notifications'
+import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
+import { canTransition } from '@/lib/state-machine'
+import type { RequestStatus } from '@prisma/client'
 import type {
   EmailIngestionPayload,
   ActionType,

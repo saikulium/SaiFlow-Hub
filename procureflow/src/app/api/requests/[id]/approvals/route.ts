@@ -5,7 +5,7 @@ import {
   errorResponse,
   notFoundResponse,
 } from '@/lib/api-response'
-import { initiateApprovalWorkflow } from '@/server/services/approval.service'
+import { initiateApprovalWorkflow } from '@/modules/core/requests'
 import { requireAuth } from '@/lib/auth'
 
 export async function GET(

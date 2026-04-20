@@ -8,7 +8,7 @@ import {
 } from '@/lib/api-response'
 import { requireRole, getCurrentUser } from '@/lib/auth'
 import { z } from 'zod'
-import { createNotification } from '@/server/services/notification.service'
+import { createNotification } from '@/modules/core/notifications'
 
 const decideSchema = z.object({
   status: z.enum(['ACCEPTED', 'REJECTED', 'NEGOTIATING']),

@@ -10,7 +10,7 @@ import { canTransition } from '@/lib/state-machine'
 import {
   createNotification,
   NOTIFICATION_TYPES,
-} from '@/server/services/notification.service'
+} from '@/modules/core/notifications'
 import type { RequestStatus } from '@prisma/client'
 
 // ---------------------------------------------------------------------------

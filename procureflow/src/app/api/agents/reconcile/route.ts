@@ -6,7 +6,7 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { reconcileInvoice } from '@/server/agents/invoice-reconciliation.agent'
+import { reconcileInvoice } from '@/modules/core/invoicing'
 
 // ---------------------------------------------------------------------------
 // POST /api/agents/reconcile — Trigger invoice reconciliation agent

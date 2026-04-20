@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireModule } from '@/lib/modules/require-module'
 import { successResponse, errorResponse } from '@/lib/api-response'
-import { getRoiMetrics } from '@/server/services/roi-metrics.service'
+import { getRoiMetrics } from '@/modules/core/analytics'
 import type { RoiPeriod } from '@/types'
 import { requireAuth } from '@/lib/auth'
 

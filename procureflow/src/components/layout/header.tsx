@@ -8,7 +8,7 @@ import { Breadcrumbs } from './breadcrumbs'
 import { ThemeToggle } from './theme-toggle'
 import { SearchDialog } from './search-dialog'
 import { NotificationCenter } from './notification-center'
-import { ChatPanel } from '@/components/chat/chat-panel'
+import { ChatPanel } from '@/modules/core/chatbot'
 import { useModules } from '@/hooks/use-modules'
 import { getInitials } from '@/lib/utils'
 

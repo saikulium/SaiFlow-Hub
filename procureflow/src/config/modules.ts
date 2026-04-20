@@ -72,6 +72,21 @@ export const MODULE_REGISTRY: Record<string, ModuleDefinition> = {
     dependencies: ['core', 'clients', 'requests'],
     description: 'Commesse cliente con margine, timeline, collegamento RDA.',
   },
+  'audit-log': {
+    name: 'audit-log',
+    pack: 'core',
+    alwaysOn: true,
+    dependencies: ['core'],
+    description:
+      'Audit trail immutabile di tutte le modifiche ai dati critici.',
+  },
+  notifications: {
+    name: 'notifications',
+    pack: 'core',
+    alwaysOn: true,
+    dependencies: ['core'],
+    description: 'Sistema notifiche multi-canale (in-app + email).',
+  },
 
   // ============ CORE OPZIONALI (attivabili per cliente) ============
   invoicing: {
@@ -101,8 +116,7 @@ export const MODULE_REGISTRY: Record<string, ModuleDefinition> = {
     pack: 'core',
     alwaysOn: false,
     dependencies: ['core', 'articles'],
-    description:
-      'Magazzino: materiali, lotti, movimenti, forecast, alert.',
+    description: 'Magazzino: materiali, lotti, movimenti, forecast, alert.',
   },
   analytics: {
     name: 'analytics',

@@ -4,8 +4,8 @@ import { withApiHandler } from '@/lib/api-handler'
 import {
   createCommentSchema,
   commentQuerySchema,
-} from '@/lib/validations/comment'
-import { createComment } from '@/server/services/comment.service'
+  createComment,
+} from '@/modules/core/requests'
 
 export const GET = withApiHandler(
   {

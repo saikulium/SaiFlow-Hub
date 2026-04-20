@@ -6,7 +6,7 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { updateRequestSchema } from '@/lib/validations/request'
+import { updateRequestSchema } from '@/modules/core/requests'
 import { Prisma } from '@prisma/client'
 import { getCurrentUser, requireRole } from '@/lib/auth'
 import { assertTransition, TransitionError } from '@/lib/state-machine'

@@ -7,8 +7,10 @@ import { assertTransition } from '@/lib/state-machine'
 import {
   initiateApprovalWorkflow,
   decideApproval,
-} from '@/server/services/approval.service'
-import { createNotification } from '@/server/services/notification.service'
+  createComment,
+  createAttachmentRecord,
+} from '@/modules/core/requests'
+import { createNotification } from '@/modules/core/notifications'
 import { REQUEST_STATUS_TOOLS } from './request-status.tools'
 import { APPROVAL_TOOLS } from './approval.tools'
 import { updateVendorTool } from '@/modules/core/vendors'
@@ -22,7 +24,7 @@ import {
   decideTenderGoNogoTool,
   validateStatusTransition,
 } from '@/modules/core/tenders'
-import { disputeInvoiceTool } from './invoice.tools'
+import { disputeInvoiceTool } from '@/modules/core/invoicing'
 import { COMMENT_TOOLS } from './comment.tools'
 import { ATTACHMENT_TOOLS } from './attachment.tools'
 import { getRequestTimelineTool } from './notification.tools'
@@ -38,8 +40,6 @@ import {
   listPriceVarianceReviewsTool,
   decidePriceVarianceTool,
 } from './price-variance.tools'
-import { createComment } from '@/server/services/comment.service'
-import { createAttachmentRecord } from '@/server/services/attachment.service'
 import { generateNextCodeAtomic } from '@/server/services/code-generator.service'
 
 // ---------------------------------------------------------------------------

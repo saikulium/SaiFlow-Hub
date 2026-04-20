@@ -8,7 +8,7 @@ import {
   notFoundResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { performThreeWayMatch } from '@/server/services/three-way-matching.service'
+import { performThreeWayMatch } from '@/modules/core/invoicing'
 import { canTransition } from '@/lib/state-machine'
 import type { RequestStatus } from '@prisma/client'
 import { requireModule } from '@/lib/modules/require-module'

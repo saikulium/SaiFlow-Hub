@@ -49,7 +49,7 @@ vi.mock('@/server/services/fatturapa-parser.service', () => ({
     }
   },
 }))
-vi.mock('@/server/services/invoice-ai-parser.service', () => ({
+vi.mock('@/modules/core/invoicing/server/invoice-ai-parser.service', () => ({
   parseInvoiceWithAI: vi.fn(),
   AiParseError: class extends Error {
     code: string
@@ -59,10 +59,10 @@ vi.mock('@/server/services/invoice-ai-parser.service', () => ({
     }
   },
 }))
-vi.mock('@/server/services/invoice-matching.service', () => ({
+vi.mock('@/modules/core/invoicing/server/invoice-matching.service', () => ({
   matchInvoiceToOrder: mockMatchInvoiceToOrder,
 }))
-vi.mock('@/server/services/three-way-matching.service', () => ({
+vi.mock('@/modules/core/invoicing/server/three-way-matching.service', () => ({
   performThreeWayMatch: mockPerformThreeWayMatch,
 }))
 

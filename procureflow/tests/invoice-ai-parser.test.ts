@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mapAiResponseToInvoice } from '@/server/services/invoice-ai-parser.service'
+import { mapAiResponseToInvoice } from '@/modules/core/invoicing'
 
 // ---------------------------------------------------------------------------
 // Test per il mapping AI response → ParsedInvoice
@@ -173,7 +173,10 @@ describe('mapAiResponseToInvoice', () => {
       supplier: { ...COMPLETE_AI_RESPONSE.supplier, name: null },
     }
 
-    const result = mapAiResponseToInvoice(withoutSupplierName, 'fattura-acme.pdf')
+    const result = mapAiResponseToInvoice(
+      withoutSupplierName,
+      'fattura-acme.pdf',
+    )
     expect(result.supplier.name).toBe('fattura-acme.pdf')
   })
 

@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   RECONCILIATION_THRESHOLDS,
   MATCHING_THRESHOLDS,
-} from '@/lib/constants/sdi'
-import { evaluateDiscrepancy } from '@/lib/constants/reconciliation-thresholds'
+  evaluateDiscrepancy,
+} from '@/modules/core/invoicing'
 
 describe('RECONCILIATION_THRESHOLDS defaults', () => {
   it('AUTO_APPROVE_PERCENT is 2', () => {

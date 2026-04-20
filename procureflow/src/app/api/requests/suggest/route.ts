@@ -5,8 +5,7 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { suggestRequestSchema } from '@/lib/validations/suggest'
-import { getSuggestions } from '@/server/services/suggest.service'
+import { suggestRequestSchema, getSuggestions } from '@/modules/core/smartfill'
 import { requireAuth } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {

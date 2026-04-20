@@ -1,4 +1,4 @@
-import { RoiDashboard } from '@/components/analytics/roi-dashboard'
+import { RoiDashboard } from '@/modules/core/analytics'
 
 export default function AnalyticsPage() {
   return <RoiDashboard />

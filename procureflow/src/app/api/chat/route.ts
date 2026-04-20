@@ -3,8 +3,8 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { errorResponse } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { streamAssistantResponse } from '@/server/agents/procurement-assistant.agent'
-import type { UserRole } from '@/server/agents/procurement-assistant.agent'
+import { streamAssistantResponse } from '@/modules/core/chatbot'
+import type { UserRole } from '@/modules/core/chatbot'
 
 // ---------------------------------------------------------------------------
 // Rate limiting: max 10 messaggi per utente per minuto (in-memory)

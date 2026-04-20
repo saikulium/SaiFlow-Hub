@@ -25,7 +25,7 @@ import {
   getOrderForInvoiceTool,
   getVendorPriceHistoryTool,
   performThreeWayMatchTool,
-} from '@/server/agents/tools/invoice.tools'
+} from '@/modules/core/invoicing'
 import { STOCK_TOOLS } from '@/modules/core/inventory'
 import {
   listPendingApprovalsTool,

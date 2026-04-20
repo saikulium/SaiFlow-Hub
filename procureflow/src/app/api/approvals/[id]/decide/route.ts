@@ -6,8 +6,7 @@ import {
   notFoundResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { approvalDecisionSchema } from '@/lib/validations/approval'
-import { decideApproval } from '@/server/services/approval.service'
+import { approvalDecisionSchema, decideApproval } from '@/modules/core/requests'
 import { requireAuth } from '@/lib/auth'
 
 export async function POST(

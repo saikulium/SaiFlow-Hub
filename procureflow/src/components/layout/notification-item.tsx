@@ -10,7 +10,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { formatRelativeTime, cn } from '@/lib/utils'
-import type { NotificationItem as NotificationType } from '@/hooks/use-notifications'
+import type { NotificationItem as NotificationType } from '@/modules/core/notifications'
 
 const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
   approval_required: Bell,

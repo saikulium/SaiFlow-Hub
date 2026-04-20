@@ -5,7 +5,7 @@ import {
   notFoundResponse,
   errorResponse,
 } from '@/lib/api-response'
-import { initiateApprovalWorkflow } from '@/server/services/approval.service'
+import { initiateApprovalWorkflow } from '@/modules/core/requests'
 import {
   checkBudgetCapacity,
   sendBudgetAlerts,

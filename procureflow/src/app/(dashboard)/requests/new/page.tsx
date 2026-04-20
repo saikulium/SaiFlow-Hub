@@ -1,5 +1,5 @@
 import { PageTransition } from '@/components/shared/page-transition'
-import { RequestForm } from '@/components/requests/request-form'
+import { RequestForm } from '@/modules/core/requests'
 
 export default function NewRequestPage() {
   return (
