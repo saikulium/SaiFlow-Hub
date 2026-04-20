@@ -121,7 +121,7 @@ export function useCloseInventory() {
       const res = await fetch(`/api/inventory/inventories/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'COMPLETED' }),
+        body: JSON.stringify({ close: true }),
       })
       const json = await res.json()
       if (!json.success) throw new Error(json.error?.message ?? 'Errore')

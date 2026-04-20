@@ -49,18 +49,23 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ materialId: string }> },
 ) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
+  try {
+    const authResult = await requireAuth()
+    if (authResult instanceof NextResponse) return authResult
 
-  if (!checkRateLimit(authResult.id)) {
-    return errorResponse(
-      'RATE_LIMITED',
-      `Max ${AI_FORECAST_RATE_LIMIT.maxPerUser} previsioni AI per ora`,
-      429,
-    )
+    if (!checkRateLimit(authResult.id)) {
+      return errorResponse(
+        'RATE_LIMITED',
+        `Max ${AI_FORECAST_RATE_LIMIT.maxPerUser} previsioni AI per ora`,
+        429,
+      )
+    }
+
+    const { materialId } = await params
+    const forecast = await getAiForecast(materialId)
+    return successResponse(forecast)
+  } catch (error) {
+    console.error('POST /api/ai/forecast/[materialId] error:', error)
+    return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)
   }
-
-  const { materialId } = await params
-  const forecast = await getAiForecast(materialId)
-  return successResponse(forecast)
 }
