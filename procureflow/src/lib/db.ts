@@ -1,10 +1,27 @@
 import { PrismaClient } from '@prisma/client'
+import {
+  auditExtension,
+  auditImmutableExtension,
+} from '@/modules/core/audit-log'
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+function createExtendedClient() {
+  return new PrismaClient()
+    .$extends(auditImmutableExtension)
+    .$extends(auditExtension)
 }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient()
+type ExtendedPrismaClient = ReturnType<typeof createExtendedClient>
+
+export type TxClient = Parameters<
+  Parameters<ExtendedPrismaClient['$transaction']>[0]
+>[0]
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: ExtendedPrismaClient | undefined
+}
+
+export const prisma: ExtendedPrismaClient =
+  globalForPrisma.prisma ?? createExtendedClient()
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma
