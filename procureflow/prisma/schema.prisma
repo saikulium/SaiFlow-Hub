@@ -100,6 +100,7 @@ model User {
   approvals      Approval[]
   comments       Comment[]
   notifications  Notification[]
+  notification_preference NotificationPreference?
 
   commesse_assigned Commessa[] @relation("CommessaAssigned")
   tenders_assigned  Tender[]   @relation("TenderAssigned")
@@ -478,6 +479,38 @@ model Notification {
 
   @@index([user_id, read])
   @@map("notifications")
+}
+
+// Preferenze notifiche per utente (canali, digest, quiet hours).
+// Schema "lazy": override per tipo memorizzato come JSON per evitare
+// migration quando si aggiunge un nuovo NotificationType.
+model NotificationPreference {
+  id      String @id @default(cuid())
+  user_id String @unique
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // Override per tipo. Se una chiave manca → fallback al default del channel-resolver.
+  // Esempio: { "APPROVAL_DECIDED": false } disabilita email per quel tipo.
+  email_overrides Json @default("{}")
+  inapp_overrides Json @default("{}")
+
+  // Digest
+  digest_enabled           Boolean         @default(true)
+  digest_frequency         DigestFrequency @default(HOURLY)
+  digest_quiet_hours_start Int?            @default(20) // 0-23 (null = no quiet)
+  digest_quiet_hours_end   Int?            @default(8)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("notification_preferences")
+}
+
+enum DigestFrequency {
+  IMMEDIATE
+  EVERY_15_MIN
+  HOURLY
+  DAILY
 }
 
 // --- Commesse (Clienti & Commesse) ---
