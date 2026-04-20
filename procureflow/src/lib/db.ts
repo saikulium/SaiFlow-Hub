@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client'
-import {
-  auditExtension,
-  auditImmutableExtension,
-} from '@/modules/core/audit-log'
+// NOTE: import directly from extension files (not the module barrel) to avoid
+// a circular import through the audit-log barrel → audit.service.ts → db.ts.
+import { auditExtension } from '@/modules/core/audit-log/server/audit.extension'
+import { auditImmutableExtension } from '@/modules/core/audit-log/server/audit.immutable.extension'
 
 function createExtendedClient() {
   return new PrismaClient()
@@ -20,9 +20,15 @@ const globalForPrisma = globalThis as unknown as {
   prisma: ExtendedPrismaClient | undefined
 }
 
+// Client bundles transitively pull this module via barrel re-exports
+// (budgets/requests/... → db.ts). `new PrismaClient()` throws in the browser,
+// so we only instantiate on the server. The client gets a stub: client code
+// never actually calls prisma methods — all DB access goes through API routes.
 export const prisma: ExtendedPrismaClient =
-  globalForPrisma.prisma ?? createExtendedClient()
+  typeof window === 'undefined'
+    ? (globalForPrisma.prisma ?? createExtendedClient())
+    : ({} as ExtendedPrismaClient)
 
-if (process.env.NODE_ENV !== 'production') {
+if (typeof window === 'undefined' && process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma
 }

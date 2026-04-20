@@ -248,7 +248,22 @@ export async function requireAuth(): Promise<AuthUser | NextResponse> {
       { status: 401 },
     )
   }
-  return session.user as AuthUser
+  const user = session.user as AuthUser
+  // Retrofit audit context for routes that don't use withApiHandler (which
+  // already calls setAuditContext). enterWith() sets the context for the
+  // current async scope without wrapping, so Prisma queries downstream can
+  // resolve actor correctly. Dynamic import keeps this out of the Edge bundle.
+  try {
+    const { enterAuditContext } = await import('@/lib/audit-context')
+    enterAuditContext({
+      actorId: user.id,
+      actorType: 'USER',
+      actorLabel: user.email,
+    })
+  } catch {
+    // audit-context unavailable (e.g. Edge runtime) — skip silently
+  }
+  return user
 }
 
 export async function requireRole(

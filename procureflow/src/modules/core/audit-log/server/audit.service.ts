@@ -1,4 +1,3 @@
-import { prisma } from '@/lib/db'
 import type {
   AuditAction,
   AuditActorType,
@@ -6,10 +5,20 @@ import type {
   WriteAuditLogParams,
 } from './audit.types'
 
+// Lazy prisma import breaks the cycle audit.service → db → audit.extension →
+// audit.service. The module loads before db.ts finishes and would otherwise
+// grab a TDZ binding.
+async function db() {
+  return (await import('@/lib/db')).prisma
+}
+
 const DEFAULT_LIMIT = 50
 const MAX_LIMIT = 200
 
-export async function writeAuditLog(params: WriteAuditLogParams): Promise<void> {
+export async function writeAuditLog(
+  params: WriteAuditLogParams,
+): Promise<void> {
+  const prisma = await db()
   await prisma.auditLog.create({
     data: {
       actor_id: params.actorId ?? null,
@@ -29,6 +38,7 @@ export async function writeAuditLog(params: WriteAuditLogParams): Promise<void> 
 }
 
 export async function searchAuditLogs(filters: SearchAuditLogsFilters) {
+  const prisma = await db()
   const limit = Math.min(filters.limit ?? DEFAULT_LIMIT, MAX_LIMIT)
 
   const where: Record<string, unknown> = {}
@@ -64,6 +74,7 @@ export async function getEntityAuditHistory(
   entityId: string,
   limit = 100,
 ) {
+  const prisma = await db()
   return prisma.auditLog.findMany({
     where: { entity_type: entityType, entity_id: entityId },
     orderBy: { timestamp: 'desc' },
