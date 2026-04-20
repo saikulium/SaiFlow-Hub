@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from '@/lib/auth'
 import { requireModule } from '@/lib/modules/require-module'
 import { assertModuleEnabled } from '@/lib/module-guard'
 import { errorResponse, validationErrorResponse } from '@/lib/api-response'
+import { setAuditContext } from '@/lib/audit-context'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -175,14 +176,35 @@ export function withApiHandler<TBody = unknown, TQuery = unknown>(
         query = parsed.data
       }
 
-      // 6. Execute handler
-      return await handler({
-        req,
-        user: user as AuthUser,
-        params,
-        body,
-        query,
-      })
+      // 6. Execute handler — wrapped in audit context when user is present
+      const execute = () =>
+        Promise.resolve(
+          handler({
+            req,
+            user: user as AuthUser,
+            params,
+            body,
+            query,
+          }),
+        )
+
+      if (user) {
+        const ipAddress =
+          req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+          req.headers.get('x-real-ip') ||
+          undefined
+        return await setAuditContext(
+          {
+            actorId: user.id,
+            actorType: 'USER',
+            actorLabel: user.email,
+            ipAddress,
+            userAgent: req.headers.get('user-agent') ?? undefined,
+          },
+          execute,
+        )
+      }
+      return await execute()
     } catch (error) {
       // Custom error handlers
       if (config.errorHandlers) {

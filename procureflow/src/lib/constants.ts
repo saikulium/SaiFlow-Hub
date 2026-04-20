@@ -24,6 +24,7 @@ import {
   Gavel,
   Package,
   Shield,
+  ShieldCheck,
   BookOpen,
   type LucideIcon,
 } from 'lucide-react'
@@ -255,6 +256,12 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Clienti', href: '/clients', icon: Building2 },
   { label: 'Utenti', href: '/users', icon: Users },
   { label: 'Admin', href: '/admin/config', icon: Shield, adminOnly: true },
+  {
+    label: 'Audit Trail',
+    href: '/admin/audit',
+    icon: ShieldCheck,
+    adminOnly: true,
+  },
   { label: 'Impostazioni', href: '/settings', icon: Settings },
 ]
 

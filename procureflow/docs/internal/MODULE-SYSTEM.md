@@ -65,7 +65,11 @@ Campi:
 - **dependencies**: altri moduli che devono essere attivi perché questo funzioni. Validato al boot.
 - **description**: 1 riga, leggibile
 
-**Regola**: i moduli `alwaysOn` sono requisiti di sistema (core, requests, vendors, clients, articles, commesse). I moduli `alwaysOn: false` sono opzionali (invoicing, tenders, budgets, analytics, ecc.).
+**Regola**: i moduli `alwaysOn` sono requisiti di sistema (core, requests, vendors, clients, articles, commesse, audit-log). I moduli `alwaysOn: false` sono opzionali (invoicing, tenders, budgets, analytics, ecc.).
+
+Il modulo **audit-log** è sempre attivo: registra automaticamente ogni mutazione
+sui modelli compliance-critical via Prisma query extension + trigger Postgres.
+Vedi [`src/modules/core/audit-log/README.md`](../../src/modules/core/audit-log/README.md).
 
 ---
 

@@ -1,5 +1,4 @@
-import { prisma } from '@/lib/db'
-import type { Prisma } from '@prisma/client'
+import { prisma, type TxClient } from '@/lib/db'
 
 // ---------------------------------------------------------------------------
 // Generazione atomica di codici sequenziali (PR, COM, CLI, etc.)
@@ -18,7 +17,6 @@ const ALLOWED_TABLES = [
   'vendors',
 ] as const
 type AllowedTable = (typeof ALLOWED_TABLES)[number]
-type TxClient = Prisma.TransactionClient
 
 export async function generateNextCodeAtomic(
   prefix = 'PR',
