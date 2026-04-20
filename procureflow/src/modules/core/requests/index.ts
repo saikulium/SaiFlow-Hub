@@ -19,6 +19,23 @@ export { createAttachmentRecord } from './server/attachment.service'
 // Server — comments
 export { createComment } from './server/comment.service'
 
+// Server — order confirmations
+export {
+  createOrderConfirmation,
+  applyConfirmation,
+  rejectConfirmation,
+  getOrderConfirmation,
+  listOrderConfirmations,
+  OrderConfirmationNotFoundError,
+  InvalidConfirmationStateError,
+  InvalidConfirmationLineError,
+} from './server/order-confirmation.service'
+export type {
+  ApplyConfirmationParams,
+  RejectConfirmationParams,
+  OrderConfirmationWithLines,
+} from './server/order-confirmation.service'
+
 // Notifications moved to @/modules/core/notifications (feat/email-notifications).
 
 // Hooks — requests
@@ -120,6 +137,21 @@ export type {
 // Validations — comments
 export { createCommentSchema, commentQuerySchema } from './validations/comment'
 export type { CreateCommentInput, CommentQuery } from './validations/comment'
+
+// Validations — order confirmations
+export {
+  orderConfirmationLineSchema,
+  orderConfirmationSourceSchema,
+  createOrderConfirmationSchema,
+  applyConfirmationSchema,
+  rejectConfirmationSchema,
+} from './validations/order-confirmation'
+export type {
+  CreateOrderConfirmationInput,
+  OrderConfirmationLineInput,
+  ApplyConfirmationInput,
+  RejectConfirmationInput,
+} from './validations/order-confirmation'
 
 // Notification validations moved to @/modules/core/notifications.
 
