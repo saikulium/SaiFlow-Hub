@@ -93,13 +93,13 @@ model User {
   onboarding_completed Boolean @default(false)
   onboarding_data      Json?
 
-  accounts       Account[]
-  sessions       Session[]
-  refresh_tokens RefreshToken[]
-  requests       PurchaseRequest[]
-  approvals      Approval[]
-  comments       Comment[]
-  notifications  Notification[]
+  accounts                Account[]
+  sessions                Session[]
+  refresh_tokens          RefreshToken[]
+  requests                PurchaseRequest[]
+  approvals               Approval[]
+  comments                Comment[]
+  notifications           Notification[]
   notification_preference NotificationPreference?
 
   commesse_assigned Commessa[] @relation("CommessaAssigned")
@@ -238,6 +238,7 @@ model PurchaseRequest {
   stock_reservations     StockReservation[]
   stock_movements        StockMovement[]
   price_variance_reviews PriceVarianceReview[]
+  order_confirmations    OrderConfirmation[]
 
   @@index([status, created_at])
   @@index([requester_id, status])
@@ -383,6 +384,13 @@ model RequestItem {
   is_split_payment  Boolean  @default(false)
   is_reverse_charge Boolean  @default(false)
 
+  // Consegna per riga (nullable; fallback a PurchaseRequest.expected_delivery)
+  expected_delivery  DateTime?
+  confirmed_delivery DateTime?
+  actual_delivery    DateTime?
+
+  confirmation_lines OrderConfirmationLine[]
+
   @@map("request_items")
 }
 
@@ -454,6 +462,9 @@ model Attachment {
   request_id String
   request    PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
 
+  order_confirmation_id String?
+  order_confirmation    OrderConfirmation? @relation(fields: [order_confirmation_id], references: [id], onDelete: SetNull)
+
   filename  String
   file_url  String
   file_size Int?
@@ -461,6 +472,7 @@ model Attachment {
 
   created_at DateTime @default(now())
 
+  @@index([order_confirmation_id])
   @@map("attachments")
 }
 
@@ -1333,6 +1345,10 @@ model EmailLog {
 
 // --- Price Variance Reviews ---
 
+/// @deprecated Sostituito da OrderConfirmation + OrderConfirmationLine (sprint core/order-lifecycle).
+/// Mantenuto per compatibilità con i record storici. Nuovi record NON devono
+/// essere creati: usare createOrderConfirmation() + applyConfirmation().
+/// Rimozione prevista in una sprint follow-up dopo 1-2 iterazioni di osservazione.
 model PriceVarianceReview {
   id String @id @default(cuid())
 
@@ -1365,6 +1381,114 @@ enum PriceVarianceStatus {
   ACCEPTED
   REJECTED
   NEGOTIATING
+}
+
+// --- Order Confirmations ---
+
+/// Conferma d'ordine ricevuta dal fornitore.
+/// 1:N con PurchaseRequest (una PR può ricevere più conferme: revisioni, ack parziali).
+/// Ciclo di vita: RECEIVED -> PARSED -> ACKNOWLEDGED -> APPLIED (terminale)
+///                                                  \-> REJECTED (terminale)
+model OrderConfirmation {
+  id         String          @id @default(cuid())
+  request_id String
+  request    PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+
+  // Traceability (string ref loose, come gli altri link in EmailLog)
+  email_log_id String?
+
+  source OrderConfirmationSource @default(MANUAL)
+  status OrderConfirmationStatus @default(RECEIVED)
+
+  // Snapshot header
+  subject          String?
+  vendor_reference String? // es. "Ord.14177"
+  received_at      DateTime?
+  parsed_at        DateTime?
+  acknowledged_at  DateTime?
+
+  // Audit apply/reject
+  applied_at       DateTime?
+  applied_by       String?
+  rejected_at      DateTime?
+  rejected_by      String?
+  rejection_reason String?
+
+  notes    String?
+  metadata Json? // Payload grezzo parser (attachment IDs, raw AI output, ecc.)
+
+  lines       OrderConfirmationLine[]
+  attachments Attachment[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([request_id, status])
+  @@index([email_log_id])
+  @@index([status, created_at])
+  @@map("order_confirmations")
+}
+
+enum OrderConfirmationSource {
+  EMAIL
+  WEBHOOK
+  MANUAL
+  IMPORT
+}
+
+enum OrderConfirmationStatus {
+  RECEIVED
+  PARSED
+  ACKNOWLEDGED
+  APPLIED
+  REJECTED
+}
+
+/// Singola riga di una OrderConfirmation.
+/// Snapshot dei valori originali (dal RequestItem al momento della creazione)
+/// + valori confermati dal fornitore. Campi derivati (price_delta_pct,
+/// delivery_delay_days) calcolati in createOrderConfirmation().
+model OrderConfirmationLine {
+  id              String            @id @default(cuid())
+  confirmation_id String
+  confirmation    OrderConfirmation @relation(fields: [confirmation_id], references: [id], onDelete: Cascade)
+
+  // FK nullable: preserva storia se il RequestItem viene rimosso dal requester
+  request_item_id String?
+  request_item    RequestItem? @relation(fields: [request_item_id], references: [id], onDelete: SetNull)
+
+  // Snapshot valori originali
+  original_name              String?
+  original_quantity          Int?
+  original_unit              String?
+  original_unit_price        Decimal?  @db.Decimal(12, 2)
+  original_expected_delivery DateTime?
+
+  // Valori confermati dal fornitore
+  confirmed_name       String?
+  confirmed_quantity   Int?
+  confirmed_unit       String?
+  confirmed_unit_price Decimal?  @db.Decimal(12, 2)
+  confirmed_delivery   DateTime?
+  confirmed_sku        String?
+
+  // Derivati
+  price_delta_pct     Decimal? @db.Decimal(7, 4) // es. -0.1234 = -12.34%
+  delivery_delay_days Int?
+
+  // Audit apply per riga (una confirmation può applicare un sottoinsieme di righe)
+  applied     Boolean   @default(false)
+  applied_at  DateTime?
+  rejected    Boolean   @default(false)
+  rejected_at DateTime?
+
+  notes String?
+
+  created_at DateTime @default(now())
+
+  @@index([confirmation_id])
+  @@index([request_item_id])
+  @@map("order_confirmation_lines")
 }
 
 // --- Integration Configurations ---
