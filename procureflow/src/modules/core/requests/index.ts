@@ -78,6 +78,19 @@ export type { Comment, CommentAuthor } from './hooks/use-comments'
 export { useAttachments, useUploadAttachment } from './hooks/use-attachments'
 export type { Attachment } from './hooks/use-attachments'
 
+// Hooks — order confirmations
+export {
+  useOrderConfirmations,
+  useApplyOrderConfirmation,
+  useRejectOrderConfirmation,
+} from './hooks/use-order-confirmations'
+export type {
+  OrderConfirmation,
+  OrderConfirmationLine,
+  OrderConfirmationStatus,
+  OrderConfirmationSource,
+} from './hooks/use-order-confirmations'
+
 // Notification hooks moved to @/modules/core/notifications.
 
 // Components — pages
@@ -98,6 +111,7 @@ export { RequestEditDialog } from './components/request-edit-dialog'
 export { StatusStepper } from './components/status-stepper'
 export { PriceVarianceBanner } from './components/price-variance-banner'
 export { ApprovalActions } from './components/approval-actions'
+export { OrderConfirmationReview } from './components/order-confirmation-review'
 
 // Components — attachments & comments
 export { AttachmentUpload } from './components/attachment-upload'
