@@ -1,11 +1,4 @@
-import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-  vi,
-} from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // Mocks
 const notificationCreate = vi.fn()
@@ -70,6 +63,10 @@ describe('createNotification — email integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // Pin system clock at 10:00 — within default quiet-hours window in the
+    // tests that set start=0 end=23, so assertions are hour-independent.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 3, 20, 10, 0, 0))
     transport = new NoopTransport()
     __setTransportForTest(transport)
 
@@ -96,6 +93,7 @@ describe('createNotification — email integration', () => {
 
   afterEach(() => {
     __resetTransport()
+    vi.useRealTimers()
   })
 
   it('invia email per APPROVAL_DECIDED (default channels include email)', async () => {
@@ -119,9 +117,7 @@ describe('createNotification — email integration', () => {
 
   it('skip email in quiet hours per tipo non urgente', async () => {
     // Configura quiet hours che includono l'ora corrente: start=0, end=24 → sempre quiet
-    preferenceFindUnique.mockResolvedValue(
-      makePrefs({}, { start: 0, end: 23 }),
-    )
+    preferenceFindUnique.mockResolvedValue(makePrefs({}, { start: 0, end: 23 }))
 
     await createNotification({
       userId: 'user_1',
@@ -134,9 +130,7 @@ describe('createNotification — email integration', () => {
   })
 
   it('invia email per tipo urgente anche in quiet hours', async () => {
-    preferenceFindUnique.mockResolvedValue(
-      makePrefs({}, { start: 0, end: 23 }),
-    )
+    preferenceFindUnique.mockResolvedValue(makePrefs({}, { start: 0, end: 23 }))
 
     await createNotification({
       userId: 'user_1',
