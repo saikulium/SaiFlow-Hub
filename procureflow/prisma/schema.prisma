@@ -82,28 +82,28 @@ model User {
   last_login_at         DateTime?
 
   // Security: token rotation
-  token_version    Int    @default(0)
+  token_version Int @default(0)
 
   // Security: TOTP MFA
-  totp_secret     String?
-  totp_enabled    Boolean  @default(false)
-  recovery_codes  String[] // Hashed with bcrypt
+  totp_secret    String?
+  totp_enabled   Boolean  @default(false)
+  recovery_codes String[] // Hashed with bcrypt
 
   // Onboarding
-  onboarding_completed Boolean  @default(false)
+  onboarding_completed Boolean @default(false)
   onboarding_data      Json?
 
-  accounts         Account[]
-  sessions         Session[]
-  refresh_tokens   RefreshToken[]
-  requests         PurchaseRequest[]
-  approvals     Approval[]
-  comments      Comment[]
-  notifications Notification[]
+  accounts       Account[]
+  sessions       Session[]
+  refresh_tokens RefreshToken[]
+  requests       PurchaseRequest[]
+  approvals      Approval[]
+  comments       Comment[]
+  notifications  Notification[]
 
   commesse_assigned Commessa[] @relation("CommessaAssigned")
-  tenders_assigned  Tender[]  @relation("TenderAssigned")
-  tenders_created   Tender[]  @relation("TenderCreated")
+  tenders_assigned  Tender[]   @relation("TenderAssigned")
+  tenders_created   Tender[]   @relation("TenderCreated")
 
   @@map("users")
 }
@@ -132,17 +132,17 @@ model Vendor {
   created_at    DateTime          @default(now())
   updated_at    DateTime          @updatedAt
 
-  vat_id   String?           @unique  // Partita IVA (per matching fatture)
+  vat_id String? @unique // Partita IVA (per matching fatture)
 
   requests       PurchaseRequest[]
   contacts       VendorContact[]
   article_prices ArticlePrice[]
   invoices       Invoice[]
 
-  tenders_as_authority  Tender[]  @relation("TenderAuthority")
+  tenders_as_authority Tender[] @relation("TenderAuthority")
 
-  materials_as_preferred  Material[]  @relation("MaterialPreferredVendor")
-  material_alerts         MaterialAlert[]  @relation("MaterialAlertVendor")
+  materials_as_preferred Material[]      @relation("MaterialPreferredVendor")
+  material_alerts        MaterialAlert[] @relation("MaterialAlertVendor")
 
   @@index([status])
   @@map("vendors")
@@ -164,9 +164,9 @@ enum VendorStatus {
 }
 
 model VendorContact {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   vendor_id String
-  vendor    Vendor @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+  vendor    Vendor  @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
   name      String
   role      String?
   email     String?
@@ -184,38 +184,38 @@ model PurchaseRequest {
   priority    Priority      @default(MEDIUM)
 
   requester_id String
-  requester    User   @relation(fields: [requester_id], references: [id], onDelete: Restrict)
+  requester    User    @relation(fields: [requester_id], references: [id], onDelete: Restrict)
   vendor_id    String?
   vendor       Vendor? @relation(fields: [vendor_id], references: [id])
 
-  estimated_amount  Decimal?  @db.Decimal(12, 2)
-  currency          String    @default("EUR")
-  actual_amount     Decimal?  @db.Decimal(12, 2)
+  estimated_amount Decimal? @db.Decimal(12, 2)
+  currency         String   @default("EUR")
+  actual_amount    Decimal? @db.Decimal(12, 2)
 
   needed_by         DateTime?
   ordered_at        DateTime?
   expected_delivery DateTime?
   delivered_at      DateTime?
 
-  email_message_id String?   @unique
+  email_message_id String? @unique
 
   // Commessa link
   commessa_id     String?
-  commessa        Commessa?  @relation(fields: [commessa_id], references: [id])
-  is_ai_suggested Boolean    @default(false)
+  commessa        Commessa? @relation(fields: [commessa_id], references: [id])
+  is_ai_suggested Boolean   @default(false)
 
   external_ref    String?
   external_url    String?
   tracking_number String?
 
   // Compliance italiana
-  cig             String?       // Codice Identificativo Gara (10 char alfanum)
-  cup             String?       // Codice Unico Progetto (15 char alfanum)
-  is_mepa         Boolean       @default(false) // Acquisto su MEPA/Consip
-  mepa_oda_number String?       // Numero ODA o trattativa diretta MEPA
+  cig             String? // Codice Identificativo Gara (10 char alfanum)
+  cup             String? // Codice Unico Progetto (15 char alfanum)
+  is_mepa         Boolean @default(false) // Acquisto su MEPA/Consip
+  mepa_oda_number String? // Numero ODA o trattativa diretta MEPA
 
   // Importi fatturati
-  invoiced_amount Decimal?      @db.Decimal(12, 2)
+  invoiced_amount Decimal? @db.Decimal(12, 2)
 
   category    String?
   department  String?
@@ -233,9 +233,9 @@ model PurchaseRequest {
   timeline    TimelineEvent[]
   invoices    Invoice[]
 
-  stock_lots         StockLot[]
-  stock_reservations StockReservation[]
-  stock_movements    StockMovement[]
+  stock_lots             StockLot[]
+  stock_reservations     StockReservation[]
+  stock_movements        StockMovement[]
   price_variance_reviews PriceVarianceReview[]
 
   @@index([status, created_at])
@@ -293,26 +293,26 @@ enum AliasType {
 }
 
 model Article {
-  id                String    @id @default(cuid())
-  code              String    @unique          // ART-2026-00001
+  id                String   @id @default(cuid())
+  code              String   @unique // ART-2026-00001
   name              String
   description       String?
   category          String?
-  unit_of_measure   String                     // pz, kg, m
+  unit_of_measure   String // pz, kg, m
   manufacturer      String?
   manufacturer_code String?
-  is_active         Boolean   @default(true)
-  verified          Boolean   @default(false)
+  is_active         Boolean  @default(true)
+  verified          Boolean  @default(false)
   notes             String?
   tags              String[]
-  created_at        DateTime  @default(now())
-  updated_at        DateTime  @updatedAt
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
 
-  aliases           ArticleAlias[]
-  prices            ArticlePrice[]
-  materials         Material[]
-  request_items     RequestItem[]
-  invoice_items     InvoiceLineItem[]
+  aliases       ArticleAlias[]
+  prices        ArticlePrice[]
+  materials     Material[]
+  request_items RequestItem[]
+  invoice_items InvoiceLineItem[]
 
   @@index([name])
   @@index([category])
@@ -327,9 +327,9 @@ model ArticleAlias {
   article_id  String
   article     Article   @relation(fields: [article_id], references: [id], onDelete: Cascade)
   alias_type  AliasType
-  alias_code  String                        // Stored uppercase
+  alias_code  String // Stored uppercase
   alias_label String?
-  entity_id   String?                       // FK to Vendor.id or Client.id (null for STANDARD)
+  entity_id   String? // FK to Vendor.id or Client.id (null for STANDARD)
   is_primary  Boolean   @default(false)
   created_at  DateTime  @default(now())
 
@@ -351,7 +351,7 @@ model ArticlePrice {
   min_quantity Int       @default(1)
   valid_from   DateTime  @default(now())
   valid_until  DateTime?
-  source       String    @default("manual")  // "manual" | "invoice" | "quote"
+  source       String    @default("manual") // "manual" | "invoice" | "quote"
   notes        String?
   created_at   DateTime  @default(now())
 
@@ -361,24 +361,24 @@ model ArticlePrice {
 }
 
 model RequestItem {
-  id          String          @id @default(cuid())
-  request_id  String
-  request     PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  id         String          @id @default(cuid())
+  request_id String
+  request    PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
 
-  name        String
-  description String?
-  quantity    Int
-  unit        String?
-  unit_price  Decimal? @db.Decimal(12, 2)
-  total_price Decimal? @db.Decimal(12, 2)
+  name            String
+  description     String?
+  quantity        Int
+  unit            String?
+  unit_price      Decimal? @db.Decimal(12, 2)
+  total_price     Decimal? @db.Decimal(12, 2)
   sku             String?
   article_id      String?
-  article         Article?  @relation(fields: [article_id], references: [id])
+  article         Article? @relation(fields: [article_id], references: [id])
   unresolved_code String?
 
   // IVA per riga
-  vat_rate          Decimal? @db.Decimal(5, 2) @default(22.00)
-  vat_nature        String?  // Natura operazione se IVA=0 (N1-N7)
+  vat_rate          Decimal? @default(22.00) @db.Decimal(5, 2)
+  vat_nature        String? // Natura operazione se IVA=0 (N1-N7)
   is_split_payment  Boolean  @default(false)
   is_reverse_charge Boolean  @default(false)
 
@@ -411,12 +411,12 @@ enum ApprovalStatus {
 }
 
 model TimelineEvent {
-  id          String          @id @default(cuid())
-  request_id  String?
-  request     PurchaseRequest? @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  request_id String?
+  request    PurchaseRequest? @relation(fields: [request_id], references: [id], onDelete: Cascade)
 
-  invoice_id  String?
-  invoice     Invoice?        @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  invoice_id String?
+  invoice    Invoice? @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
 
   type             String
   title            String
@@ -434,11 +434,11 @@ model TimelineEvent {
 }
 
 model Comment {
-  id          String          @id @default(cuid())
-  request_id  String
-  request     PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
-  author_id   String
-  author      User            @relation(fields: [author_id], references: [id], onDelete: Restrict)
+  id         String          @id @default(cuid())
+  request_id String
+  request    PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  author_id  String
+  author     User            @relation(fields: [author_id], references: [id], onDelete: Restrict)
 
   content     String
   is_internal Boolean @default(true)
@@ -449,9 +449,9 @@ model Comment {
 }
 
 model Attachment {
-  id          String          @id @default(cuid())
-  request_id  String
-  request     PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  id         String          @id @default(cuid())
+  request_id String
+  request    PurchaseRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
 
   filename  String
   file_url  String
@@ -464,9 +464,9 @@ model Attachment {
 }
 
 model Notification {
-  id      String  @id @default(cuid())
+  id      String @id @default(cuid())
   user_id String
-  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   title String
   body  String
@@ -483,20 +483,20 @@ model Notification {
 // --- Commesse (Clienti & Commesse) ---
 
 model Client {
-  id              String        @id @default(cuid())
-  code            String        @unique
-  name            String
-  tax_id          String?
-  email           String?
-  phone           String?
-  address         String?
-  contact_person  String?
-  notes           String?
-  status          ClientStatus  @default(ACTIVE)
-  created_at      DateTime      @default(now())
-  updated_at      DateTime      @updatedAt
+  id             String       @id @default(cuid())
+  code           String       @unique
+  name           String
+  tax_id         String?
+  email          String?
+  phone          String?
+  address        String?
+  contact_person String?
+  notes          String?
+  status         ClientStatus @default(ACTIVE)
+  created_at     DateTime     @default(now())
+  updated_at     DateTime     @updatedAt
 
-  commesse        Commessa[]
+  commesse Commessa[]
 
   @@index([status])
   @@index([name])
@@ -504,36 +504,36 @@ model Client {
 }
 
 model Commessa {
-  id               String          @id @default(cuid())
-  code             String          @unique
-  title            String
-  description      String?
-  status           CommessaStatus  @default(DRAFT)
+  id          String         @id @default(cuid())
+  code        String         @unique
+  title       String
+  description String?
+  status      CommessaStatus @default(DRAFT)
 
-  client_id        String
-  client           Client          @relation(fields: [client_id], references: [id])
+  client_id String
+  client    Client @relation(fields: [client_id], references: [id])
 
-  client_value     Decimal?        @db.Decimal(12, 2)
-  currency         String          @default("EUR")
+  client_value Decimal? @db.Decimal(12, 2)
+  currency     String   @default("EUR")
 
-  received_at      DateTime?
-  deadline         DateTime?
-  completed_at     DateTime?
+  received_at  DateTime?
+  deadline     DateTime?
+  completed_at DateTime?
 
-  category         String?
-  department       String?
-  priority         Priority        @default(MEDIUM)
-  tags             String[]
-  assigned_to      String?
-  assigned_user    User?           @relation("CommessaAssigned", fields: [assigned_to], references: [id])
+  category      String?
+  department    String?
+  priority      Priority @default(MEDIUM)
+  tags          String[]
+  assigned_to   String?
+  assigned_user User?    @relation("CommessaAssigned", fields: [assigned_to], references: [id])
 
-  email_message_id String?         @unique
+  email_message_id String? @unique
 
-  created_at       DateTime        @default(now())
-  updated_at       DateTime        @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  requests         PurchaseRequest[]
-  timeline         CommessaTimeline[]
+  requests PurchaseRequest[]
+  timeline CommessaTimeline[]
 
   @@index([status, created_at])
   @@index([client_id])
@@ -542,9 +542,9 @@ model Commessa {
 }
 
 model CommessaTimeline {
-  id               String    @id @default(cuid())
-  commessa_id      String
-  commessa         Commessa  @relation(fields: [commessa_id], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  commessa_id String
+  commessa    Commessa @relation(fields: [commessa_id], references: [id], onDelete: Cascade)
 
   type             String
   title            String
@@ -553,7 +553,7 @@ model CommessaTimeline {
   actor            String?
   email_message_id String?
 
-  created_at       DateTime  @default(now())
+  created_at DateTime @default(now())
 
   @@index([commessa_id, created_at])
   @@map("commessa_timeline")
@@ -562,51 +562,51 @@ model CommessaTimeline {
 // --- Fatturazione Elettronica (SDI) ---
 
 model Invoice {
-  id                    String               @id @default(cuid())
+  id String @id @default(cuid())
 
   // Identificativi SDI
-  sdi_id                String?              @unique
-  sdi_filename          String?
-  sdi_status            String?              // RECEIVED, ACCEPTED, REJECTED
+  sdi_id       String? @unique
+  sdi_filename String?
+  sdi_status   String? // RECEIVED, ACCEPTED, REJECTED
 
-  xml_raw               String?              @db.Text
+  xml_raw String? @db.Text
 
   // Dati fattura
-  invoice_number        String
-  invoice_date          DateTime
-  due_date              DateTime?
-  document_type         String               @default("TD01") // TD01=Fattura, TD04=Nota credito
+  invoice_number String
+  invoice_date   DateTime
+  due_date       DateTime?
+  document_type  String    @default("TD01") // TD01=Fattura, TD04=Nota credito
 
   // Importi
-  total_taxable         Decimal              @db.Decimal(12, 2)
-  total_tax             Decimal              @db.Decimal(12, 2)
-  total_amount          Decimal              @db.Decimal(12, 2)
-  currency              String               @default("EUR")
+  total_taxable Decimal @db.Decimal(12, 2)
+  total_tax     Decimal @db.Decimal(12, 2)
+  total_amount  Decimal @db.Decimal(12, 2)
+  currency      String  @default("EUR")
 
   // Fornitore (estratti da XML)
-  supplier_vat_id       String
-  supplier_tax_code     String?
-  supplier_name         String
+  supplier_vat_id   String
+  supplier_tax_code String?
+  supplier_name     String
 
   // Cliente (nostro tenant)
-  customer_vat_id       String
+  customer_vat_id String
 
   // Riferimenti per matching
-  causale               String?
-  external_ref          String?
-  pr_code_extracted     String?
+  causale           String?
+  external_ref      String?
+  pr_code_extracted String?
 
   // Pagamento
-  payment_method        String?
-  payment_terms         String?
-  iban                  String?
+  payment_method String?
+  payment_terms  String?
+  iban           String?
 
   // Matching
-  match_status          InvoiceMatchStatus   @default(UNMATCHED)
-  match_confidence      Float?
-  match_candidates      Json?                // Array di request_id candidati
-  matched_at            DateTime?
-  matched_by            String?
+  match_status     InvoiceMatchStatus @default(UNMATCHED)
+  match_confidence Float?
+  match_candidates Json? // Array di request_id candidati
+  matched_at       DateTime?
+  matched_by       String?
 
   // Riconciliazione
   reconciliation_status ReconciliationStatus @default(PENDING)
@@ -615,23 +615,23 @@ model Invoice {
   reconciled_by         String?
 
   // Discrepanze three-way match
-  amount_discrepancy    Decimal?             @db.Decimal(12, 2)
-  discrepancy_type      DiscrepancyType?
-  discrepancy_resolved  Boolean              @default(false)
+  amount_discrepancy   Decimal?         @db.Decimal(12, 2)
+  discrepancy_type     DiscrepancyType?
+  discrepancy_resolved Boolean          @default(false)
 
   // Relazioni
-  vendor_id             String?
-  vendor                Vendor?              @relation(fields: [vendor_id], references: [id])
-  purchase_request_id   String?
-  purchase_request      PurchaseRequest?     @relation(fields: [purchase_request_id], references: [id])
-  tenant_id             String               @default("default")
+  vendor_id           String?
+  vendor              Vendor?          @relation(fields: [vendor_id], references: [id])
+  purchase_request_id String?
+  purchase_request    PurchaseRequest? @relation(fields: [purchase_request_id], references: [id])
+  tenant_id           String           @default("default")
 
-  line_items            InvoiceLineItem[]
-  timeline_events       TimelineEvent[]
+  line_items      InvoiceLineItem[]
+  timeline_events TimelineEvent[]
 
-  received_at           DateTime             @default(now())
-  created_at            DateTime             @default(now())
-  updated_at            DateTime             @updatedAt
+  received_at DateTime @default(now())
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 
   @@index([supplier_vat_id])
   @@index([pr_code_extracted])
@@ -645,30 +645,30 @@ model Invoice {
 }
 
 model InvoiceLineItem {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  invoice_id      String
-  invoice         Invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  invoice_id String
+  invoice    Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
 
   line_number     Int
   description     String
-  quantity        Decimal  @db.Decimal(12, 4)
+  quantity        Decimal @db.Decimal(12, 4)
   unit_of_measure String?
-  unit_price      Decimal  @db.Decimal(12, 4)
-  total_price     Decimal  @db.Decimal(12, 2)
+  unit_price      Decimal @db.Decimal(12, 4)
+  total_price     Decimal @db.Decimal(12, 2)
 
   // IVA per riga
-  vat_rate        Decimal  @db.Decimal(5, 2)
-  vat_amount      Decimal? @db.Decimal(12, 2)
-  vat_nature      String?  // Natura operazione se IVA=0 (N1-N7)
+  vat_rate   Decimal  @db.Decimal(5, 2)
+  vat_amount Decimal? @db.Decimal(12, 2)
+  vat_nature String? // Natura operazione se IVA=0 (N1-N7)
 
   // Matching con riga ordine
   matched_item_id String?
 
-  article_id      String?
-  article         Article?  @relation(fields: [article_id], references: [id])
+  article_id String?
+  article    Article? @relation(fields: [article_id], references: [id])
 
-  created_at      DateTime @default(now())
+  created_at DateTime @default(now())
 
   @@map("invoice_line_items")
 }
@@ -724,11 +724,11 @@ model Budget {
   notes                   String?
   is_active               Boolean               @default(true)
 
-  created_by              String
-  created_at              DateTime              @default(now())
-  updated_at              DateTime              @updatedAt
+  created_by String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  snapshots               BudgetSnapshot[]
+  snapshots BudgetSnapshot[]
 
   @@index([cost_center, period_start, period_end])
   @@index([is_active, cost_center])
@@ -736,9 +736,9 @@ model Budget {
 }
 
 model BudgetSnapshot {
-  id          String   @id @default(cuid())
-  budget_id   String
-  budget      Budget   @relation(fields: [budget_id], references: [id], onDelete: Cascade)
+  id        String @id @default(cuid())
+  budget_id String
+  budget    Budget @relation(fields: [budget_id], references: [id], onDelete: Cascade)
 
   spent       Decimal  @db.Decimal(12, 2)
   committed   Decimal  @db.Decimal(12, 2)
@@ -752,17 +752,17 @@ model BudgetSnapshot {
 // --- Deploy Configuration ---
 
 model DeployConfig {
-  id              String   @id @default("default")
-  deploy_name     String   @default("ProcureFlow")
-  enabled_modules String[] // ["core", "invoicing", "budgets", ...]
+  id               String   @id @default("default")
+  deploy_name      String   @default("ProcureFlow")
+  enabled_modules  String[] // ["core", "invoicing", "budgets", ...]
   company_logo_url String?
   categories       String[]
   departments      String[]
   cost_centers     String[]
   approval_rules   Json?
-  article_config   Json?    // { "auto_match_threshold": 0 }
+  article_config   Json? // { "auto_match_threshold": 0 }
   created_at       DateTime @default(now())
-  updated_at      DateTime @updatedAt
+  updated_at       DateTime @updatedAt
 
   @@map("deploy_config")
 }
@@ -815,72 +815,72 @@ enum GoNoGoDecision {
 }
 
 model Tender {
-  id                        String          @id @default(cuid())
-  code                      String          @unique  // GARA-2026-00001
-  title                     String
-  description               String?         @db.Text
-  status                    TenderStatus    @default(DISCOVERED)
-  tender_type               TenderType
+  id          String       @id @default(cuid())
+  code        String       @unique // GARA-2026-00001
+  title       String
+  description String?      @db.Text
+  status      TenderStatus @default(DISCOVERED)
+  tender_type TenderType
 
-  contracting_authority_id  String?
-  contracting_authority     Vendor?         @relation("TenderAuthority", fields: [contracting_authority_id], references: [id])
+  contracting_authority_id String?
+  contracting_authority    Vendor? @relation("TenderAuthority", fields: [contracting_authority_id], references: [id])
 
-  cig                       String?
-  cup                       String?
-  gara_number               String?
-  lotto_number              String?
-  platform_url              String?
-  anac_id                   String?
+  cig          String?
+  cup          String?
+  gara_number  String?
+  lotto_number String?
+  platform_url String?
+  anac_id      String?
 
-  base_amount               Decimal?        @db.Decimal(12, 2)
-  our_offer_amount          Decimal?        @db.Decimal(12, 2)
-  awarded_amount            Decimal?        @db.Decimal(12, 2)
-  currency                  String          @default("EUR")
+  base_amount      Decimal? @db.Decimal(12, 2)
+  our_offer_amount Decimal? @db.Decimal(12, 2)
+  awarded_amount   Decimal? @db.Decimal(12, 2)
+  currency         String   @default("EUR")
 
-  go_no_go                  GoNoGoDecision  @default(PENDING)
-  go_no_go_score            Int?
-  go_no_go_notes            String?         @db.Text
-  go_no_go_decided_by       String?
-  go_no_go_decided_at       DateTime?
+  go_no_go            GoNoGoDecision @default(PENDING)
+  go_no_go_score      Int?
+  go_no_go_notes      String?        @db.Text
+  go_no_go_decided_by String?
+  go_no_go_decided_at DateTime?
 
-  publication_date          DateTime?
-  question_deadline         DateTime?
-  submission_deadline       DateTime?
-  opening_date              DateTime?
-  award_date                DateTime?
-  contract_start_date       DateTime?
-  contract_end_date         DateTime?
+  publication_date    DateTime?
+  question_deadline   DateTime?
+  submission_deadline DateTime?
+  opening_date        DateTime?
+  award_date          DateTime?
+  contract_start_date DateTime?
+  contract_end_date   DateTime?
 
-  award_criteria            String?
-  technical_weight          Int?
-  economic_weight           Int?
+  award_criteria   String?
+  technical_weight Int?
+  economic_weight  Int?
 
-  our_technical_score       Decimal?        @db.Decimal(5, 2)
-  our_economic_score        Decimal?        @db.Decimal(5, 2)
-  our_total_score           Decimal?        @db.Decimal(5, 2)
-  winner_name               String?
-  winner_amount             Decimal?        @db.Decimal(12, 2)
-  participants_count        Int?
+  our_technical_score Decimal? @db.Decimal(5, 2)
+  our_economic_score  Decimal? @db.Decimal(5, 2)
+  our_total_score     Decimal? @db.Decimal(5, 2)
+  winner_name         String?
+  winner_amount       Decimal? @db.Decimal(12, 2)
+  participants_count  Int?
 
-  category                  String?
-  department                String?
-  cost_center               String?
-  tags                      String[]
+  category    String?
+  department  String?
+  cost_center String?
+  tags        String[]
 
-  assigned_to_id            String?
-  assigned_to               User?           @relation("TenderAssigned", fields: [assigned_to_id], references: [id])
-  created_by_id             String
-  created_by                User            @relation("TenderCreated", fields: [created_by_id], references: [id])
+  assigned_to_id String?
+  assigned_to    User?   @relation("TenderAssigned", fields: [assigned_to_id], references: [id])
+  created_by_id  String
+  created_by     User    @relation("TenderCreated", fields: [created_by_id], references: [id])
 
-  notes                     String?         @db.Text
-  created_at                DateTime        @default(now())
-  updated_at                DateTime        @updatedAt
+  notes      String?  @db.Text
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  documents                 TenderDocument[]
-  timeline                  TenderTimeline[]
+  documents TenderDocument[]
+  timeline  TenderTimeline[]
 
-  stock_reservations  StockReservation[]
-  stock_movements     StockMovement[]
+  stock_reservations StockReservation[]
+  stock_movements    StockMovement[]
 
   @@index([status, submission_deadline])
   @@index([status, created_at])
@@ -891,33 +891,33 @@ model Tender {
 }
 
 model TenderDocument {
-  id              String              @id @default(cuid())
-  tender_id       String
-  tender          Tender              @relation(fields: [tender_id], references: [id], onDelete: Cascade)
-  document_type   TenderDocumentType
-  filename        String
-  file_url        String
-  file_size       Int?
-  mime_type       String?
-  version         Int                 @default(1)
-  notes           String?
-  uploaded_by     String?
-  created_at      DateTime            @default(now())
+  id            String             @id @default(cuid())
+  tender_id     String
+  tender        Tender             @relation(fields: [tender_id], references: [id], onDelete: Cascade)
+  document_type TenderDocumentType
+  filename      String
+  file_url      String
+  file_size     Int?
+  mime_type     String?
+  version       Int                @default(1)
+  notes         String?
+  uploaded_by   String?
+  created_at    DateTime           @default(now())
 
   @@index([tender_id, document_type])
   @@map("tender_documents")
 }
 
 model TenderTimeline {
-  id              String    @id @default(cuid())
-  tender_id       String
-  tender          Tender    @relation(fields: [tender_id], references: [id], onDelete: Cascade)
-  type            String
-  title           String
-  description     String?
-  metadata        Json?
-  actor           String?
-  created_at      DateTime  @default(now())
+  id          String   @id @default(cuid())
+  tender_id   String
+  tender      Tender   @relation(fields: [tender_id], references: [id], onDelete: Cascade)
+  type        String
+  title       String
+  description String?
+  metadata    Json?
+  actor       String?
+  created_at  DateTime @default(now())
 
   @@index([tender_id, created_at])
   @@map("tender_timeline")
@@ -969,35 +969,35 @@ enum StockInventoryStatus {
 }
 
 model Material {
-  id                    String    @id @default(cuid())
-  code                  String    @unique
-  name                  String
-  description           String?   @db.Text
-  category              String?
-  subcategory           String?
-  unit_primary          String
-  unit_secondary        String?
-  conversion_factor     Decimal?  @db.Decimal(12, 6)
-  min_stock_level       Decimal?  @db.Decimal(12, 3)
-  max_stock_level       Decimal?  @db.Decimal(12, 3)
-  unit_cost             Decimal   @default(0) @db.Decimal(12, 4)
-  barcode               String?
-  qr_code               String?
-  preferred_vendor_id   String?
-  preferred_vendor      Vendor?   @relation("MaterialPreferredVendor", fields: [preferred_vendor_id], references: [id])
-  is_active             Boolean   @default(true)
-  tags                  String[]
-  notes                 String?   @db.Text
-  article_id            String?
-  article               Article?  @relation(fields: [article_id], references: [id])
-  created_at            DateTime  @default(now())
-  updated_at            DateTime  @updatedAt
+  id                  String   @id @default(cuid())
+  code                String   @unique
+  name                String
+  description         String?  @db.Text
+  category            String?
+  subcategory         String?
+  unit_primary        String
+  unit_secondary      String?
+  conversion_factor   Decimal? @db.Decimal(12, 6)
+  min_stock_level     Decimal? @db.Decimal(12, 3)
+  max_stock_level     Decimal? @db.Decimal(12, 3)
+  unit_cost           Decimal  @default(0) @db.Decimal(12, 4)
+  barcode             String?
+  qr_code             String?
+  preferred_vendor_id String?
+  preferred_vendor    Vendor?  @relation("MaterialPreferredVendor", fields: [preferred_vendor_id], references: [id])
+  is_active           Boolean  @default(true)
+  tags                String[]
+  notes               String?  @db.Text
+  article_id          String?
+  article             Article? @relation(fields: [article_id], references: [id])
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
 
-  lots                  StockLot[]
-  movements             StockMovement[]
-  reservations          StockReservation[]
-  inventory_lines       StockInventoryLine[]
-  alerts                MaterialAlert[]
+  lots            StockLot[]
+  movements       StockMovement[]
+  reservations    StockReservation[]
+  inventory_lines StockInventoryLine[]
+  alerts          MaterialAlert[]
 
   @@index([category, is_active])
   @@index([code])
@@ -1006,13 +1006,13 @@ model Material {
 }
 
 model Warehouse {
-  id          String          @id @default(cuid())
-  code        String          @unique
-  name        String
-  address     String?
-  is_active   Boolean         @default(true)
-  created_at  DateTime        @default(now())
-  updated_at  DateTime        @updatedAt
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String
+  address    String?
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   zones       WarehouseZone[]
   lots        StockLot[]
@@ -1023,12 +1023,12 @@ model Warehouse {
 }
 
 model WarehouseZone {
-  id            String    @id @default(cuid())
-  warehouse_id  String
-  warehouse     Warehouse @relation(fields: [warehouse_id], references: [id], onDelete: Cascade)
-  code          String
-  name          String
-  created_at    DateTime  @default(now())
+  id           String    @id @default(cuid())
+  warehouse_id String
+  warehouse    Warehouse @relation(fields: [warehouse_id], references: [id], onDelete: Cascade)
+  code         String
+  name         String
+  created_at   DateTime  @default(now())
 
   lots            StockLot[]
   movements       StockMovement[]
@@ -1039,29 +1039,29 @@ model WarehouseZone {
 }
 
 model StockLot {
-  id                         String          @id @default(cuid())
-  lot_number                 String          @unique
+  id                         String           @id @default(cuid())
+  lot_number                 String           @unique
   material_id                String
-  material                   Material        @relation(fields: [material_id], references: [id])
+  material                   Material         @relation(fields: [material_id], references: [id])
   warehouse_id               String
-  warehouse                  Warehouse       @relation(fields: [warehouse_id], references: [id])
+  warehouse                  Warehouse        @relation(fields: [warehouse_id], references: [id])
   zone_id                    String?
-  zone                       WarehouseZone?  @relation(fields: [zone_id], references: [id])
-  initial_quantity           Decimal         @db.Decimal(12, 3)
-  current_quantity           Decimal         @db.Decimal(12, 3)
-  initial_quantity_secondary Decimal?        @db.Decimal(12, 3)
-  current_quantity_secondary Decimal?        @db.Decimal(12, 3)
-  unit_cost                  Decimal         @db.Decimal(12, 4)
+  zone                       WarehouseZone?   @relation(fields: [zone_id], references: [id])
+  initial_quantity           Decimal          @db.Decimal(12, 3)
+  current_quantity           Decimal          @db.Decimal(12, 3)
+  initial_quantity_secondary Decimal?         @db.Decimal(12, 3)
+  current_quantity_secondary Decimal?         @db.Decimal(12, 3)
+  unit_cost                  Decimal          @db.Decimal(12, 4)
   expiry_date                DateTime?
-  status                     StockLotStatus  @default(AVAILABLE)
+  status                     StockLotStatus   @default(AVAILABLE)
   purchase_request_id        String?
   purchase_request           PurchaseRequest? @relation(fields: [purchase_request_id], references: [id])
   notes                      String?
-  created_at                 DateTime        @default(now())
-  updated_at                 DateTime        @updatedAt
+  created_at                 DateTime         @default(now())
+  updated_at                 DateTime         @updatedAt
 
-  movements     StockMovement[]
-  reservations  StockReservation[]
+  movements       StockMovement[]
+  reservations    StockReservation[]
   inventory_lines StockInventoryLine[]
 
   @@index([material_id, status])
@@ -1072,20 +1072,20 @@ model StockLot {
 }
 
 model StockReservation {
-  id                          String                  @id @default(cuid())
+  id                          String                 @id @default(cuid())
   material_id                 String
-  material                    Material                @relation(fields: [material_id], references: [id])
+  material                    Material               @relation(fields: [material_id], references: [id])
   lot_id                      String?
-  lot                         StockLot?               @relation(fields: [lot_id], references: [id])
-  reserved_quantity           Decimal                 @db.Decimal(12, 3)
-  reserved_quantity_secondary Decimal?                @db.Decimal(12, 3)
+  lot                         StockLot?              @relation(fields: [lot_id], references: [id])
+  reserved_quantity           Decimal                @db.Decimal(12, 3)
+  reserved_quantity_secondary Decimal?               @db.Decimal(12, 3)
   tender_id                   String?
-  tender                      Tender?                 @relation(fields: [tender_id], references: [id])
+  tender                      Tender?                @relation(fields: [tender_id], references: [id])
   purchase_request_id         String?
-  purchase_request            PurchaseRequest?        @relation(fields: [purchase_request_id], references: [id])
-  status                      StockReservationStatus  @default(ACTIVE)
+  purchase_request            PurchaseRequest?       @relation(fields: [purchase_request_id], references: [id])
+  status                      StockReservationStatus @default(ACTIVE)
   reserved_by                 String?
-  reserved_at                 DateTime                @default(now())
+  reserved_at                 DateTime               @default(now())
   expires_at                  DateTime?
   fulfilled_at                DateTime?
   notes                       String?
@@ -1097,32 +1097,32 @@ model StockReservation {
 }
 
 model StockMovement {
-  id                    String            @id @default(cuid())
-  code                  String            @unique
-  material_id           String
-  material              Material          @relation(fields: [material_id], references: [id])
-  lot_id                String?
-  lot                   StockLot?         @relation(fields: [lot_id], references: [id])
-  warehouse_id          String
-  warehouse             Warehouse         @relation(fields: [warehouse_id], references: [id])
-  zone_id               String?
-  zone                  WarehouseZone?    @relation(fields: [zone_id], references: [id])
-  movement_type         StockMovementType
-  reason                MovementReason
-  quantity              Decimal           @db.Decimal(12, 3)
-  quantity_secondary    Decimal?          @db.Decimal(12, 3)
-  unit_cost             Decimal?          @db.Decimal(12, 4)
-  to_warehouse_id       String?
-  to_zone_id            String?
-  purchase_request_id   String?
-  purchase_request      PurchaseRequest?  @relation(fields: [purchase_request_id], references: [id])
-  tender_id             String?
-  tender                Tender?           @relation(fields: [tender_id], references: [id])
-  reference_code        String?
-  notes                 String?
-  actor                 String?
-  created_at            DateTime          @default(now())
-  inventory_line_id     String?
+  id                  String            @id @default(cuid())
+  code                String            @unique
+  material_id         String
+  material            Material          @relation(fields: [material_id], references: [id])
+  lot_id              String?
+  lot                 StockLot?         @relation(fields: [lot_id], references: [id])
+  warehouse_id        String
+  warehouse           Warehouse         @relation(fields: [warehouse_id], references: [id])
+  zone_id             String?
+  zone                WarehouseZone?    @relation(fields: [zone_id], references: [id])
+  movement_type       StockMovementType
+  reason              MovementReason
+  quantity            Decimal           @db.Decimal(12, 3)
+  quantity_secondary  Decimal?          @db.Decimal(12, 3)
+  unit_cost           Decimal?          @db.Decimal(12, 4)
+  to_warehouse_id     String?
+  to_zone_id          String?
+  purchase_request_id String?
+  purchase_request    PurchaseRequest?  @relation(fields: [purchase_request_id], references: [id])
+  tender_id           String?
+  tender              Tender?           @relation(fields: [tender_id], references: [id])
+  reference_code      String?
+  notes               String?
+  actor               String?
+  created_at          DateTime          @default(now())
+  inventory_line_id   String?
 
   @@index([material_id, created_at])
   @@index([warehouse_id, created_at])
@@ -1133,38 +1133,38 @@ model StockMovement {
 }
 
 model StockInventory {
-  id              String                @id @default(cuid())
-  code            String                @unique
-  warehouse_id    String
-  warehouse       Warehouse             @relation(fields: [warehouse_id], references: [id])
-  status          StockInventoryStatus  @default(DRAFT)
-  notes           String?
-  started_at      DateTime?
-  completed_at    DateTime?
-  completed_by    String?
-  created_by      String
-  created_at      DateTime              @default(now())
-  updated_at      DateTime              @updatedAt
+  id           String               @id @default(cuid())
+  code         String               @unique
+  warehouse_id String
+  warehouse    Warehouse            @relation(fields: [warehouse_id], references: [id])
+  status       StockInventoryStatus @default(DRAFT)
+  notes        String?
+  started_at   DateTime?
+  completed_at DateTime?
+  completed_by String?
+  created_by   String
+  created_at   DateTime             @default(now())
+  updated_at   DateTime             @updatedAt
 
-  lines           StockInventoryLine[]
+  lines StockInventoryLine[]
 
   @@index([warehouse_id, status])
   @@map("stock_inventories")
 }
 
 model StockInventoryLine {
-  id                     String          @id @default(cuid())
+  id                     String         @id @default(cuid())
   inventory_id           String
-  inventory              StockInventory  @relation(fields: [inventory_id], references: [id], onDelete: Cascade)
+  inventory              StockInventory @relation(fields: [inventory_id], references: [id], onDelete: Cascade)
   material_id            String
-  material               Material        @relation(fields: [material_id], references: [id])
+  material               Material       @relation(fields: [material_id], references: [id])
   lot_id                 String?
-  lot                    StockLot?       @relation(fields: [lot_id], references: [id])
+  lot                    StockLot?      @relation(fields: [lot_id], references: [id])
   zone_id                String?
-  zone                   WarehouseZone?  @relation(fields: [zone_id], references: [id])
-  expected_quantity      Decimal         @db.Decimal(12, 3)
-  counted_quantity       Decimal?        @db.Decimal(12, 3)
-  variance               Decimal?        @db.Decimal(12, 3)
+  zone                   WarehouseZone? @relation(fields: [zone_id], references: [id])
+  expected_quantity      Decimal        @db.Decimal(12, 3)
+  counted_quantity       Decimal?       @db.Decimal(12, 3)
+  variance               Decimal?       @db.Decimal(12, 3)
   adjustment_movement_id String?
 
   @@index([inventory_id])
@@ -1246,50 +1246,50 @@ model ProcessedWebhook {
 // --- Email Processing Log ---
 
 model EmailLog {
-  id                    String    @id @default(cuid())
+  id String @id @default(cuid())
 
   // Email originale
-  email_from            String
-  email_to              String?
-  email_subject         String
-  email_body            String    @db.Text
-  email_date            String?
-  email_message_id      String?   @unique
+  email_from       String
+  email_to         String?
+  email_subject    String
+  email_body       String  @db.Text
+  email_date       String?
+  email_message_id String? @unique
 
   // Classificazione AI
-  intent                String
-  confidence            Float
+  intent                  String
+  confidence              Float
   requires_human_decision Boolean @default(false)
-  decision_reason       String?
+  decision_reason         String?
 
   // Dati estratti
-  matched_request_code  String?
-  matched_vendor_name   String?
-  extracted_amount      Decimal?  @db.Decimal(12, 2)
-  extracted_old_price   Decimal?  @db.Decimal(12, 2)
-  extracted_new_price   Decimal?  @db.Decimal(12, 2)
-  price_delta_percent   Float?
-  extracted_old_date    DateTime?
-  extracted_new_date    DateTime?
+  matched_request_code String?
+  matched_vendor_name  String?
+  extracted_amount     Decimal?  @db.Decimal(12, 2)
+  extracted_old_price  Decimal?  @db.Decimal(12, 2)
+  extracted_new_price  Decimal?  @db.Decimal(12, 2)
+  price_delta_percent  Float?
+  extracted_old_date   DateTime?
+  extracted_new_date   DateTime?
 
   // Risultato
-  actions_taken         String[]
-  summary               String?   @db.Text
+  actions_taken String[]
+  summary       String?  @db.Text
 
   // Link alle risorse create/aggiornate
-  request_id            String?
-  commessa_id           String?
-  invoice_id            String?
+  request_id  String?
+  commessa_id String?
+  invoice_id  String?
 
   // Allegati processati
-  attachments_count     Int       @default(0)
+  attachments_count Int @default(0)
 
   // Metadata
-  processed_by_user_id  String?
-  ai_model              String?
-  processing_time_ms    Int?
+  processed_by_user_id String?
+  ai_model             String?
+  processing_time_ms   Int?
 
-  created_at            DateTime  @default(now())
+  created_at DateTime @default(now())
 
   @@index([intent, created_at])
   @@index([email_message_id])
@@ -1301,26 +1301,26 @@ model EmailLog {
 // --- Price Variance Reviews ---
 
 model PriceVarianceReview {
-  id                String    @id @default(cuid())
+  id String @id @default(cuid())
 
-  email_log_id      String?
-  request_id        String
-  request           PurchaseRequest @relation(fields: [request_id], references: [id])
+  email_log_id String?
+  request_id   String
+  request      PurchaseRequest @relation(fields: [request_id], references: [id])
 
   // Dati variazione
-  items             Json      // Array di {item_name, old_price, new_price, delta_pct, quantity}
-  total_old_amount  Decimal   @db.Decimal(12, 2)
-  total_new_amount  Decimal   @db.Decimal(12, 2)
-  total_delta       Decimal   @db.Decimal(12, 2)
+  items             Json // Array di {item_name, old_price, new_price, delta_pct, quantity}
+  total_old_amount  Decimal @db.Decimal(12, 2)
+  total_new_amount  Decimal @db.Decimal(12, 2)
+  total_delta       Decimal @db.Decimal(12, 2)
   max_delta_percent Float
 
   // Decisione
-  status            PriceVarianceStatus @default(PENDING)
-  decided_by        String?
-  decided_at        DateTime?
-  decision_notes    String?
+  status         PriceVarianceStatus @default(PENDING)
+  decided_by     String?
+  decided_at     DateTime?
+  decision_notes String?
 
-  created_at        DateTime  @default(now())
+  created_at DateTime @default(now())
 
   @@index([status])
   @@index([request_id])
@@ -1341,7 +1341,7 @@ model IntegrationConfig {
   type         String    @unique // "imap", "sdi", "vendor_api"
   label        String
   enabled      Boolean   @default(false)
-  config       String    // AES-256-GCM encrypted JSON
+  config       String // AES-256-GCM encrypted JSON
   status       String    @default("disconnected") // "connected", "disconnected", "error"
   last_sync_at DateTime?
   last_error   String?
@@ -1349,4 +1349,44 @@ model IntegrationConfig {
   updated_at   DateTime  @updatedAt
 
   @@map("integration_configs")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+
+  actor_id    String?
+  actor_type  AuditActorType @default(USER)
+  actor_label String?
+
+  action       AuditAction
+  entity_type  String
+  entity_id    String
+  entity_label String?
+
+  changes        Json?
+  metadata       Json?
+  correlation_id String?
+
+  ip_address String?
+  user_agent String?
+
+  @@index([timestamp])
+  @@index([actor_id, timestamp])
+  @@index([entity_type, entity_id, timestamp])
+  @@index([action, timestamp])
+  @@index([correlation_id])
+  @@map("audit_logs")
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  AGENT
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
 }
