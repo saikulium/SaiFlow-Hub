@@ -64,3 +64,5 @@ export type {
   NotificationQuery,
   MarkReadInput,
 } from './validations/notification'
+export { updatePreferencesSchema } from './validations/preference'
+export type { UpdatePreferencesPayload } from './validations/preference'
