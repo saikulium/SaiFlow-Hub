@@ -1,75 +1,19 @@
 import { Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
-import { getCurrentAuditContext } from '@/lib/audit-context'
+import { AUDITED_MODELS } from './audit.constants'
 import {
-  AUDITED_MODELS,
-  ENTITY_LABEL_FIELD,
-  USER_AUDITED_FIELDS,
-} from './audit.constants'
+  resolveContext,
+  entityLabel,
+  diffRecords,
+  createChanges,
+} from './audit.helpers'
 import { writeAuditLog } from './audit.service'
-import type { AuditChanges, AuditContext } from './audit.types'
 
 type Args = Record<string, unknown>
 
-function resolveContext(): AuditContext | undefined {
-  const ctx = getCurrentAuditContext()
-  if (ctx) return ctx
-
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error(
-      'Missing audit context in production — setAuditContext must wrap audited mutations',
-    )
-  }
-
-  console.warn(
-    '[audit] Missing audit context in non-production — recording as actor=UNKNOWN',
-  )
-  return { actorType: 'USER', actorLabel: 'UNKNOWN' }
-}
-
-function entityLabel(model: string, record: Record<string, unknown> | null | undefined): string | null {
-  if (!record) return null
-  const field = ENTITY_LABEL_FIELD[model]
-  if (!field) return null
-  const value = record[field]
-  return typeof value === 'string' ? value : null
-}
-
-function diffRecords(
-  model: string,
-  before: Record<string, unknown>,
-  after: Record<string, unknown>,
-): AuditChanges {
-  const changes: AuditChanges = {}
-  const allowed = model === 'User' ? USER_AUDITED_FIELDS : null
-
-  for (const key of Object.keys({ ...before, ...after })) {
-    if (allowed && !allowed.has(key)) continue
-    const oldVal = before[key]
-    const newVal = after[key]
-    if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
-      changes[key] = { old: oldVal ?? null, new: newVal ?? null }
-    }
-  }
-  return changes
-}
-
-function createChanges(
-  model: string,
-  record: Record<string, unknown>,
-): AuditChanges {
-  const changes: AuditChanges = {}
-  const allowed = model === 'User' ? USER_AUDITED_FIELDS : null
-
-  for (const key of Object.keys(record)) {
-    if (allowed && !allowed.has(key)) continue
-    if (record[key] === null || record[key] === undefined) continue
-    changes[key] = { old: null, new: record[key] }
-  }
-  return changes
-}
-
-async function safeWrite(params: Parameters<typeof writeAuditLog>[0]): Promise<void> {
+async function safeWrite(
+  params: Parameters<typeof writeAuditLog>[0],
+): Promise<void> {
   try {
     await writeAuditLog(params)
   } catch (err) {
@@ -114,10 +58,16 @@ export const auditExtension = Prisma.defineExtension({
         const a = args as Args
         const where = a.where as Record<string, unknown> | undefined
         const before = where
-          ? ((await (await import('@/lib/db')).prisma[
-              model.charAt(0).toLowerCase() + model.slice(1) as keyof (typeof import('@/lib/db'))['prisma']
-            ] as unknown as { findUnique: (arg: unknown) => Promise<unknown> })
-              .findUnique({ where }) as Promise<Record<string, unknown> | null>)
+          ? ((
+              (await (
+                await import('@/lib/db')
+              ).prisma[
+                (model.charAt(0).toLowerCase() +
+                  model.slice(1)) as keyof (typeof import('@/lib/db'))['prisma']
+              ]) as unknown as {
+                findUnique: (arg: unknown) => Promise<unknown>
+              }
+            ).findUnique({ where }) as Promise<Record<string, unknown> | null>)
           : null
 
         const beforeRec = (await before) ?? {}
@@ -134,7 +84,8 @@ export const auditExtension = Prisma.defineExtension({
           action: 'UPDATE',
           entityType: model,
           entityId: String(after.id ?? beforeRec.id ?? ''),
-          entityLabel: entityLabel(model, after) ?? entityLabel(model, beforeRec),
+          entityLabel:
+            entityLabel(model, after) ?? entityLabel(model, beforeRec),
           changes,
           correlationId: ctx.correlationId,
           ipAddress: ctx.ipAddress,
@@ -154,7 +105,10 @@ export const auditExtension = Prisma.defineExtension({
         const db = (await import('@/lib/db')).prisma
         const before = where
           ? ((
-              db[model.charAt(0).toLowerCase() + model.slice(1) as keyof typeof db] as unknown as {
+              db[
+                (model.charAt(0).toLowerCase() +
+                  model.slice(1)) as keyof typeof db
+              ] as unknown as {
                 findUnique: (arg: unknown) => Promise<unknown>
               }
             ).findUnique({ where }) as Promise<Record<string, unknown> | null>)
@@ -191,7 +145,10 @@ export const auditExtension = Prisma.defineExtension({
         const db = (await import('@/lib/db')).prisma
         const existing = where
           ? ((
-              db[model.charAt(0).toLowerCase() + model.slice(1) as keyof typeof db] as unknown as {
+              db[
+                (model.charAt(0).toLowerCase() +
+                  model.slice(1)) as keyof typeof db
+              ] as unknown as {
                 findUnique: (arg: unknown) => Promise<unknown>
               }
             ).findUnique({ where }) as Promise<Record<string, unknown> | null>)
@@ -245,7 +202,7 @@ export const auditExtension = Prisma.defineExtension({
         const where = a.where as Record<string, unknown> | undefined
         const db = (await import('@/lib/db')).prisma
         const modelClient = db[
-          model.charAt(0).toLowerCase() + model.slice(1) as keyof typeof db
+          (model.charAt(0).toLowerCase() + model.slice(1)) as keyof typeof db
         ] as unknown as {
           findMany: (arg: unknown) => Promise<Array<Record<string, unknown>>>
         }
@@ -292,7 +249,7 @@ export const auditExtension = Prisma.defineExtension({
         const where = a.where as Record<string, unknown> | undefined
         const db = (await import('@/lib/db')).prisma
         const modelClient = db[
-          model.charAt(0).toLowerCase() + model.slice(1) as keyof typeof db
+          (model.charAt(0).toLowerCase() + model.slice(1)) as keyof typeof db
         ] as unknown as {
           findMany: (arg: unknown) => Promise<Array<Record<string, unknown>>>
         }
@@ -329,7 +286,9 @@ export const auditExtension = Prisma.defineExtension({
         if (!ctx) return result
 
         const a = args as Args
-        const data = (Array.isArray(a.data) ? a.data : [a.data]) as Array<Record<string, unknown>>
+        const data = (Array.isArray(a.data) ? a.data : [a.data]) as Array<
+          Record<string, unknown>
+        >
         const correlationId = ctx.correlationId ?? randomUUID()
 
         for (const row of data) {
