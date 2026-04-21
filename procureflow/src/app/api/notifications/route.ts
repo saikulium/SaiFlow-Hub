@@ -1,80 +1,63 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import {
-  successResponse,
-  errorResponse,
-  validationErrorResponse,
-} from '@/lib/api-response'
+import { successResponse } from '@/lib/api-response'
+import { withApiHandler } from '@/lib/api-handler'
 import {
   notificationQuerySchema,
   markReadSchema,
-} from '@/lib/validations/notification'
-import { getCurrentUserId } from '@/lib/auth'
+} from '@/modules/core/notifications'
 
-export async function GET(req: NextRequest) {
-  try {
-    const queryParams = Object.fromEntries(req.nextUrl.searchParams)
-    const parsed = notificationQuerySchema.safeParse(queryParams)
+export const GET = withApiHandler(
+  {
+    auth: true,
+    querySchema: notificationQuerySchema,
+    errorMessage: 'Errore nel recupero notifiche',
+  },
+  async ({ query, user }) => {
+    const { page, pageSize, read } = query
 
-    if (!parsed.success) {
-      return validationErrorResponse(parsed.error.flatten())
-    }
-
-    const { page, pageSize, read } = parsed.data
-    const userId = await getCurrentUserId()
-
-    const where: { user_id: string; read?: boolean } = { user_id: userId }
-
+    const where: { user_id: string; read?: boolean } = { user_id: user.id }
     if (read !== undefined) {
       where.read = read
     }
 
-    const notifications = await prisma.notification.findMany({
-      where,
-      orderBy: { created_at: 'desc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    })
-    const total = await prisma.notification.count({ where })
-    const unreadCount = await prisma.notification.count({
-      where: { user_id: userId, read: false },
-    })
+    const [notifications, total] = await Promise.all([
+      prisma.notification.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          title: true,
+          body: true,
+          type: true,
+          link: true,
+          read: true,
+          created_at: true,
+        },
+      }),
+      prisma.notification.count({ where }),
+    ])
 
-    const body = {
-      success: true,
-      data: notifications,
-      meta: { total, page, pageSize, unread_count: unreadCount },
-    }
+    return successResponse(notifications, { total, page, pageSize })
+  },
+)
 
-    return NextResponse.json(body)
-  } catch (error) {
-    console.error('GET /api/notifications error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)
-  }
-}
-
-export async function PATCH(req: NextRequest) {
-  try {
-    const body = await req.json()
-    const parsed = markReadSchema.safeParse(body)
-
-    if (!parsed.success) {
-      return validationErrorResponse(parsed.error.flatten())
-    }
-
-    const userId = await getCurrentUserId()
-
+export const PATCH = withApiHandler(
+  {
+    auth: true,
+    bodySchema: markReadSchema,
+    errorMessage: "Errore nell'aggiornamento notifiche",
+  },
+  async ({ body, user }) => {
     const result = await prisma.notification.updateMany({
       where: {
-        id: { in: parsed.data.ids },
-        user_id: userId,
+        id: { in: body.ids },
+        user_id: user.id,
       },
       data: { read: true },
     })
 
     return successResponse({ updated: result.count })
-  } catch (error) {
-    console.error('PATCH /api/notifications error:', error)
-    return errorResponse('INTERNAL_ERROR', "Errore nell'aggiornamento", 500)
-  }
-}
+  },
+)

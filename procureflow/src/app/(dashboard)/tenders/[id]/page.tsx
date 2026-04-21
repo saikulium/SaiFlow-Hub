@@ -1,5 +1,4 @@
-import { TenderDetailContent } from '@/components/tenders/tender-detail-content'
-
+import { TenderDetailContent } from '@/modules/core/tenders'
 
 export default function TenderDetailPage({
   params,

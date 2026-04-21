@@ -1,4 +1,4 @@
-import { BudgetsPageContent } from '@/components/budgets/budgets-page-content'
+import { BudgetsPageContent } from '@/modules/core/budgets'
 
 export default function BudgetsPage() {
   return <BudgetsPageContent />

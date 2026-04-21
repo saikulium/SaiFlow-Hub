@@ -91,7 +91,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://host.docker.internal:3000/api/webhooks/email-ingestion",
+        "url": "http://app:3000/api/webhooks/email-ingestion",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -101,7 +101,15 @@
             },
             {
               "name": "Authorization",
-              "value": "Bearer procureflow-dev-secret-2025"
+              "value": "=Bearer {{ $env.PROCUREFLOW_WEBHOOK_SECRET || 'procureflow-dev-secret-2025' }}"
+            },
+            {
+              "name": "x-webhook-id",
+              "value": "=email-{{ $json.email_message_id || $now.toMillis() }}"
+            },
+            {
+              "name": "x-webhook-timestamp",
+              "value": "={{ Math.floor(Date.now() / 1000) }}"
             }
           ]
         },
@@ -109,7 +117,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {
-          "timeout": 15000
+          "timeout": 30000
         }
       },
       "id": "send-webhook",
@@ -117,7 +125,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1250, 300],
-      "notes": "Invia il payload AI-enriched all'endpoint ProcureFlow. In produzione, usa HMAC signature invece di Bearer token."
+      "notes": "Invia il payload AI-enriched all'endpoint ProcureFlow. URL: http://app:3000 per docker-compose, cambiare per deploy esterno. Setta PROCUREFLOW_WEBHOOK_SECRET nelle env n8n. Headers idempotency inclusi."
     },
     {
       "parameters": {

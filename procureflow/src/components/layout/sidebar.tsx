@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { ChevronLeft, Boxes } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import { useSidebar } from './sidebar-context'
 import { SidebarNavItem } from './sidebar-nav-item'
 import { NAV_ITEMS } from '@/lib/constants'
@@ -12,7 +13,13 @@ import { cn } from '@/lib/utils'
 export function Sidebar() {
   const { isCollapsed, toggle } = useSidebar()
   const { enabledModules } = useModules()
+  const { data: session } = useSession()
   const visibleItems = filterNavItems(enabledModules, NAV_ITEMS)
+  const finalItems = visibleItems.filter(
+    (item) =>
+      !('adminOnly' in item && item.adminOnly) ||
+      session?.user?.role === 'ADMIN',
+  )
 
   return (
     <aside
@@ -54,7 +61,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-4">
-        {visibleItems.map((item) => (
+        {finalItems.map((item) => (
           <SidebarNavItem
             key={item.href}
             item={item}

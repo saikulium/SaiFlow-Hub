@@ -1,30 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { requireRole } from '@/lib/auth'
+import { successResponse } from '@/lib/api-response'
 import {
-  successResponse,
-  errorResponse,
-  validationErrorResponse,
-} from '@/lib/api-response'
-import { createBudgetSchema, budgetQuerySchema } from '@/lib/validations/budget'
-import { computeBudgetCapacity } from '@/server/services/budget.service'
-import { requireModule } from '@/lib/modules/require-module'
+  createBudgetSchema,
+  budgetQuerySchema,
+  computeBudgetCapacity,
+} from '@/modules/core/budgets'
+import { withApiHandler } from '@/lib/api-handler'
 
-export async function GET(req: NextRequest) {
-  const blocked = await requireModule('/api/budgets')
-  if (blocked) return blocked
-  try {
-    const authResult = await requireRole('ADMIN', 'MANAGER')
-    if (authResult instanceof NextResponse) return authResult
-
-    const params = Object.fromEntries(req.nextUrl.searchParams)
-    const parsed = budgetQuerySchema.safeParse(params)
-    if (!parsed.success) {
-      return validationErrorResponse(parsed.error)
-    }
-
+export const GET = withApiHandler(
+  {
+    module: '/api/budgets',
+    auth: ['ADMIN', 'MANAGER'],
+    querySchema: budgetQuerySchema,
+    errorMessage: 'Errore nel recupero budget',
+  },
+  async ({ query }) => {
     const { page, pageSize, cost_center, department, is_active, period_type } =
-      parsed.data
+      query
 
     const where: Record<string, unknown> = {}
     if (cost_center)
@@ -69,43 +61,32 @@ export async function GET(req: NextRequest) {
     )
 
     return successResponse(enriched, { total, page, pageSize })
-  } catch (error) {
-    console.error('GET /api/budgets error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore nel recupero budget', 500)
-  }
-}
+  },
+)
 
-export async function POST(req: NextRequest) {
-  const blocked = await requireModule('/api/budgets')
-  if (blocked) return blocked
-  try {
-    const authResult = await requireRole('ADMIN')
-    if (authResult instanceof NextResponse) return authResult
-
-    const body = await req.json()
-    const parsed = createBudgetSchema.safeParse(body)
-    if (!parsed.success) {
-      return validationErrorResponse(parsed.error)
-    }
-
+export const POST = withApiHandler(
+  {
+    module: '/api/budgets',
+    auth: ['ADMIN'],
+    bodySchema: createBudgetSchema,
+    errorMessage: 'Errore nella creazione budget',
+  },
+  async ({ body, user }) => {
     const budget = await prisma.budget.create({
       data: {
-        cost_center: parsed.data.cost_center,
-        department: parsed.data.department ?? null,
-        period_type: parsed.data.period_type,
-        period_start: new Date(parsed.data.period_start),
-        period_end: new Date(parsed.data.period_end),
-        allocated_amount: parsed.data.allocated_amount,
-        alert_threshold_percent: parsed.data.alert_threshold_percent,
-        enforcement_mode: parsed.data.enforcement_mode,
-        notes: parsed.data.notes ?? null,
-        created_by: authResult.id,
+        cost_center: body.cost_center,
+        department: body.department ?? null,
+        period_type: body.period_type,
+        period_start: new Date(body.period_start),
+        period_end: new Date(body.period_end),
+        allocated_amount: body.allocated_amount,
+        alert_threshold_percent: body.alert_threshold_percent,
+        enforcement_mode: body.enforcement_mode,
+        notes: body.notes ?? null,
+        created_by: user.id,
       },
     })
 
     return successResponse({ id: budget.id, costCenter: budget.cost_center })
-  } catch (error) {
-    console.error('POST /api/budgets error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore nella creazione budget', 500)
-  }
-}
+  },
+)

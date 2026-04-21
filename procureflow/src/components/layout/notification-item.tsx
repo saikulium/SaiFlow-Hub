@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import {
   Bell,
   MessageSquare,
@@ -9,7 +10,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { formatRelativeTime, cn } from '@/lib/utils'
-import type { NotificationItem as NotificationType } from '@/hooks/use-notifications'
+import type { NotificationItem as NotificationType } from '@/modules/core/notifications'
 
 const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
   approval_required: Bell,
@@ -30,7 +31,7 @@ interface NotificationItemProps {
   onClick: () => void
 }
 
-export function NotificationItemRow({
+export const NotificationItemRow = memo(function NotificationItemRow({
   notification,
   onClick,
 }: NotificationItemProps) {
@@ -74,4 +75,4 @@ export function NotificationItemRow({
       </div>
     </button>
   )
-}
+})

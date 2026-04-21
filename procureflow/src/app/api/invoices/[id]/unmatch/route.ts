@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import {
@@ -9,6 +9,7 @@ import {
 import { canTransition } from '@/lib/state-machine'
 import type { RequestStatus } from '@prisma/client'
 import { requireModule } from '@/lib/modules/require-module'
+import { requireAuth } from '@/lib/auth'
 
 // ---------------------------------------------------------------------------
 // POST /api/invoices/[id]/unmatch — Scollega fattura da ordine
@@ -18,9 +19,13 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const blocked = await requireModule('/api/invoices')
-  if (blocked) return blocked
   try {
+    const authResult = await requireAuth()
+    if (authResult instanceof NextResponse) return authResult
+
+    const blocked = await requireModule('/api/invoices')
+    if (blocked) return blocked
+
     const invoice = await prisma.invoice.findUnique({
       where: { id: params.id },
       select: {

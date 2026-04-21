@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -6,9 +6,9 @@ import {
   errorResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { updateRequestSchema } from '@/lib/validations/request'
+import { updateRequestSchema } from '@/modules/core/requests'
 import { Prisma } from '@prisma/client'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser, requireRole } from '@/lib/auth'
 import { assertTransition, TransitionError } from '@/lib/state-machine'
 
 export async function GET(
@@ -16,6 +16,14 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   try {
+    const authResult = await requireRole(
+      'ADMIN',
+      'MANAGER',
+      'REQUESTER',
+      'VIEWER',
+    )
+    if (authResult instanceof NextResponse) return authResult
+
     const request = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
       include: {
@@ -29,6 +37,7 @@ export async function GET(
             department: true,
           },
         },
+        commessa: { select: { id: true, code: true, title: true } },
         items: true,
         approvals: {
           include: {
@@ -42,6 +51,11 @@ export async function GET(
           orderBy: { created_at: 'desc' },
         },
         attachments: { orderBy: { created_at: 'desc' } },
+        price_variance_reviews: {
+          where: { status: 'PENDING' },
+          orderBy: { created_at: 'desc' },
+          take: 5,
+        },
       },
     })
 
@@ -60,6 +74,7 @@ export async function GET(
               department: true,
             },
           },
+          commessa: { select: { id: true, code: true, title: true } },
           items: true,
           approvals: {
             include: {
@@ -73,6 +88,11 @@ export async function GET(
             orderBy: { created_at: 'desc' },
           },
           attachments: { orderBy: { created_at: 'desc' } },
+          price_variance_reviews: {
+            where: { status: 'PENDING' },
+            orderBy: { created_at: 'desc' },
+            take: 5,
+          },
         },
       })
 
@@ -109,6 +129,9 @@ export async function PATCH(
   { params }: { params: { id: string } },
 ) {
   try {
+    const authResult = await requireRole('ADMIN', 'MANAGER', 'REQUESTER')
+    if (authResult instanceof NextResponse) return authResult
+
     const body = await req.json()
     const parsed = updateRequestSchema.safeParse(body)
 
@@ -146,6 +169,11 @@ export async function PATCH(
       updateData.tracking_number = data.tracking_number
     if (data.external_ref !== undefined)
       updateData.external_ref = data.external_ref
+    if ('commessa_id' in data) {
+      updateData.commessa = data.commessa_id
+        ? { connect: { id: data.commessa_id } }
+        : { disconnect: true }
+    }
 
     if (status && status !== existing.status) {
       // Fase 4: Enforcement transizioni di stato
@@ -193,6 +221,9 @@ export async function DELETE(
   { params }: { params: { id: string } },
 ) {
   try {
+    const authResult = await requireRole('ADMIN')
+    if (authResult instanceof NextResponse) return authResult
+
     const existing = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
       select: { id: true, status: true },

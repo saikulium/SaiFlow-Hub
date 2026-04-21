@@ -1,47 +1,40 @@
-import { NextRequest } from 'next/server'
+import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
   errorResponse,
   notFoundResponse,
 } from '@/lib/api-response'
+import { withApiHandler } from '@/lib/api-handler'
 import { canTransition } from '@/lib/state-machine'
-import { getCurrentUser } from '@/lib/auth'
 import {
   createNotification,
   NOTIFICATION_TYPES,
-} from '@/server/services/notification.service'
+} from '@/modules/core/notifications'
 import type { RequestStatus } from '@prisma/client'
-import { requireModule } from '@/lib/modules/require-module'
 
 // ---------------------------------------------------------------------------
 // POST /api/invoices/[id]/reconcile — Riconciliazione manuale
 //
 // Body: { action: 'approve' | 'dispute' | 'reject', notes?: string }
+// Solo MANAGER e ADMIN possono riconciliare fatture.
 // ---------------------------------------------------------------------------
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const blocked = await requireModule('/api/invoices')
-  if (blocked) return blocked
-  try {
-    const body = await req.json()
-    const { action, notes } = body as {
-      action: 'approve' | 'dispute' | 'reject'
-      notes?: string
-    }
+const reconcileSchema = z.object({
+  action: z.enum(['approve', 'dispute', 'reject'] as const, {
+    message: 'Azione deve essere: approve, dispute, reject',
+  }),
+  notes: z.string().optional(),
+})
 
-    if (!['approve', 'dispute', 'reject'].includes(action)) {
-      return errorResponse(
-        'INVALID_ACTION',
-        'Azione deve essere: approve, dispute, reject',
-        400,
-      )
-    }
-
-    const currentUser = await getCurrentUser()
+export const POST = withApiHandler(
+  {
+    auth: ['ADMIN', 'MANAGER'],
+    bodySchema: reconcileSchema,
+    errorMessage: 'Errore nella riconciliazione fattura',
+  },
+  async ({ params, body, user }) => {
+    const { action, notes } = body
 
     const invoice = await prisma.invoice.findUnique({
       where: { id: params.id },
@@ -66,7 +59,7 @@ export async function POST(
           reconciliation_status: 'APPROVED',
           reconciliation_notes: notes ?? null,
           reconciled_at: new Date(),
-          reconciled_by: currentUser.id,
+          reconciled_by: user.id,
           discrepancy_resolved: true,
         },
       })
@@ -97,9 +90,9 @@ export async function POST(
           type: 'reconciliation_approved',
           title: 'Riconciliazione approvata',
           description: notes
-            ? `Approvata da ${currentUser.name}. Note: ${notes}`
-            : `Approvata da ${currentUser.name}`,
-          actor: currentUser.name,
+            ? `Approvata da ${user.name}. Note: ${notes}`
+            : `Approvata da ${user.name}`,
+          actor: user.name,
         },
       })
     } else if (action === 'dispute') {
@@ -118,9 +111,9 @@ export async function POST(
           type: 'reconciliation_disputed',
           title: 'Fattura contestata',
           description: notes
-            ? `Contestata da ${currentUser.name}. Motivo: ${notes}`
-            : `Contestata da ${currentUser.name}`,
-          actor: currentUser.name,
+            ? `Contestata da ${user.name}. Motivo: ${notes}`
+            : `Contestata da ${user.name}`,
+          actor: user.name,
         },
       })
 
@@ -150,9 +143,9 @@ export async function POST(
           type: 'reconciliation_rejected',
           title: 'Fattura rifiutata',
           description: notes
-            ? `Rifiutata da ${currentUser.name}. Motivo: ${notes}`
-            : `Rifiutata da ${currentUser.name}`,
-          actor: currentUser.name,
+            ? `Rifiutata da ${user.name}. Motivo: ${notes}`
+            : `Rifiutata da ${user.name}`,
+          actor: user.name,
         },
       })
     }
@@ -167,8 +160,5 @@ export async function POST(
             ? 'DISPUTED'
             : 'REJECTED',
     })
-  } catch (error) {
-    console.error('POST /api/invoices/[id]/reconcile error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore interno', 500)
-  }
-}
+  },
+)

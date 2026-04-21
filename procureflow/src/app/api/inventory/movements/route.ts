@@ -10,13 +10,11 @@ import { requireModule } from '@/lib/modules/require-module'
 import {
   movementQuerySchema,
   createMovementSchema,
-} from '@/lib/validations/inventory'
-import { validateMovement } from '@/server/services/inventory.service'
-import {
+  validateMovement,
   recordInboundMovement,
   recordOutboundMovement,
   getNextMovementCode,
-} from '@/server/services/inventory-db.service'
+} from '@/modules/core/inventory'
 import type { MovementListItem } from '@/types'
 
 export async function GET(req: NextRequest) {
@@ -32,8 +30,15 @@ export async function GET(req: NextRequest) {
       return validationErrorResponse(parsed.error)
     }
 
-    const { page, pageSize, material_id, warehouse_id, movement_type, date_from, date_to } =
-      parsed.data
+    const {
+      page,
+      pageSize,
+      material_id,
+      warehouse_id,
+      movement_type,
+      date_from,
+      date_to,
+    } = parsed.data
 
     const where: Record<string, unknown> = {}
     if (material_id) where.material_id = material_id
@@ -115,7 +120,11 @@ export async function POST(req: NextRequest) {
     })
 
     if (!validation.valid) {
-      return errorResponse('VALIDATION_ERROR', validation.reason ?? 'Dati non validi', 400)
+      return errorResponse(
+        'VALIDATION_ERROR',
+        validation.reason ?? 'Dati non validi',
+        400,
+      )
     }
 
     const { movement_type } = parsed.data
@@ -211,13 +220,17 @@ export async function POST(req: NextRequest) {
       movementCode: movement.code,
     })
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Errore nella registrazione movimento'
     console.error('POST /api/inventory/movements error:', error)
+
+    const message = error instanceof Error ? error.message : ''
 
     if (message.includes('Quantità insufficiente')) {
       return errorResponse('INSUFFICIENT_STOCK', message, 400)
     }
-    return errorResponse('INTERNAL_ERROR', message, 500)
+    return errorResponse(
+      'INTERNAL_ERROR',
+      'Errore nella registrazione movimento',
+      500,
+    )
   }
 }

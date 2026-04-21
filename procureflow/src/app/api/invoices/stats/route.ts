@@ -1,15 +1,21 @@
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
+import { requireAuth } from '@/lib/auth'
 
 // ---------------------------------------------------------------------------
 // GET /api/invoices/stats — Badge counts + KPI per dashboard
 // ---------------------------------------------------------------------------
 
 export async function GET() {
-  const blocked = await requireModule('/api/invoices')
-  if (blocked) return blocked
   try {
+    const authResult = await requireAuth()
+    if (authResult instanceof NextResponse) return authResult
+
+    const blocked = await requireModule('/api/invoices')
+    if (blocked) return blocked
+
     const [
       totalInvoices,
       unmatchedInvoices,

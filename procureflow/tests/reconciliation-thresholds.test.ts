@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { evaluateDiscrepancy } from '@/lib/constants/reconciliation-thresholds'
+import { evaluateDiscrepancy } from '@/modules/core/invoicing'
 
 describe('evaluateDiscrepancy', () => {
   describe('PASS results (at or below 2% threshold)', () => {

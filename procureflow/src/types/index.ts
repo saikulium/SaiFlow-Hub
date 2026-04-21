@@ -323,6 +323,11 @@ export interface MaterialListItem {
   stockStatus: 'OK' | 'LOW' | 'OUT'
   isActive: boolean
   preferredVendor: string | null
+  article: {
+    readonly id: string
+    readonly code: string
+    readonly name: string
+  } | null
 }
 
 export interface MaterialDetail extends MaterialListItem {
@@ -419,6 +424,86 @@ export interface InventoryListItem {
   createdAt: string
 }
 
+// --- ROI Metrics Types ---
+
+export type RoiPeriod = '30d' | '90d' | '6m' | '12m' | 'all'
+
+export interface TrendPoint {
+  readonly period: string
+  readonly value: number
+}
+
+export interface TimeSavingsMetrics {
+  readonly avgCycleTimeDays: number
+  readonly avgApprovalTimeHours: number
+  readonly cycleTimeTrend: readonly TrendPoint[]
+  readonly approvalTimeTrend: readonly TrendPoint[]
+  readonly cycleTimeChangePercent: number
+  readonly approvalTimeChangePercent: number
+}
+
+export interface CostSavingsMetrics {
+  readonly totalEstimated: number
+  readonly totalActual: number
+  readonly negotiationSavings: number
+  readonly discrepanciesCaught: number
+  readonly discrepanciesCaughtCount: number
+  readonly budgetComplianceRate: number
+  readonly costSavingsTrend: readonly TrendPoint[]
+}
+
+export interface OperationalEfficiencyMetrics {
+  readonly requestsPerMonth: number
+  readonly requestsTrend: readonly TrendPoint[]
+  readonly autoMatchRate: number
+  readonly onTimeDeliveryRate: number
+  readonly totalRequests: number
+  readonly totalDelivered: number
+  readonly totalInvoices: number
+  readonly autoMatchedInvoices: number
+}
+
+export interface AutomationMetrics {
+  readonly emailsIngested: number
+  readonly emailTimeSavedHours: number
+  readonly emailsTrend: readonly TrendPoint[]
+  readonly invoicesProcessed: number
+  readonly invoicesSdi: number
+  readonly invoicesOcr: number
+  readonly avgInvoiceProcessingHours: number
+  readonly invoiceTimeSavedHours: number
+  readonly invoicesTrend: readonly TrendPoint[]
+  readonly reconciled: number
+  readonly reconciledAuto: number
+  readonly autoReconciliationRate: number
+  readonly reconciliationTimeSavedHours: number
+  readonly autoApprovedCount: number
+  readonly autoApprovalRate: number
+  readonly autoApprovalTimeSavedHours: number
+  readonly activeBudgets: number
+}
+
+export interface RoiSummary {
+  readonly estimatedHoursSaved: number
+  readonly hoursSavedValue: number
+  readonly moneySaved: number
+  readonly projectedAnnualSavings: number
+  readonly projectedAnnualHoursSaved: number
+  readonly totalTimeSavedHours: number
+  readonly automationTimeSavedHours: number
+}
+
+export interface RoiMetrics {
+  readonly period: RoiPeriod
+  readonly periodStart: string
+  readonly periodEnd: string
+  readonly timeSavings: TimeSavingsMetrics
+  readonly costSavings: CostSavingsMetrics
+  readonly efficiency: OperationalEfficiencyMetrics
+  readonly automation: AutomationMetrics
+  readonly summary: RoiSummary
+}
+
 export interface InventoryDashboardStats {
   totalMaterials: number
   totalWarehouseValue: number
@@ -437,3 +522,236 @@ export interface InventoryDashboardStats {
     deficit: number
   }>
 }
+
+// --- Commessa Types ---
+
+export interface ClientListItem {
+  readonly id: string
+  readonly code: string
+  readonly name: string
+  readonly tax_id: string | null
+  readonly email: string | null
+  readonly phone: string | null
+  readonly contact_person: string | null
+  readonly status: string
+  readonly activeCommesseCount: number
+}
+
+export interface ClientDetail extends ClientListItem {
+  readonly address: string | null
+  readonly notes: string | null
+  readonly created_at: string
+  readonly commesse: readonly {
+    readonly id: string
+    readonly code: string
+    readonly title: string
+    readonly status: string
+    readonly clientValue: number | null
+    readonly deadline: string | null
+  }[]
+}
+
+export interface CommessaListItem {
+  readonly id: string
+  readonly code: string
+  readonly title: string
+  readonly status: string
+  readonly clientName: string
+  readonly clientCode: string
+  readonly clientValue: number | null
+  readonly totalCosts: number
+  readonly margin: number | null
+  readonly marginPercent: number | null
+  readonly deadline: string | null
+  readonly priority: string
+  readonly requestsCount: number
+  readonly suggestionsCount: number
+  readonly createdAt: string
+}
+
+export interface CommessaDetail extends CommessaListItem {
+  readonly description: string | null
+  readonly clientId: string
+  readonly currency: string
+  readonly receivedAt: string | null
+  readonly completedAt: string | null
+  readonly category: string | null
+  readonly department: string | null
+  readonly tags: string[]
+  readonly assignedTo: string | null
+  readonly emailMessageId: string | null
+  readonly requests: CommessaRequestItem[]
+  readonly suggestions: CommessaRequestItem[]
+  readonly timeline: CommessaTimelineItem[]
+}
+
+export interface CommessaRequestItem {
+  readonly id: string
+  readonly code: string
+  readonly title: string
+  readonly status: string
+  readonly priority: string
+  readonly estimatedAmount: number | null
+  readonly actualAmount: number | null
+  readonly vendorName: string | null
+  readonly isAiSuggested: boolean
+}
+
+export interface CommessaTimelineItem {
+  readonly id: string
+  readonly type: string
+  readonly title: string
+  readonly description: string | null
+  readonly metadata: Record<string, unknown> | null
+  readonly actor: string | null
+  readonly createdAt: string
+}
+
+export interface CommessaDashboardStats {
+  readonly activeCount: number
+  readonly totalValueInProgress: number
+  readonly avgMarginPercent: number
+  readonly dueSoonCount: number
+  readonly topCommesse: readonly {
+    readonly code: string
+    readonly title: string
+    readonly clientName: string
+    readonly deadline: string | null
+    readonly marginPercent: number | null
+    readonly status: string
+  }[]
+}
+
+// --- Anagrafica Articoli ---
+
+import type { AliasTypeKey, PriceSourceKey } from '@/modules/core/articles'
+
+export interface ArticleListItem {
+  readonly id: string
+  readonly code: string
+  readonly name: string
+  readonly category: string | null
+  readonly unit_of_measure: string
+  readonly manufacturer: string | null
+  readonly is_active: boolean
+  readonly verified: boolean
+  readonly created_at: string
+  readonly _count: {
+    readonly aliases: number
+    readonly prices: number
+    readonly materials: number
+  }
+}
+
+export interface ArticleAlias {
+  readonly id: string
+  readonly alias_type: AliasTypeKey
+  readonly alias_code: string
+  readonly alias_label: string | null
+  readonly entity_id: string | null
+  readonly is_primary: boolean
+  readonly created_at: string
+}
+
+export interface ArticlePrice {
+  readonly id: string
+  readonly vendor_id: string
+  readonly vendor: { readonly id: string; readonly name: string }
+  readonly unit_price: number
+  readonly currency: string
+  readonly min_quantity: number
+  readonly valid_from: string
+  readonly valid_until: string | null
+  readonly source: PriceSourceKey
+  readonly notes: string | null
+  readonly created_at: string
+}
+
+export interface ArticleDetail {
+  readonly id: string
+  readonly code: string
+  readonly name: string
+  readonly description: string | null
+  readonly category: string | null
+  readonly unit_of_measure: string
+  readonly manufacturer: string | null
+  readonly manufacturer_code: string | null
+  readonly is_active: boolean
+  readonly notes: string | null
+  readonly tags: readonly string[]
+  readonly created_at: string
+  readonly updated_at: string
+  readonly aliases: readonly ArticleAlias[]
+  readonly prices: readonly ArticlePrice[]
+  readonly _count: {
+    readonly aliases: number
+    readonly prices: number
+    readonly request_items: number
+    readonly invoice_items: number
+    readonly materials: number
+  }
+}
+
+// --- Article Stock Types ---
+
+export interface ArticleStockLastMovement {
+  readonly id: string
+  readonly code: string
+  readonly type: string
+  readonly reason: string
+  readonly quantity: number
+  readonly notes: string | null
+  readonly actor: string | null
+  readonly date: string
+}
+
+export interface ArticleStockWarehouse {
+  readonly warehouseId: string
+  readonly warehouseName: string
+  readonly physical: number
+  readonly available: number
+  readonly reserved: number
+  readonly zones: readonly {
+    readonly zoneId: string
+    readonly zoneName: string
+    readonly physical: number
+  }[]
+}
+
+export interface ArticleStockInfo {
+  readonly hasInventory: boolean
+  readonly materialId: string | null
+  readonly materialCode: string | null
+  readonly physical: number
+  readonly reserved: number
+  readonly available: number
+  readonly status: string
+  readonly unit: string
+  readonly byWarehouse: readonly ArticleStockWarehouse[]
+  readonly lastMovement: ArticleStockLastMovement | null
+}
+
+export interface ArticleSearchResult {
+  readonly id: string
+  readonly code: string
+  readonly name: string
+  readonly category: string | null
+  readonly unit_of_measure: string
+  readonly matched_via: string
+  readonly matched_value: string
+}
+
+export interface ArticleImportResult {
+  readonly articles_created: number
+  readonly aliases_created: number
+  readonly skipped: number
+  readonly errors: readonly ArticleImportError[]
+}
+
+export interface ArticleImportError {
+  readonly row: number
+  readonly field: string
+  readonly message: string
+}
+
+export * from './ai'

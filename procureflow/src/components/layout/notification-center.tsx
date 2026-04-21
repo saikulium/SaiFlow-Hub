@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Bell, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useNotifications, useMarkAsRead } from '@/hooks/use-notifications'
+import { useNotifications, useMarkAsRead } from '@/modules/core/notifications'
 import { NotificationItemRow } from './notification-item'
 import { useRouter } from 'next/navigation'
 

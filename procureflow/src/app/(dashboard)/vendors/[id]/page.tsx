@@ -1,8 +1,11 @@
 import { PageTransition } from '@/components/shared/page-transition'
-import { VendorDetailContent } from '@/components/vendors/vendor-detail-content'
+import { VendorDetailContent } from '@/modules/core/vendors'
 
-
-export default function VendorDetailPage({ params }: { params: { id: string } }) {
+export default function VendorDetailPage({
+  params,
+}: {
+  params: { id: string }
+}) {
   return (
     <PageTransition>
       <VendorDetailContent vendorId={params.id} />

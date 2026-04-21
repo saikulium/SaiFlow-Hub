@@ -8,8 +8,7 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { updateMaterialSchema } from '@/lib/validations/inventory'
-import { getStockLevels } from '@/server/services/inventory-db.service'
+import { updateMaterialSchema, getStockLevels } from '@/modules/core/inventory'
 import type { MaterialDetail, LotSummary, ReservationSummary } from '@/types'
 
 export async function GET(
@@ -27,6 +26,7 @@ export async function GET(
       where: { id },
       include: {
         preferred_vendor: { select: { name: true } },
+        article: { select: { id: true, code: true, name: true } },
         lots: {
           where: { status: { in: ['AVAILABLE', 'RESERVED'] } },
           include: {
@@ -103,6 +103,13 @@ export async function GET(
       notes: material.notes,
       isActive: material.is_active,
       preferredVendor: material.preferred_vendor?.name ?? null,
+      article: material.article
+        ? {
+            id: material.article.id,
+            code: material.article.code,
+            name: material.article.name,
+          }
+        : null,
       stockPhysical: stockLevels.physical,
       stockAvailable: stockLevels.available,
       stockReserved: stockLevels.reserved,
@@ -175,6 +182,9 @@ export async function PATCH(
         ...(parsed.data.preferred_vendor_id !== undefined && {
           preferred_vendor_id: parsed.data.preferred_vendor_id,
         }),
+        ...('article_id' in parsed.data && {
+          article_id: parsed.data.article_id ?? null,
+        }),
         ...(parsed.data.tags !== undefined && { tags: parsed.data.tags }),
         ...(parsed.data.notes !== undefined && { notes: parsed.data.notes }),
         ...(parsed.data.is_active !== undefined && {
@@ -191,5 +201,46 @@ export async function PATCH(
       'Errore aggiornamento materiale',
       500,
     )
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const blocked = await requireModule('/api/inventory')
+  if (blocked) return blocked
+  try {
+    const { id } = params
+    const authResult = await requireRole('ADMIN')
+    if (authResult instanceof NextResponse) return authResult
+
+    const material = await prisma.material.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            lots: { where: { status: { in: ['AVAILABLE', 'RESERVED'] } } },
+          },
+        },
+      },
+    })
+
+    if (!material) return notFoundResponse('Materiale non trovato')
+
+    if (material._count.lots > 0) {
+      return errorResponse(
+        'HAS_STOCK',
+        'Impossibile eliminare: il materiale ha lotti attivi in magazzino',
+        400,
+      )
+    }
+
+    await prisma.material.delete({ where: { id } })
+
+    return successResponse({ id, deleted: true })
+  } catch (error) {
+    console.error('DELETE /api/inventory/materials/[id] error:', error)
+    return errorResponse('INTERNAL_ERROR', 'Errore eliminazione materiale', 500)
   }
 }

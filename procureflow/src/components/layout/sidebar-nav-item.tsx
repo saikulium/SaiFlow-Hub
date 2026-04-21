@@ -4,7 +4,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { useInvoiceBadgeCount } from '@/hooks/use-invoice-stats'
+import { useInvoiceBadgeCount } from '@/modules/core/invoicing'
+import { useSidebarBadges } from '@/hooks/use-sidebar-badges'
+import { useUnverifiedArticlesCount } from '@/modules/core/articles'
 import type { NavItem } from '@/lib/constants'
 
 interface SidebarNavItemProps {
@@ -14,6 +16,8 @@ interface SidebarNavItemProps {
 
 function useBadgeValue(badge: NavItem['badge']): number | null {
   const { data: invoiceData } = useInvoiceBadgeCount()
+  const { data: sidebarData } = useSidebarBadges()
+  const { data: unverifiedCount } = useUnverifiedArticlesCount()
 
   if (!badge) return null
 
@@ -24,10 +28,18 @@ function useBadgeValue(badge: NavItem['badge']): number | null {
         (invoiceData?.pendingReconciliation ?? 0)
       return count > 0 ? count : null
     }
-    case 'approvals':
-      return 4 // TODO: dynamic
-    case 'requests':
-      return 3 // TODO: dynamic
+    case 'approvals': {
+      const count = sidebarData?.pendingApprovals ?? 0
+      return count > 0 ? count : null
+    }
+    case 'requests': {
+      const count = sidebarData?.actionableRequests ?? 0
+      return count > 0 ? count : null
+    }
+    case 'articles': {
+      const count = unverifiedCount ?? 0
+      return count > 0 ? count : null
+    }
     default:
       return null
   }

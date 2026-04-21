@@ -1,20 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, LogIn } from 'lucide-react'
+import { Loader2, LogIn, ShieldCheck, ArrowLeft } from 'lucide-react'
 import { loginSchema, type LoginInput } from '@/lib/validations/auth'
+
+type ErrorType = 'generic' | 'lockout' | 'mfa'
 
 export function LoginForm() {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
+  const [errorType, setErrorType] = useState<ErrorType>('generic')
+  const [mfaRequired, setMfaRequired] = useState(false)
+  const [totpCode, setTotpCode] = useState('')
+  const totpInputRef = useRef<HTMLInputElement>(null)
 
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -22,19 +29,74 @@ export function LoginForm() {
 
   async function onSubmit(data: LoginInput) {
     setError(null)
+    setErrorType('generic')
+
+    // Step 1: pre-check credentials + MFA status before calling NextAuth signIn.
+    // This bypasses NextAuth v5's unreliable error code propagation for custom errors.
+    if (!mfaRequired) {
+      const pre = await fetch('/api/auth/preflight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email, password: data.password }),
+      })
+        .then((r) => r.json())
+        .catch(() => ({ success: false, error: { code: 'NETWORK_ERROR' } }))
+
+      if (!pre.success) {
+        if (pre.error?.code === 'ACCOUNT_LOCKED') {
+          setError(pre.error.message ?? 'Account bloccato. Riprova più tardi.')
+          setErrorType('lockout')
+        } else {
+          setError('Credenziali non valide')
+          setErrorType('generic')
+        }
+        return
+      }
+
+      if (pre.data?.needsMfa) {
+        setMfaRequired(true)
+        setError(null)
+        setTimeout(() => totpInputRef.current?.focus(), 100)
+        return
+      }
+    }
+
+    // Step 2: call NextAuth signIn with full credentials (including TOTP if needed)
     const result = await signIn('credentials', {
       email: data.email,
       password: data.password,
+      totpCode: mfaRequired ? totpCode : undefined,
       redirect: false,
     })
 
     if (result?.error) {
-      setError('Credenziali non valide')
+      const errorMsg = result.code ?? result.error
+      if (errorMsg.includes('INVALID_TOTP')) {
+        setError('Codice non valido')
+        setErrorType('mfa')
+        setTotpCode('')
+      } else {
+        setError('Credenziali non valide')
+        setErrorType('generic')
+      }
       return
     }
 
     router.push('/')
     router.refresh()
+  }
+
+  function handleMfaSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const values = getValues()
+    onSubmit(values)
+  }
+
+  function handleBackToLogin() {
+    setMfaRequired(false)
+    setTotpCode('')
+    setError(null)
+    setErrorType('generic')
   }
 
   return (
@@ -44,67 +106,148 @@ export function LoginForm() {
           ProcureFlow
         </h1>
         <p className="mt-2 text-sm text-pf-text-secondary">
-          Accedi al tuo account
+          {mfaRequired ? 'Verifica in due fattori' : 'Accedi al tuo account'}
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="space-y-4 rounded-card border border-pf-border bg-pf-bg-secondary p-6"
-      >
-        {error && (
-          <div className="rounded-badge bg-red-500/10 px-3 py-2 text-sm text-red-400">
-            {error}
-          </div>
-        )}
-
-        <div>
-          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-pf-text-primary">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            {...register('email')}
-            className="w-full rounded-button border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
-            placeholder="nome@azienda.it"
-          />
-          {errors.email && (
-            <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-pf-text-primary">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            {...register('password')}
-            className="w-full rounded-button border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
-            placeholder="••••••••"
-          />
-          {errors.password && (
-            <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="flex w-full items-center justify-center gap-2 rounded-button bg-pf-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-pf-accent-hover disabled:opacity-50"
+      {!mfaRequired ? (
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-4 rounded-card border border-pf-border bg-pf-bg-secondary p-6"
         >
-          {isSubmitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <LogIn className="h-4 w-4" />
+          {error && (
+            <div
+              className={`rounded-badge px-3 py-2 text-sm ${
+                errorType === 'lockout'
+                  ? 'bg-amber-500/10 text-amber-400'
+                  : 'bg-red-500/10 text-red-400'
+              }`}
+            >
+              {error}
+            </div>
           )}
-          Accedi
-        </button>
-      </form>
+
+          <div>
+            <label
+              htmlFor="email"
+              className="mb-1.5 block text-sm font-medium text-pf-text-primary"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              {...register('email')}
+              className="w-full rounded-button border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
+              placeholder="nome@azienda.it"
+            />
+            {errors.email && (
+              <p className="mt-1 text-xs text-red-400">
+                {errors.email.message}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="mb-1.5 block text-sm font-medium text-pf-text-primary"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              {...register('password')}
+              className="w-full rounded-button border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
+              placeholder="••••••••"
+            />
+            {errors.password && (
+              <p className="mt-1 text-xs text-red-400">
+                {errors.password.message}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex w-full items-center justify-center gap-2 rounded-button bg-pf-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-pf-accent-hover disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LogIn className="h-4 w-4" />
+            )}
+            Accedi
+          </button>
+        </form>
+      ) : (
+        <form
+          onSubmit={handleMfaSubmit}
+          className="space-y-4 rounded-card border border-pf-border bg-pf-bg-secondary p-6"
+        >
+          <div className="flex items-center justify-center">
+            <ShieldCheck className="h-10 w-10 text-pf-accent" />
+          </div>
+
+          {error && (
+            <div className="rounded-badge bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+
+          <p className="text-center text-sm text-pf-text-secondary">
+            Inserisci il codice dall&apos;app di autenticazione o un codice di
+            recupero
+          </p>
+
+          <div>
+            <label
+              htmlFor="totpCode"
+              className="mb-1.5 block text-sm font-medium text-pf-text-primary"
+            >
+              Codice di verifica
+            </label>
+            <input
+              ref={totpInputRef}
+              id="totpCode"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={8}
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value.toUpperCase())}
+              className="w-full rounded-button border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-center font-mono text-lg tracking-widest text-pf-text-primary placeholder:text-pf-text-muted focus:border-pf-accent focus:outline-none focus:ring-1 focus:ring-pf-accent"
+              placeholder="000000"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || totpCode.length < 6}
+            className="flex w-full items-center justify-center gap-2 rounded-button bg-pf-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-pf-accent-hover disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
+            Verifica
+          </button>
+
+          <button
+            type="button"
+            onClick={handleBackToLogin}
+            className="flex w-full items-center justify-center gap-1.5 text-sm text-pf-text-secondary transition-colors hover:text-pf-text-primary"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Indietro
+          </button>
+        </form>
+      )}
 
       <p className="mt-4 text-center text-xs text-pf-text-muted">
         Contatta l&apos;amministratore per ottenere le credenziali

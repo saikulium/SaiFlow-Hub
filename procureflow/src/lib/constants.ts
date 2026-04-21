@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   ClipboardList,
   Building2,
+  Briefcase,
   CheckCircle2,
   BarChart3,
   Settings,
@@ -22,6 +23,9 @@ import {
   PiggyBank,
   Gavel,
   Package,
+  Shield,
+  ShieldCheck,
+  BookOpen,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -218,7 +222,8 @@ export interface NavItem {
   label: string
   href: string
   icon: LucideIcon
-  badge?: 'requests' | 'approvals' | 'invoices'
+  badge?: 'requests' | 'approvals' | 'invoices' | 'articles'
+  adminOnly?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -245,8 +250,18 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Budget', href: '/budgets', icon: PiggyBank },
   { label: 'Gare', href: '/tenders', icon: Gavel },
   { label: 'Magazzino', href: '/inventory', icon: Package },
+  { label: 'Articoli', href: '/articles', icon: BookOpen, badge: 'articles' },
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { label: 'Commesse', href: '/commesse', icon: Briefcase },
+  { label: 'Clienti', href: '/clients', icon: Building2 },
   { label: 'Utenti', href: '/users', icon: Users },
+  { label: 'Admin', href: '/admin/config', icon: Shield, adminOnly: true },
+  {
+    label: 'Audit Trail',
+    href: '/admin/audit',
+    icon: ShieldCheck,
+    adminOnly: true,
+  },
   { label: 'Impostazioni', href: '/settings', icon: Settings },
 ]
 

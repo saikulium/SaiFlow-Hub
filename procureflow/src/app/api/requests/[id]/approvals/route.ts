@@ -1,16 +1,20 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
   errorResponse,
   notFoundResponse,
 } from '@/lib/api-response'
-import { initiateApprovalWorkflow } from '@/server/services/approval.service'
+import { initiateApprovalWorkflow } from '@/modules/core/requests'
+import { requireAuth } from '@/lib/auth'
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     const request = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
@@ -38,6 +42,9 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     const request = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
@@ -76,6 +83,10 @@ export async function POST(
     return successResponse(result)
   } catch (error) {
     console.error('POST /api/requests/[id]/approvals error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore nell\'avvio dell\'approvazione', 500)
+    return errorResponse(
+      'INTERNAL_ERROR',
+      "Errore nell'avvio dell'approvazione",
+      500,
+    )
   }
 }

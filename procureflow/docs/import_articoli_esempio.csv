@@ -1,0 +1,22 @@
+codice_interno,nome,categoria,um,produttore,codice_produttore,tipo_alias,codice_alias,entita,note_alias
+ART-001,Vite M8x40 zincata,Ferramenta,pz,Fischer,FIS-M8-40,vendor,FISC-M840,Fischer Italia Srl,Alias fornitore principale
+ART-001,Vite M8x40 zincata,Ferramenta,pz,,,client,VIT-8-40,Rossi Costruzioni,Codice usato dal cliente
+ART-002,Tubo rame 22mm L=3m,Idraulica,m,Frap,FR-T22,vendor,FRAP-22,Frap SpA,
+ART-002,Tubo rame 22mm L=3m,Idraulica,m,,,client,TRM-22,Bianchi Impianti Srl,Codice cliente per ordini
+ART-003,Guarnizione OR 18x3 NBR,Guarnizioni,pz,Trelleborg,TRE-OR183,vendor,OR-18-3-NBR,Trelleborg Sealing Solutions,Gomma nitrilica 70 shore
+ART-004,Cuscinetto radiale 6205-2RS,Cuscinetti,pz,SKF,SKF-6205-2RS,vendor,6205-2RS-SKF,SKF Italia,Cuscinetto a sfere schermato
+ART-004,Cuscinetto radiale 6205-2RS,Cuscinetti,pz,FAG,FAG-6205-2RSR,vendor,6205-FAG,Schaeffler Italia,Alternativa equivalente
+ART-005,Olio idraulico ISO 46,Lubrificanti,lt,Shell,SHELL-T46,vendor,TELLUS-S2-46,Shell Italia,Fusti da 200lt
+ART-005,Olio idraulico ISO 46,Lubrificanti,lt,Mobil,MOBIL-DTE26,vendor,DTE-26,ExxonMobil,Alternativa equivalente
+ART-006,Filtro aria compressore GA30,Filtri,pz,Atlas Copco,AC-1613740800,vendor,1613740800,Atlas Copco Italia,Ricambio originale
+ART-007,Nastro PTFE 12mm x 12m,Sigillanti,pz,Superego,SE-PTFE12,vendor,PTFE-12-12,Superego Srl,
+ART-008,Riduttore flangiato i=20,Riduttori,pz,Bonfiglioli,BON-300F-20,vendor,300F-I20,Bonfiglioli Riduttori,Flangia B5
+ART-008,Riduttore flangiato i=20,Riduttori,pz,,,client,RID-F20,Verdi Meccanica Srl,Codice interno cliente
+ART-009,Cavo H07V-K 2.5mm giallo-verde,Elettrico,m,Prysmian,PRY-H07VK25GV,vendor,H07VK-25-GV,Prysmian Group,Bobina 100m
+ART-010,Lamiera acciaio S235 2mm 1000x2000,Lamiere,pz,Marcegaglia,MARC-S235-2,vendor,S235-2-10x20,Marcegaglia Steel,Taglio standard
+ART-011,Elettrodo E7018 3.25mm,Saldatura,kg,Lincoln Electric,LIN-7018-325,vendor,EXCALIBUR-7018,Lincoln Electric Italia,Confezione 5kg
+ART-012,Valvola a sfera DN25 PN40,Valvole,pz,Bonomi,BON-250-25,vendor,250-DN25-PN40,Bonomi Group,Corpo acciaio inox
+ART-012,Valvola a sfera DN25 PN40,Valvole,pz,,,client,VSF-25-40,Neri Impianti,Riferimento commessa C-2025-003
+ART-013,Cinghia dentata HTD 8M-1200,Trasmissione,pz,Gates,GATES-8M1200,vendor,8M-1200-30,Gates Italia,Larghezza 30mm
+ART-014,Manometro glicerina 0-16bar DN63,Strumentazione,pz,WIKA,WIKA-213-63-16,vendor,213.53.063-16,WIKA Italia,Attacco 1/4 BSP posteriore
+ART-015,Disco abrasivo 125x1.0 inox,Abrasivi,pz,Norton,NOR-BDX-125,vendor,BDX-125-10-INOX,Saint-Gobain Abrasivi,Confezione 25pz

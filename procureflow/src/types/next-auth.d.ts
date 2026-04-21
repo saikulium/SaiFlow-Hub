@@ -8,7 +8,10 @@ declare module 'next-auth' {
       email: string
       role: UserRole
       department: string | null
+      mfaSetupRequired?: boolean
+      onboardingCompleted?: boolean
     }
+    error?: string
   }
 
   interface User {
@@ -22,5 +25,12 @@ declare module 'next-auth/jwt' {
     id: string
     role: string
     department: string | null
+    refreshToken?: string
+    tokenVersion?: number
+    totpEnabled?: boolean
+    onboardingCompleted?: boolean
+    issuedAt?: number
+    lastVersionCheck?: number
+    error?: string
   }
 }

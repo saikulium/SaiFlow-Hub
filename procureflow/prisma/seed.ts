@@ -7,6 +7,14 @@ import {
   VendorStatus,
   VendorPortalType,
   ApprovalStatus,
+  InvoiceMatchStatus,
+  ReconciliationStatus,
+  InsightType,
+  InsightSeverity,
+  AlertType,
+  DiscrepancyType,
+  ClientStatus,
+  CommessaStatus,
 } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
@@ -27,11 +35,31 @@ function daysFromNow(days: number): Date {
 }
 
 async function main() {
-  // Clean existing data
+  // Clean existing data (all tables, respecting FK order)
   await prisma.$transaction([
+    // Inventory
+    prisma.stockInventoryLine.deleteMany(),
+    prisma.stockInventory.deleteMany(),
+    prisma.stockMovement.deleteMany(),
+    prisma.stockReservation.deleteMany(),
+    prisma.stockLot.deleteMany(),
+    prisma.warehouseZone.deleteMany(),
+    prisma.warehouse.deleteMany(),
+    prisma.materialAlert.deleteMany(),
+    prisma.material.deleteMany(),
+    // AI / Analytics
+    prisma.aiInsight.deleteMany(),
+    // Invoices
+    prisma.invoiceLineItem.deleteMany(),
+    prisma.invoice.deleteMany(),
+    // Budgets
+    prisma.budgetSnapshot.deleteMany(),
+    prisma.budget.deleteMany(),
+    // Tenders
     prisma.tenderTimeline.deleteMany(),
     prisma.tenderDocument.deleteMany(),
     prisma.tender.deleteMany(),
+    // Purchase Requests
     prisma.notification.deleteMany(),
     prisma.comment.deleteMany(),
     prisma.attachment.deleteMany(),
@@ -39,9 +67,22 @@ async function main() {
     prisma.approval.deleteMany(),
     prisma.requestItem.deleteMany(),
     prisma.purchaseRequest.deleteMany(),
+    // Commesse
+    prisma.commessaTimeline.deleteMany(),
+    prisma.commessa.deleteMany(),
+    prisma.client.deleteMany(),
+    // Articles (must come before vendor due to FK on article_prices.vendor_id)
+    prisma.articlePrice.deleteMany(),
+    prisma.articleAlias.deleteMany(),
+    prisma.article.deleteMany(),
+    // Vendors
     prisma.vendorContact.deleteMany(),
     prisma.vendor.deleteMany(),
-    prisma.budget.deleteMany(),
+    // Webhooks / Integration
+    prisma.processedWebhook.deleteMany(),
+    prisma.integrationConfig.deleteMany(),
+    // Auth / Users
+    prisma.refreshToken.deleteMany(),
     prisma.deployConfig.deleteMany(),
     prisma.session.deleteMany(),
     prisma.account.deleteMany(),
@@ -62,6 +103,7 @@ async function main() {
         role: UserRole.ADMIN,
         department: 'Direzione',
         password_hash: adminPassword,
+        onboarding_completed: true,
       },
     }),
     prisma.user.create({
@@ -72,6 +114,7 @@ async function main() {
         role: UserRole.MANAGER,
         department: 'Acquisti',
         password_hash: defaultPassword,
+        onboarding_completed: true,
       },
     }),
     prisma.user.create({
@@ -82,6 +125,7 @@ async function main() {
         role: UserRole.REQUESTER,
         department: 'Produzione',
         password_hash: defaultPassword,
+        onboarding_completed: true,
       },
     }),
     prisma.user.create({
@@ -92,6 +136,7 @@ async function main() {
         role: UserRole.REQUESTER,
         department: 'IT',
         password_hash: defaultPassword,
+        onboarding_completed: true,
       },
     }),
     prisma.user.create({
@@ -102,6 +147,7 @@ async function main() {
         role: UserRole.VIEWER,
         department: 'Contabilità',
         password_hash: defaultPassword,
+        onboarding_completed: true,
       },
     }),
   ])
@@ -288,6 +334,53 @@ async function main() {
       createdDays: 90,
       orderedDays: 85,
       deliveredDays: 80,
+    },
+
+    // More DELIVERED — utili per SmartFill storico
+    {
+      code: 'PR-2026-00030',
+      title: 'Toner stampanti HP ufficio secondo piano',
+      status: RequestStatus.DELIVERED,
+      priority: Priority.MEDIUM,
+      requester: laura!,
+      vendor: cartaria!,
+      estimated: 720.0,
+      actual: 695.0,
+      category: 'Cancelleria',
+      dept: 'Acquisti',
+      createdDays: 120,
+      orderedDays: 115,
+      deliveredDays: 100,
+    },
+    {
+      code: 'PR-2026-00031',
+      title: 'Guanti protettivi e caschi sicurezza reparto saldatura',
+      status: RequestStatus.DELIVERED,
+      priority: Priority.URGENT,
+      requester: giuseppe!,
+      vendor: safety!,
+      estimated: 3100.0,
+      actual: 2980.0,
+      category: 'DPI',
+      dept: 'Produzione',
+      createdDays: 80,
+      orderedDays: 75,
+      deliveredDays: 60,
+    },
+    {
+      code: 'PR-2026-00032',
+      title: 'Cavi ethernet Cat6 per nuova sala server',
+      status: RequestStatus.DELIVERED,
+      priority: Priority.HIGH,
+      requester: francesca!,
+      vendor: elettronica!,
+      estimated: 620.0,
+      actual: 580.0,
+      category: 'Networking',
+      dept: 'IT',
+      createdDays: 150,
+      orderedDays: 145,
+      deliveredDays: 130,
     },
 
     // ORDERED + SHIPPED
@@ -1165,16 +1258,6 @@ async function main() {
 
   // --- Inventory seed ---
 
-  // Clean inventory tables (in dependency order)
-  await prisma.stockInventoryLine.deleteMany()
-  await prisma.stockInventory.deleteMany()
-  await prisma.stockMovement.deleteMany()
-  await prisma.stockReservation.deleteMany()
-  await prisma.stockLot.deleteMany()
-  await prisma.warehouseZone.deleteMany()
-  await prisma.warehouse.deleteMany()
-  await prisma.material.deleteMany()
-
   // Warehouses
   const whPrin = await prisma.warehouse.create({
     data: {
@@ -1687,6 +1770,488 @@ async function main() {
   }
   console.log(`  ✓ ${movementsData.length} movimenti creati`)
 
+  // --- AI Insights (for dashboard Insight Cards) ---
+  await prisma.aiInsight.createMany({
+    data: [
+      {
+        type: InsightType.SPEND_ANOMALY,
+        severity: InsightSeverity.HIGH,
+        title: 'Spesa anomala su Ferramenta Rossi',
+        description:
+          'La spesa verso Ferramenta Rossi è aumentata del 45% rispetto alla media trimestrale. Verificare se ci sono ordini duplicati o rinegoziare i termini.',
+        action_label: 'Vedi fornitore',
+        action_url: '/vendors',
+        expires_at: daysFromNow(7),
+      },
+      {
+        type: InsightType.VENDOR_RISK,
+        severity: InsightSeverity.CRITICAL,
+        title: 'Rischio fornitore: TechParts Srl',
+        description:
+          'TechParts ha 3 consegne in ritardo negli ultimi 30 giorni. Il tasso di puntualità è sceso al 40%. Considerare fornitori alternativi.',
+        action_label: 'Analizza consegne',
+        action_url: '/vendors',
+        expires_at: daysFromNow(5),
+      },
+      {
+        type: InsightType.SAVINGS,
+        severity: InsightSeverity.MEDIUM,
+        title: 'Opportunità di risparmio: consolidamento ordini',
+        description:
+          'Negli ultimi 30 giorni ci sono 5 ordini separati verso lo stesso fornitore. Consolidandoli si risparmierebbero circa €320 in costi di spedizione.',
+        action_label: 'Vedi richieste',
+        action_url: '/requests',
+        expires_at: daysFromNow(14),
+      },
+      {
+        type: InsightType.BOTTLENECK,
+        severity: InsightSeverity.HIGH,
+        title: 'Collo di bottiglia: approvazioni lente',
+        description:
+          '4 richieste sono in attesa di approvazione da più di 5 giorni. Il tempo medio di approvazione è salito a 6.2 giorni vs media di 2.1.',
+        action_label: 'Vedi approvazioni',
+        action_url: '/approvals',
+        expires_at: daysFromNow(3),
+      },
+      {
+        type: InsightType.BUDGET_ALERT,
+        severity: InsightSeverity.CRITICAL,
+        title: 'Budget IT al 92% — soglia superata',
+        description:
+          "Il budget del centro di costo IT-2026 ha raggiunto il 92% dell'allocato. Restano €1.250 su €15.000. Nuove richieste potrebbero essere bloccate.",
+        action_label: 'Vedi budget',
+        action_url: '/analytics',
+        expires_at: daysFromNow(10),
+      },
+    ],
+  })
+  console.log('  ✓ 5 AI insights creati')
+
+  // --- Material Alerts (for reorder banners in /inventory) ---
+  await prisma.materialAlert.createMany({
+    data: [
+      {
+        material_id: 'mat-cav-3',
+        type: AlertType.LOW_STOCK,
+        suggested_qty: 500,
+        suggested_vendor_id: 'vendor-techparts',
+        days_remaining: 12,
+      },
+      {
+        material_id: 'mat-acc-1',
+        type: AlertType.LOW_STOCK,
+        suggested_qty: 200,
+        suggested_vendor_id: 'vendor-ferramenta',
+        days_remaining: 8,
+      },
+      {
+        material_id: 'mat-pf-1',
+        type: AlertType.REORDER_SUGGESTED,
+        suggested_qty: 10,
+        suggested_vendor_id: 'vendor-elettronica',
+        days_remaining: 15,
+      },
+    ],
+  })
+  console.log('  ✓ 3 material alerts creati')
+
+  // --- Invoices (for AI Agent queries + dashboard fatture tab) ---
+  const invoicesData = [
+    {
+      id: 'inv-001',
+      invoice_number: 'FT-2026-00145',
+      invoice_date: daysAgo(10),
+      due_date: daysFromNow(20),
+      total_taxable: 2500.0,
+      total_tax: 550.0,
+      total_amount: 3050.0,
+      supplier_vat_id: 'IT01234567890',
+      supplier_name: 'Ferramenta Rossi SpA',
+      customer_vat_id: 'IT09876543210',
+      vendor_id: 'vendor-ferramenta',
+      purchase_request_id: null as string | null,
+      match_status: InvoiceMatchStatus.UNMATCHED,
+      reconciliation_status: ReconciliationStatus.PENDING,
+      sdi_id: 'SDI-2026-00145',
+    },
+    {
+      id: 'inv-002',
+      invoice_number: 'FT-2026-00146',
+      invoice_date: daysAgo(8),
+      due_date: daysFromNow(22),
+      total_taxable: 1800.0,
+      total_tax: 396.0,
+      total_amount: 2196.0,
+      supplier_vat_id: 'IT11223344556',
+      supplier_name: 'TechParts Srl',
+      customer_vat_id: 'IT09876543210',
+      vendor_id: 'vendor-techparts',
+      purchase_request_id: null as string | null,
+      match_status: InvoiceMatchStatus.AUTO_MATCHED,
+      reconciliation_status: ReconciliationStatus.MATCHED,
+      sdi_id: 'SDI-2026-00146',
+      matched_at: daysAgo(7),
+    },
+    {
+      id: 'inv-003',
+      invoice_number: 'FT-2026-00147',
+      invoice_date: daysAgo(15),
+      due_date: daysAgo(5),
+      total_taxable: 5200.0,
+      total_tax: 1144.0,
+      total_amount: 6344.0,
+      supplier_vat_id: 'IT99887766554',
+      supplier_name: 'Elettronica Avanzata SpA',
+      customer_vat_id: 'IT09876543210',
+      vendor_id: 'vendor-elettronica',
+      purchase_request_id: null as string | null,
+      match_status: InvoiceMatchStatus.SUGGESTED,
+      reconciliation_status: ReconciliationStatus.DISPUTED,
+      sdi_id: null as string | null,
+      amount_discrepancy: 340.0,
+      discrepancy_type: DiscrepancyType.AMOUNT_MISMATCH,
+    },
+    {
+      id: 'inv-004',
+      invoice_number: 'FT-2026-00148',
+      invoice_date: daysAgo(5),
+      due_date: daysFromNow(25),
+      total_taxable: 890.0,
+      total_tax: 195.8,
+      total_amount: 1085.8,
+      supplier_vat_id: 'IT55443322110',
+      supplier_name: 'Cartaria del Nord Srl',
+      customer_vat_id: 'IT09876543210',
+      vendor_id: 'vendor-cartaria',
+      purchase_request_id: null as string | null,
+      match_status: InvoiceMatchStatus.AUTO_MATCHED,
+      reconciliation_status: ReconciliationStatus.APPROVED,
+      sdi_id: 'SDI-2026-00148',
+      matched_at: daysAgo(4),
+      reconciled_at: daysAgo(3),
+    },
+    {
+      id: 'inv-005',
+      invoice_number: 'FT-2026-00149',
+      invoice_date: daysAgo(3),
+      due_date: daysFromNow(27),
+      total_taxable: 3200.0,
+      total_tax: 704.0,
+      total_amount: 3904.0,
+      supplier_vat_id: 'IT01234567890',
+      supplier_name: 'Ferramenta Rossi SpA',
+      customer_vat_id: 'IT09876543210',
+      vendor_id: 'vendor-ferramenta',
+      purchase_request_id: null as string | null,
+      match_status: InvoiceMatchStatus.UNMATCHED,
+      reconciliation_status: ReconciliationStatus.PENDING,
+      sdi_id: 'SDI-2026-00149',
+    },
+    {
+      id: 'inv-006',
+      invoice_number: 'NC-2026-00010',
+      invoice_date: daysAgo(2),
+      due_date: null as Date | null,
+      total_taxable: -500.0,
+      total_tax: -110.0,
+      total_amount: -610.0,
+      supplier_vat_id: 'IT11223344556',
+      supplier_name: 'TechParts Srl',
+      customer_vat_id: 'IT09876543210',
+      vendor_id: 'vendor-techparts',
+      purchase_request_id: null as string | null,
+      match_status: InvoiceMatchStatus.MANUALLY_MATCHED,
+      reconciliation_status: ReconciliationStatus.APPROVED,
+      sdi_id: 'SDI-2026-NC010',
+      document_type: 'TD04',
+      matched_at: daysAgo(1),
+      reconciled_at: daysAgo(1),
+    },
+  ]
+
+  for (const inv of invoicesData) {
+    await prisma.invoice.create({
+      data: {
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        invoice_date: inv.invoice_date,
+        due_date: inv.due_date,
+        total_taxable: inv.total_taxable,
+        total_tax: inv.total_tax,
+        total_amount: inv.total_amount,
+        supplier_vat_id: inv.supplier_vat_id,
+        supplier_name: inv.supplier_name,
+        customer_vat_id: inv.customer_vat_id,
+        vendor_id: inv.vendor_id,
+        purchase_request_id: inv.purchase_request_id,
+        match_status: inv.match_status,
+        reconciliation_status: inv.reconciliation_status,
+        sdi_id: inv.sdi_id,
+        document_type:
+          ((inv as Record<string, unknown>).document_type as string) ?? 'TD01',
+        matched_at:
+          ((inv as Record<string, unknown>).matched_at as Date) ?? undefined,
+        reconciled_at:
+          ((inv as Record<string, unknown>).reconciled_at as Date) ?? undefined,
+        amount_discrepancy:
+          ((inv as Record<string, unknown>).amount_discrepancy as number) ??
+          undefined,
+        discrepancy_type:
+          ((inv as Record<string, unknown>)
+            .discrepancy_type as DiscrepancyType) ?? undefined,
+      },
+    })
+  }
+  console.log(`  ✓ ${invoicesData.length} fatture create`)
+
+  // --- Additional outbound movements for forecast consumption history ---
+  const forecastMovements = [
+    // mat-cav-1: steady consumption ~150/month over 4 months
+    {
+      code: 'MOV-FC-001',
+      material_id: 'mat-cav-1',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      lot_id: 'lot-01',
+      qty: -140,
+      days_ago: 90,
+      reason: 'PRODUZIONE' as const,
+    },
+    {
+      code: 'MOV-FC-002',
+      material_id: 'mat-cav-1',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      lot_id: 'lot-01',
+      qty: -160,
+      days_ago: 60,
+      reason: 'PRODUZIONE' as const,
+    },
+    {
+      code: 'MOV-FC-003',
+      material_id: 'mat-cav-1',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      lot_id: 'lot-01',
+      qty: -150,
+      days_ago: 35,
+      reason: 'PRODUZIONE' as const,
+    },
+    // mat-cav-2: increasing consumption (trend)
+    {
+      code: 'MOV-FC-004',
+      material_id: 'mat-cav-2',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      lot_id: 'lot-03',
+      qty: -200,
+      days_ago: 85,
+      reason: 'VENDITA' as const,
+    },
+    {
+      code: 'MOV-FC-005',
+      material_id: 'mat-cav-2',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      lot_id: 'lot-03',
+      qty: -350,
+      days_ago: 55,
+      reason: 'VENDITA' as const,
+    },
+    {
+      code: 'MOV-FC-006',
+      material_id: 'mat-cav-2',
+      warehouse_id: whPrin.id,
+      zone_id: zonaA.id,
+      lot_id: 'lot-03',
+      qty: -500,
+      days_ago: 25,
+      reason: 'VENDITA' as const,
+    },
+    // mat-con-1: sporadic consumption
+    {
+      code: 'MOV-FC-007',
+      material_id: 'mat-con-1',
+      warehouse_id: whPrin.id,
+      zone_id: zonaB.id,
+      lot_id: 'lot-05',
+      qty: -80,
+      days_ago: 70,
+      reason: 'PRODUZIONE' as const,
+    },
+    {
+      code: 'MOV-FC-008',
+      material_id: 'mat-con-1',
+      warehouse_id: whPrin.id,
+      zone_id: zonaB.id,
+      lot_id: 'lot-05',
+      qty: -120,
+      days_ago: 40,
+      reason: 'PRODUZIONE' as const,
+    },
+    // mat-mpr-1: heavy consumption (to show low days remaining)
+    {
+      code: 'MOV-FC-009',
+      material_id: 'mat-mpr-1',
+      warehouse_id: whSec.id,
+      zone_id: zonaC.id,
+      lot_id: 'lot-09',
+      qty: -40,
+      days_ago: 75,
+      reason: 'PRODUZIONE' as const,
+    },
+    {
+      code: 'MOV-FC-010',
+      material_id: 'mat-mpr-1',
+      warehouse_id: whSec.id,
+      zone_id: zonaC.id,
+      lot_id: 'lot-09',
+      qty: -45,
+      days_ago: 45,
+      reason: 'PRODUZIONE' as const,
+    },
+    {
+      code: 'MOV-FC-011',
+      material_id: 'mat-mpr-1',
+      warehouse_id: whSec.id,
+      zone_id: zonaC.id,
+      lot_id: 'lot-09',
+      qty: -50,
+      days_ago: 15,
+      reason: 'PRODUZIONE' as const,
+    },
+  ]
+
+  for (const m of forecastMovements) {
+    await prisma.stockMovement.create({
+      data: {
+        code: m.code,
+        material_id: m.material_id,
+        warehouse_id: m.warehouse_id,
+        zone_id: m.zone_id,
+        lot_id: m.lot_id,
+        movement_type: 'OUTBOUND',
+        reason: m.reason,
+        quantity: m.qty,
+        actor: 'Sistema',
+        created_at: daysAgo(m.days_ago),
+      },
+    })
+  }
+  console.log(`  ✓ ${forecastMovements.length} movimenti forecast creati`)
+
+  // --- Approvals with decision timing (for AI agent search / auto-approval metrics) ---
+  // Replace generic approvals with fast-decision variants for these 2 requests
+  const quickApprovalCodes = ['PR-2026-00002', 'PR-2026-00006'] as const
+  const quickApprovalRequests = await prisma.purchaseRequest.findMany({
+    where: { code: { in: [...quickApprovalCodes] } },
+  })
+
+  for (const req of quickApprovalRequests) {
+    // Remove the generic approval created in the main loop
+    await prisma.approval.deleteMany({ where: { request_id: req.id } })
+
+    const isFirst = req.code === 'PR-2026-00002'
+    await prisma.approval.create({
+      data: {
+        request_id: req.id,
+        approver_id: 'user-laura',
+        status: ApprovalStatus.APPROVED,
+        decision_at: new Date(
+          daysAgo(isFirst ? 55 : 8).getTime() + (isFirst ? 15000 : 30000),
+        ),
+        notes: isFirst
+          ? 'Importo sotto soglia — approvazione rapida'
+          : 'Ok, procedi',
+        created_at: daysAgo(isFirst ? 55 : 8),
+      },
+    })
+  }
+  console.log('  ✓ 2 approvazioni rapide create (senza duplicati)')
+
+  // --- Budget Snapshots (for budget insight context) ---
+  const budgets = await prisma.budget.findMany()
+  for (const budget of budgets) {
+    const allocated = Number(budget.allocated_amount)
+    // Create 3 snapshots per budget showing spend progression
+    const snapshots = [
+      { spent: allocated * 0.3, committed: allocated * 0.1, daysAgoVal: 60 },
+      { spent: allocated * 0.55, committed: allocated * 0.12, daysAgoVal: 30 },
+      { spent: allocated * 0.78, committed: allocated * 0.08, daysAgoVal: 0 },
+    ]
+    for (const s of snapshots) {
+      const available = allocated - s.spent - s.committed
+      await prisma.budgetSnapshot.create({
+        data: {
+          budget_id: budget.id,
+          spent: s.spent,
+          committed: s.committed,
+          available: available > 0 ? available : 0,
+          computed_at: daysAgo(s.daysAgoVal),
+        },
+      })
+    }
+  }
+  console.log(`  ✓ ${budgets.length * 3} budget snapshots creati`)
+
+  // --- Clients ---
+  const clientsData = [
+    {
+      code: 'CLI-001',
+      name: 'Faleni S.r.l.',
+      tax_id: '12345678901',
+      email: 'ordini@faleni.it',
+      contact_person: 'Mario Faleni',
+      status: ClientStatus.ACTIVE,
+    },
+    {
+      code: 'CLI-002',
+      name: 'TechCorp Italia',
+      tax_id: '98765432109',
+      email: 'procurement@techcorp.it',
+      contact_person: 'Laura Bianchi',
+      status: ClientStatus.ACTIVE,
+    },
+    {
+      code: 'CLI-003',
+      name: 'Elettronica Rossi',
+      email: 'info@elettronicarossi.it',
+      status: ClientStatus.PENDING_REVIEW,
+    },
+  ]
+
+  const createdClients = await Promise.all(
+    clientsData.map((c) => prisma.client.create({ data: c })),
+  )
+  console.log(`  ✓ ${createdClients.length} clienti creati`)
+
+  // --- Commesse ---
+  const cli001 = createdClients.find((c) => c.code === 'CLI-001')!
+  const commesseData = [
+    {
+      code: 'COM-2026-00001',
+      title: 'Cavi potenza VBM Freccia',
+      status: CommessaStatus.ACTIVE,
+      client_id: cli001.id,
+      client_value: new Decimal(45000),
+      priority: Priority.HIGH,
+      deadline: daysFromNow(43),
+    },
+    {
+      code: 'COM-2026-00002',
+      title: 'Schede elettroniche SMT lotto 3',
+      status: CommessaStatus.PLANNING,
+      client_id: cli001.id,
+      client_value: new Decimal(22000),
+      priority: Priority.MEDIUM,
+    },
+  ]
+
+  const createdCommesse = await Promise.all(
+    commesseData.map((cm) => prisma.commessa.create({ data: cm })),
+  )
+  console.log(`  ✓ ${createdCommesse.length} commesse create`)
+
   // --- Deploy Config ---
   await prisma.deployConfig.create({
     data: {
@@ -1699,6 +2264,39 @@ async function main() {
         'analytics',
         'tenders',
         'inventory',
+        'chatbot',
+        'smartfill',
+        'commesse',
+      ],
+      categories: [
+        'Hardware',
+        'Software',
+        'Servizi',
+        'Materiali',
+        'Attrezzature',
+        'Consulenza',
+        'Logistica',
+        'Altro',
+      ],
+      departments: [
+        'IT',
+        'Produzione',
+        'Amministrazione',
+        'Commerciale',
+        'Risorse Umane',
+        'Logistica',
+        'Qualità',
+        'R&D',
+      ],
+      cost_centers: [
+        'CC-IT-001',
+        'CC-PROD-001',
+        'CC-AMM-001',
+        'CC-COMM-001',
+        'CC-HR-001',
+        'CC-LOG-001',
+        'CC-QA-001',
+        'CC-RD-001',
       ],
     },
   })
@@ -1709,6 +2307,8 @@ async function main() {
   console.log(`   🏢 ${vendors.length} fornitori`)
   console.log(`   📋 ${requestsData.length} richieste`)
   console.log(`   🔔 ${notificationsData.length} notifiche`)
+  console.log(`   🏭 ${createdClients.length} clienti`)
+  console.log(`   📁 ${createdCommesse.length} commesse`)
 }
 
 main()

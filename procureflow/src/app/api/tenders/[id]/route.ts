@@ -1,26 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { requireRole } from '@/lib/auth'
 import {
   successResponse,
   errorResponse,
   notFoundResponse,
-  validationErrorResponse,
 } from '@/lib/api-response'
-import { requireModule } from '@/lib/modules/require-module'
-import { updateTenderSchema } from '@/lib/validations/tenders'
+import { updateTenderSchema } from '@/modules/core/tenders'
+import { withApiHandler } from '@/lib/api-handler'
 import type { TenderDetail } from '@/types'
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const blocked = await requireModule('/api/tenders')
-  if (blocked) return blocked
-  try {
+export const GET = withApiHandler(
+  {
+    module: '/api/tenders',
+    packModule: 'tenders',
+    auth: ['ADMIN', 'MANAGER', 'REQUESTER'],
+    errorMessage: 'Errore nel recupero gara',
+  },
+  async ({ params }) => {
     const { id } = params
-    const authResult = await requireRole('ADMIN', 'MANAGER', 'REQUESTER')
-    if (authResult instanceof NextResponse) return authResult
 
     const tender = await prisma.tender.findUnique({
       where: { id },
@@ -85,9 +81,7 @@ export async function GET(
         ? Number(tender.our_total_score)
         : null,
       winnerName: tender.winner_name,
-      winnerAmount: tender.winner_amount
-        ? Number(tender.winner_amount)
-        : null,
+      winnerAmount: tender.winner_amount ? Number(tender.winner_amount) : null,
       participantsCount: tender.participants_count,
       department: tender.department,
       costCenter: tender.cost_center,
@@ -118,26 +112,19 @@ export async function GET(
     }
 
     return successResponse(detail)
-  } catch (error) {
-    console.error('GET /api/tenders/[id] error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore nel recupero gara', 500)
-  }
-}
+  },
+)
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const blocked = await requireModule('/api/tenders')
-  if (blocked) return blocked
-  try {
+export const PATCH = withApiHandler(
+  {
+    module: '/api/tenders',
+    packModule: 'tenders',
+    auth: ['ADMIN', 'MANAGER'],
+    bodySchema: updateTenderSchema,
+    errorMessage: 'Errore aggiornamento gara',
+  },
+  async ({ params, body }) => {
     const { id } = params
-    const authResult = await requireRole('ADMIN', 'MANAGER')
-    if (authResult instanceof NextResponse) return authResult
-
-    const body = await req.json()
-    const parsed = updateTenderSchema.safeParse(body)
-    if (!parsed.success) return validationErrorResponse(parsed.error)
 
     const existing = await prisma.tender.findUnique({ where: { id } })
     if (!existing) return notFoundResponse('Gara non trovata')
@@ -151,9 +138,8 @@ export async function PATCH(
       'contract_end_date',
     ] as const
 
-    // Build update data, converting date strings to Date objects
     const updateData: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(parsed.data)) {
+    for (const [key, value] of Object.entries(body)) {
       if (value === undefined) continue
       if (dateFields.includes(key as (typeof dateFields)[number])) {
         updateData[key] = value ? new Date(value as string) : null
@@ -170,22 +156,18 @@ export async function PATCH(
     })
 
     return successResponse({ id })
-  } catch (error) {
-    console.error('PATCH /api/tenders/[id] error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore aggiornamento gara', 500)
-  }
-}
+  },
+)
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const blocked = await requireModule('/api/tenders')
-  if (blocked) return blocked
-  try {
+export const DELETE = withApiHandler(
+  {
+    module: '/api/tenders',
+    packModule: 'tenders',
+    auth: ['ADMIN'],
+    errorMessage: 'Errore eliminazione gara',
+  },
+  async ({ params }) => {
     const { id } = params
-    const authResult = await requireRole('ADMIN')
-    if (authResult instanceof NextResponse) return authResult
 
     const existing = await prisma.tender.findUnique({ where: { id } })
     if (!existing) return notFoundResponse('Gara non trovata')
@@ -201,8 +183,5 @@ export async function DELETE(
     await prisma.tender.delete({ where: { id } })
 
     return successResponse({ id, deleted: true })
-  } catch (error) {
-    console.error('DELETE /api/tenders/[id] error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore eliminazione gara', 500)
-  }
-}
+  },
+)

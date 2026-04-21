@@ -38,36 +38,54 @@ Stack: **Next.js 14 (App Router) + TypeScript + Tailwind CSS + Prisma + PostgreS
 
 ```
 src/
-├── app/                    # Next.js App Router pages
+├── app/                    # Next.js App Router pages + API routes
 │   ├── (auth)/             # Auth group layout
 │   ├── (dashboard)/        # Main app group layout
-│   │   ├── page.tsx        # Dashboard home
-│   │   ├── requests/       # Purchase requests
-│   │   ├── vendors/        # Vendor management
-│   │   ├── approvals/      # Approval queue
-│   │   └── analytics/      # Reports & analytics
-│   ├── api/                # API routes
-│   │   ├── webhooks/       # n8n webhook endpoints
-│   │   └── trpc/           # tRPC handler
-│   └── layout.tsx          # Root layout
+│   └── api/                # API routes (webhook + REST)
 ├── components/
 │   ├── ui/                 # Primitive UI components (shadcn/ui)
-│   ├── forms/              # Form components
-│   ├── tables/             # Data table components
-│   ├── charts/             # Chart/visualization components
 │   └── layout/             # Shell, sidebar, header
+├── config/
+│   ├── modules.ts          # Module registry (pack, alwaysOn, deps)
+│   ├── packs.ts            # Commercial pack definitions
+│   └── runtime.ts          # ENABLED_MODULES env loader + cache
 ├── lib/
 │   ├── db.ts               # Prisma client singleton
 │   ├── auth.ts             # Auth helpers
-│   ├── utils.ts            # Shared utilities
-│   └── constants.ts        # App constants, enums
-├── server/
-│   ├── routers/            # tRPC routers
-│   └── services/           # Business logic services
+│   ├── module-guard.ts     # assertModuleEnabled() pack-level API guard
+│   └── modules/            # DB-level module guard (runtime toggle)
+├── modules/                # Modular monolith: one folder per business module
+│   ├── core/
+│   │   └── commesse/       # Example: services, components, validations, barrel
+│   └── defense/            # Defense-pack modules (roadmap)
+├── customers/              # Per-customer isolated customization
+│   ├── _shared/
+│   └── faleni/
+├── server/                 # Cross-module server code (services, agents)
 ├── hooks/                  # Custom React hooks
-├── types/                  # TypeScript type definitions
-└── styles/                 # Global styles
+└── types/                  # TypeScript type definitions
 ```
+
+### Modular Monolith
+
+ProcureFlow è organizzato come **modular monolith**. Ogni modulo business vive sotto `src/modules/<pack>/<name>/` con:
+
+- `server/` — services, tools, business logic
+- `components/` — UI components
+- `validations/` — Zod schemas
+- `index.ts` — barrel export (public API)
+- `README.md` — contratto del modulo
+
+Importa **sempre dal barrel** (`@/modules/<pack>/<name>`), mai da file interni.
+
+Ogni modulo è registrato in `src/config/modules.ts` con pack, dipendenze, flag `alwaysOn`. Può essere abilitato/disabilitato per deploy via `ENABLED_MODULES` env var.
+
+Due sistemi di gate coesistono (pack env-based + DB runtime), stratificati in `withApiHandler` e nelle route.
+
+**Riferimenti in `procureflow/docs/internal/`**:
+- `MODULE-SYSTEM.md` — developer guide (come aggiungere un modulo)
+- `ARCHITECTURE-OVERVIEW.md` — overview per owner/stakeholder
+- `MODULE-MIGRATION-GUIDE.md` — come migrare codice esistente in un modulo
 
 ### Naming Conventions
 

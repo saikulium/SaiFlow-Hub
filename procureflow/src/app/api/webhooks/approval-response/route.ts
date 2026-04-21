@@ -1,34 +1,28 @@
-import crypto from 'crypto'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { prisma } from '@/lib/db'
-import { successResponse, errorResponse } from '@/lib/api-response'
+import {
+  successResponse,
+  errorResponse,
+  validationErrorResponse,
+} from '@/lib/api-response'
+import { verifyWebhookAuth } from '@/lib/webhook-auth'
+import {
+  checkWebhookProcessed,
+  recordWebhookProcessed,
+} from '@/server/services/webhook-idempotency.service'
 
 // ---------------------------------------------------------------------------
-// HMAC Signature Verification
+// Validazione
 // ---------------------------------------------------------------------------
 
-function verifySignature(payload: string, signature: string): boolean {
-  const secret = process.env.WEBHOOK_SECRET
-  if (!secret) return false
-  const expected = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex')
-  if (signature.length !== expected.length) return false
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
-}
-
-// ---------------------------------------------------------------------------
-// Tipi
-// ---------------------------------------------------------------------------
-
-interface ApprovalPayload {
-  approval_id: string
-  action: 'APPROVED' | 'REJECTED'
-  comment?: string
-}
-
-const VALID_ACTIONS = new Set<string>(['APPROVED', 'REJECTED'])
+const approvalResponseSchema = z.object({
+  approval_id: z.string().min(1, 'approval_id obbligatorio'),
+  action: z.enum(['APPROVED', 'REJECTED'], {
+    error: 'action deve essere "APPROVED" o "REJECTED"',
+  }),
+  comment: z.string().optional(),
+})
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/approval-response
@@ -39,20 +33,40 @@ export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text()
 
-    // --- Validazione firma HMAC ---
-    const signature = req.headers.get('x-webhook-signature') ?? ''
-    if (!signature || !verifySignature(rawBody, signature)) {
-      return errorResponse(
-        'UNAUTHORIZED',
-        'Firma webhook non valida',
-        401,
+    // --- Autenticazione + Timestamp ---
+    const isAuthed = verifyWebhookAuth(
+      rawBody,
+      req.headers.get('x-webhook-signature'),
+      req.headers.get('authorization'),
+      process.env.WEBHOOK_SECRET,
+      req.headers.get('x-webhook-timestamp'),
+    )
+
+    if (!isAuthed) {
+      return errorResponse('UNAUTHORIZED', 'Firma webhook non valida', 401)
+    }
+
+    // --- Idempotency Key ---
+    const webhookId = req.headers.get('x-webhook-id')
+    if (webhookId) {
+      const existing = await checkWebhookProcessed(webhookId)
+      if (existing.processed && existing.response) {
+        console.log(
+          `[approval-response] Idempotency hit: webhook_id=${webhookId}`,
+        )
+        // Replay the exact stored response for idempotency
+        return NextResponse.json(existing.response)
+      }
+    } else {
+      console.warn(
+        '[approval-response] Webhook ricevuto senza x-webhook-id — idempotency disattivata',
       )
     }
 
     // --- Parsing e validazione body ---
-    let body: ApprovalPayload
+    let rawJson: unknown
     try {
-      body = JSON.parse(rawBody) as ApprovalPayload
+      rawJson = JSON.parse(rawBody)
     } catch {
       return errorResponse(
         'INVALID_PAYLOAD',
@@ -61,21 +75,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!body.approval_id || !body.action) {
-      return errorResponse(
-        'VALIDATION_ERROR',
-        'I campi approval_id e action sono obbligatori',
-        400,
-      )
+    const parsed = approvalResponseSchema.safeParse(rawJson)
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map((i) => ({
+        path: i.path.join('.'),
+        message: i.message,
+      }))
+      return validationErrorResponse(issues)
     }
 
-    if (!VALID_ACTIONS.has(body.action)) {
-      return errorResponse(
-        'VALIDATION_ERROR',
-        'Il campo action deve essere "APPROVED" o "REJECTED"',
-        400,
-      )
-    }
+    const body = parsed.data
 
     // --- Recupero approvazione ---
     const existing = await prisma.approval.findUnique({
@@ -84,11 +93,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (!existing) {
-      return errorResponse(
-        'NOT_FOUND',
-        'Approvazione non trovata',
-        404,
-      )
+      return errorResponse('NOT_FOUND', 'Approvazione non trovata', 404)
     }
 
     if (existing.status !== 'PENDING') {
@@ -147,6 +152,18 @@ export async function POST(req: NextRequest) {
         metadata: { approval_id: body.approval_id },
       },
     })
+
+    const responseData = { success: true, data: updatedApproval }
+
+    // Registra idempotency
+    if (webhookId) {
+      await recordWebhookProcessed(
+        webhookId,
+        'approval-response',
+        200,
+        responseData,
+      )
+    }
 
     return successResponse(updatedApproval)
   } catch (error) {

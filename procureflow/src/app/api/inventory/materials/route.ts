@@ -10,9 +10,9 @@ import { requireModule } from '@/lib/modules/require-module'
 import {
   materialQuerySchema,
   createMaterialSchema,
-} from '@/lib/validations/inventory'
-import { getNextMaterialCode } from '@/server/services/inventory-db.service'
-import { computeStockLevel } from '@/server/services/inventory.service'
+  getNextMaterialCode,
+  computeStockLevel,
+} from '@/modules/core/inventory'
 import type { MaterialListItem } from '@/types'
 
 export async function GET(req: NextRequest) {
@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
         where,
         include: {
           preferred_vendor: { select: { name: true } },
+          article: { select: { id: true, code: true, name: true } },
           lots: {
             where: { status: { in: ['AVAILABLE', 'RESERVED'] } },
             select: { current_quantity: true },
@@ -93,6 +94,9 @@ export async function GET(req: NextRequest) {
         stockStatus: stock.status,
         isActive: m.is_active,
         preferredVendor: m.preferred_vendor?.name ?? null,
+        article: m.article
+          ? { id: m.article.id, code: m.article.code, name: m.article.name }
+          : null,
       }
     })
 
@@ -145,6 +149,7 @@ export async function POST(req: NextRequest) {
         barcode: parsed.data.barcode ?? null,
         qr_code: parsed.data.qr_code ?? null,
         preferred_vendor_id: parsed.data.preferred_vendor_id ?? null,
+        article_id: parsed.data.article_id ?? null,
         tags: parsed.data.tags ?? [],
         notes: parsed.data.notes ?? null,
       },

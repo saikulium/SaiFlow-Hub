@@ -7,8 +7,10 @@ import {
   validationErrorResponse,
 } from '@/lib/api-response'
 import { requireModule } from '@/lib/modules/require-module'
-import { createReservationSchema } from '@/lib/validations/inventory'
-import { getStockLevels } from '@/server/services/inventory-db.service'
+import {
+  createReservationSchema,
+  getStockLevels,
+} from '@/modules/core/inventory'
 
 export async function POST(req: NextRequest) {
   const blocked = await requireModule('/api/inventory')

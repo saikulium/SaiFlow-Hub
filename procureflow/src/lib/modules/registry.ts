@@ -6,6 +6,10 @@ export type ModuleId =
   | 'analytics'
   | 'tenders'
   | 'inventory'
+  | 'chatbot'
+  | 'smartfill'
+  | 'commesse'
+  | 'articles'
 
 export interface ModuleDefinition {
   readonly id: ModuleId
@@ -104,10 +108,51 @@ export const MODULE_REGISTRY: ReadonlyMap<ModuleId, ModuleDefinition> = new Map(
         apiPrefixes: ['/api/inventory'],
       },
     ],
+    [
+      'chatbot',
+      {
+        id: 'chatbot',
+        label: 'Assistente AI',
+        description: 'Chatbot conversazionale per query rapide sui dati',
+        navPaths: [],
+        dashboardTabs: [],
+        apiPrefixes: ['/api/chat'],
+      },
+    ],
+    [
+      'smartfill',
+      {
+        id: 'smartfill',
+        label: 'Auto-compilazione AI',
+        description:
+          'Suggerimenti automatici per richieste basati su storico e AI',
+        navPaths: [],
+        dashboardTabs: [],
+        apiPrefixes: ['/api/requests/suggest'],
+      },
+    ],
+    [
+      'commesse',
+      {
+        id: 'commesse',
+        label: 'Commesse',
+        description:
+          'Gestione commesse cliente, tracciamento margine, suggerimenti AI',
+        navPaths: ['/commesse', '/clients'],
+        dashboardTabs: ['commesse'],
+        apiPrefixes: ['/api/commesse', '/api/clients'],
+      },
+    ],
+    [
+      'articles',
+      {
+        id: 'articles',
+        label: 'Anagrafica Articoli',
+        description: 'Codici interni, alias fornitori/clienti, cross-reference',
+        navPaths: ['/articles'],
+        dashboardTabs: [],
+        apiPrefixes: ['/api/articles'],
+      },
+    ],
   ],
-)
-
-/** All valid module IDs */
-export const ALL_MODULE_IDS: readonly ModuleId[] = Array.from(
-  MODULE_REGISTRY.keys(),
 )

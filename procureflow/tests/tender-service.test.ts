@@ -5,7 +5,7 @@ import {
   generateTenderCode,
   isTerminalStatus,
   isPipelineStatus,
-} from '@/server/services/tenders.service'
+} from '@/modules/core/tenders'
 import type { GoNoGoScoreInput } from '@/types'
 
 // ---------------------------------------------------------------------------
@@ -23,56 +23,66 @@ describe('validateStatusTransition', () => {
       ['WON', 'AWARDED'],
     ]
 
-    it.each(lifecycle)(
-      '%s -> %s is valid',
-      (from, to) => {
-        const result = validateStatusTransition(from, to)
-        expect(result).toEqual({ valid: true })
-      },
-    )
+    it.each(lifecycle)('%s -> %s is valid', (from, to) => {
+      const result = validateStatusTransition(from, to)
+      expect(result).toEqual({ valid: true })
+    })
   })
 
   describe('alternative valid paths', () => {
     it('EVALUATING -> NO_GO is valid', () => {
-      expect(validateStatusTransition('EVALUATING', 'NO_GO')).toEqual({ valid: true })
+      expect(validateStatusTransition('EVALUATING', 'NO_GO')).toEqual({
+        valid: true,
+      })
     })
 
     it('UNDER_EVALUATION -> LOST is valid', () => {
-      expect(validateStatusTransition('UNDER_EVALUATION', 'LOST')).toEqual({ valid: true })
+      expect(validateStatusTransition('UNDER_EVALUATION', 'LOST')).toEqual({
+        valid: true,
+      })
     })
   })
 
   describe('cancellation and withdrawal from active states', () => {
-    const cancellable = ['DISCOVERED', 'EVALUATING', 'GO', 'PREPARING', 'SUBMITTED', 'UNDER_EVALUATION', 'WON']
+    const cancellable = [
+      'DISCOVERED',
+      'EVALUATING',
+      'GO',
+      'PREPARING',
+      'SUBMITTED',
+      'UNDER_EVALUATION',
+      'WON',
+    ]
 
-    it.each(cancellable)(
-      '%s -> CANCELLED is valid',
-      (from) => {
-        expect(validateStatusTransition(from, 'CANCELLED')).toEqual({ valid: true })
-      },
-    )
+    it.each(cancellable)('%s -> CANCELLED is valid', (from) => {
+      expect(validateStatusTransition(from, 'CANCELLED')).toEqual({
+        valid: true,
+      })
+    })
 
-    const withdrawable = ['DISCOVERED', 'EVALUATING', 'GO', 'PREPARING', 'SUBMITTED']
+    const withdrawable = [
+      'DISCOVERED',
+      'EVALUATING',
+      'GO',
+      'PREPARING',
+      'SUBMITTED',
+    ]
 
-    it.each(withdrawable)(
-      '%s -> WITHDRAWN is valid',
-      (from) => {
-        expect(validateStatusTransition(from, 'WITHDRAWN')).toEqual({ valid: true })
-      },
-    )
+    it.each(withdrawable)('%s -> WITHDRAWN is valid', (from) => {
+      expect(validateStatusTransition(from, 'WITHDRAWN')).toEqual({
+        valid: true,
+      })
+    })
   })
 
   describe('terminal states have no valid transitions', () => {
     const terminals = ['NO_GO', 'LOST', 'AWARDED', 'CANCELLED', 'WITHDRAWN']
 
-    it.each(terminals)(
-      '%s has no outgoing transitions',
-      (status) => {
-        const result = validateStatusTransition(status, 'DISCOVERED')
-        expect(result.valid).toBe(false)
-        expect(result.reason).toBeDefined()
-      },
-    )
+    it.each(terminals)('%s has no outgoing transitions', (status) => {
+      const result = validateStatusTransition(status, 'DISCOVERED')
+      expect(result.valid).toBe(false)
+      expect(result.reason).toBeDefined()
+    })
   })
 
   describe('invalid transitions return reason with allowed targets', () => {
@@ -223,7 +233,15 @@ describe('isTerminalStatus', () => {
     expect(isTerminalStatus(status)).toBe(true)
   })
 
-  const nonTerminals = ['DISCOVERED', 'EVALUATING', 'GO', 'PREPARING', 'SUBMITTED', 'UNDER_EVALUATION', 'WON']
+  const nonTerminals = [
+    'DISCOVERED',
+    'EVALUATING',
+    'GO',
+    'PREPARING',
+    'SUBMITTED',
+    'UNDER_EVALUATION',
+    'WON',
+  ]
 
   it.each(nonTerminals)('%s is NOT terminal', (status) => {
     expect(isTerminalStatus(status)).toBe(false)
@@ -244,7 +262,16 @@ describe('isPipelineStatus', () => {
     expect(isPipelineStatus(status)).toBe(true)
   })
 
-  const nonPipeline = ['DISCOVERED', 'EVALUATING', 'NO_GO', 'WON', 'LOST', 'AWARDED', 'CANCELLED', 'WITHDRAWN']
+  const nonPipeline = [
+    'DISCOVERED',
+    'EVALUATING',
+    'NO_GO',
+    'WON',
+    'LOST',
+    'AWARDED',
+    'CANCELLED',
+    'WITHDRAWN',
+  ]
 
   it.each(nonPipeline)('%s is NOT a pipeline status', (status) => {
     expect(isPipelineStatus(status)).toBe(false)

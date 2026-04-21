@@ -1,6 +1,5 @@
 import { PageTransition } from '@/components/shared/page-transition'
-import { RequestDetailContent } from '@/components/requests/request-detail-content'
-
+import { RequestDetailContent } from '@/modules/core/requests'
 
 export default function RequestDetailPage({
   params,

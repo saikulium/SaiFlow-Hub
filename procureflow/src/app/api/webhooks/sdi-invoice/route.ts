@@ -1,46 +1,69 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { successResponse, errorResponse } from '@/lib/api-response'
 import { verifyWebhookAuth } from '@/lib/webhook-auth'
-import { sdiInvoiceWebhookSchema } from '@/lib/validations/sdi-invoice'
-import { SDI_CONFIG, MATCHING_THRESHOLDS } from '@/lib/constants/sdi'
+import {
+  sdiInvoiceWebhookSchema,
+  SDI_CONFIG,
+  MATCHING_THRESHOLDS,
+  matchInvoiceToOrder,
+  performThreeWayMatch,
+} from '@/modules/core/invoicing'
 import { prisma } from '@/lib/db'
 import {
   parseFatturaPA,
   FatturaParseError,
 } from '@/server/services/fatturapa-parser.service'
-import { matchInvoiceToOrder } from '@/server/services/invoice-matching.service'
-import { performThreeWayMatch } from '@/server/services/three-way-matching.service'
 import { canTransition } from '@/lib/state-machine'
 import {
   createNotification,
   createBulkNotifications,
   NOTIFICATION_TYPES,
-} from '@/server/services/notification.service'
+} from '@/modules/core/notifications'
+import {
+  checkWebhookProcessed,
+  recordWebhookProcessed,
+} from '@/server/services/webhook-idempotency.service'
 import type { RequestStatus } from '@prisma/client'
 
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/sdi-invoice
 //
 // Riceve fatture passive via SDI (tramite n8n o provider API).
-// Flusso: autenticazione → dedup → parsing XML → matching → three-way → notifiche
+// Flusso: autenticazione → timestamp → idempotency → dedup → parsing XML → matching → three-way → notifiche
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text()
 
-    // --- Autenticazione ---
+    // --- Autenticazione + Timestamp ---
     const secret = SDI_CONFIG.webhook_secret
     const isAuthed = verifyWebhookAuth(
       rawBody,
       req.headers.get('x-webhook-signature'),
       req.headers.get('authorization'),
       secret,
+      req.headers.get('x-webhook-timestamp'),
     )
 
     if (!isAuthed) {
       return errorResponse('UNAUTHORIZED', 'Firma webhook non valida', 401)
+    }
+
+    // --- Idempotency Key ---
+    const webhookId = req.headers.get('x-webhook-id')
+    if (webhookId) {
+      const existing = await checkWebhookProcessed(webhookId)
+      if (existing.processed && existing.response) {
+        console.log(`[sdi-invoice] Idempotency hit: webhook_id=${webhookId}`)
+        // Replay the exact stored response for idempotency
+        return NextResponse.json(existing.response)
+      }
+    } else {
+      console.warn(
+        '[sdi-invoice] Webhook ricevuto senza x-webhook-id — idempotency disattivata',
+      )
     }
 
     // --- Parsing JSON ---
@@ -58,7 +81,12 @@ export async function POST(req: NextRequest) {
         path: i.path.join('.'),
         message: i.message,
       }))
-      return errorResponse('VALIDATION_ERROR', 'Payload non valido', 400, issues)
+      return errorResponse(
+        'VALIDATION_ERROR',
+        'Payload non valido',
+        400,
+        issues,
+      )
     }
 
     const payload = parsed.data
@@ -66,7 +94,10 @@ export async function POST(req: NextRequest) {
     // --- Gestione eventi non-fattura ---
     if (payload.event_type !== 'invoice_received') {
       console.log(`[sdi-invoice] Evento non-fattura: ${payload.event_type}`)
-      return successResponse({ event_type: payload.event_type, processed: false })
+      return successResponse({
+        event_type: payload.event_type,
+        processed: false,
+      })
     }
 
     // --- Deduplicazione per sdi_id ---
@@ -76,7 +107,9 @@ export async function POST(req: NextRequest) {
         select: { id: true, invoice_number: true },
       })
       if (existing) {
-        console.log(`[sdi-invoice] Dedup: sdi_id ${payload.sdi_id} già processato`)
+        console.log(
+          `[sdi-invoice] Dedup: sdi_id ${payload.sdi_id} già processato`,
+        )
         return successResponse({
           invoice_id: existing.id,
           invoice_number: existing.invoice_number,
@@ -126,7 +159,8 @@ export async function POST(req: NextRequest) {
     const totalAmount = parsedXml?.total_amount ?? payload.total_amount ?? 0
     const causale = parsedXml?.causale ?? payload.causale
     const prCodeExtracted = parsedXml?.pr_code_extracted
-    const documentType = parsedXml?.document_type ?? payload.document_type ?? 'TD01'
+    const documentType =
+      parsedXml?.document_type ?? payload.document_type ?? 'TD01'
 
     // --- Risolvi vendor per P.IVA ---
     let vendorId: string | null = null
@@ -146,12 +180,15 @@ export async function POST(req: NextRequest) {
             name: supplierName,
             vat_id: supplierVatId,
             status: 'PENDING_REVIEW',
-            notes: 'Fornitore creato automaticamente da fattura SDI. Verificare.',
+            notes:
+              'Fornitore creato automaticamente da fattura SDI. Verificare.',
           },
           select: { id: true },
         })
         vendorId = created.id
-        console.log(`[sdi-invoice] Auto-created vendor: ${code} (${supplierName})`)
+        console.log(
+          `[sdi-invoice] Auto-created vendor: ${code} (${supplierName})`,
+        )
       }
     }
 
@@ -189,10 +226,10 @@ export async function POST(req: NextRequest) {
         supplier_name: supplierName,
         customer_vat_id: parsedXml?.customer.vat_id ?? '',
         causale: causale ?? null,
-        external_ref:
-          parsedXml?.order_references[0]?.id_documento ?? null,
+        external_ref: parsedXml?.order_references[0]?.id_documento ?? null,
         pr_code_extracted: prCodeExtracted ?? null,
-        payment_method: parsedXml?.payment?.method ?? payload.payment_method ?? null,
+        payment_method:
+          parsedXml?.payment?.method ?? payload.payment_method ?? null,
         payment_terms: parsedXml?.payment?.terms ?? null,
         iban: parsedXml?.payment?.iban ?? payload.payment_iban ?? null,
         due_date: parsedXml?.payment?.due_date
@@ -359,21 +396,31 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return successResponse({
-      invoice_id: invoice.id,
-      invoice_number: invoiceNumber,
-      match_status: matchResult.status,
-      match_confidence: matchResult.confidence,
-      matched_request_id: matchResult.matched_request_id ?? null,
-      reconciliation: reconciliationResult
-        ? {
-            status: reconciliationResult.status,
-            auto_approved: reconciliationResult.auto_approve,
-            discrepancy_percent: reconciliationResult.discrepancy_percentage,
-          }
-        : null,
-      deduplicated: false,
-    })
+    const responseData = {
+      success: true,
+      data: {
+        invoice_id: invoice.id,
+        invoice_number: invoiceNumber,
+        match_status: matchResult.status,
+        match_confidence: matchResult.confidence,
+        matched_request_id: matchResult.matched_request_id ?? null,
+        reconciliation: reconciliationResult
+          ? {
+              status: reconciliationResult.status,
+              auto_approved: reconciliationResult.auto_approve,
+              discrepancy_percent: reconciliationResult.discrepancy_percentage,
+            }
+          : null,
+        deduplicated: false,
+      },
+    }
+
+    // Registra idempotency
+    if (webhookId) {
+      await recordWebhookProcessed(webhookId, 'sdi-invoice', 200, responseData)
+    }
+
+    return successResponse(responseData.data)
   } catch (error) {
     console.error('POST /api/webhooks/sdi-invoice error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)

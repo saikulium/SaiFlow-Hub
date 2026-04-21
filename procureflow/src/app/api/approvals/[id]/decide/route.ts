@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
   successResponse,
@@ -6,14 +5,14 @@ import {
   notFoundResponse,
   validationErrorResponse,
 } from '@/lib/api-response'
-import { approvalDecisionSchema } from '@/lib/validations/approval'
-import { decideApproval } from '@/server/services/approval.service'
+import { approvalDecisionSchema, decideApproval } from '@/modules/core/requests'
+import { withApiHandler } from '@/lib/api-handler'
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  try {
+export const POST = withApiHandler(
+  { auth: true, errorMessage: 'Errore nella decisione' },
+  async ({ req, user, params }) => {
+    const approvalId = params.id as string
+
     const body = await req.json()
     const parsed = approvalDecisionSchema.safeParse(body)
 
@@ -22,11 +21,20 @@ export async function POST(
     }
 
     const existing = await prisma.approval.findUnique({
-      where: { id: params.id },
-      select: { id: true, status: true },
+      where: { id: approvalId },
+      select: { id: true, status: true, approver_id: true },
     })
 
     if (!existing) return notFoundResponse('Approvazione non trovata')
+
+    // Verify the caller is the assigned approver (or ADMIN)
+    if (existing.approver_id !== user.id && user.role !== 'ADMIN') {
+      return errorResponse(
+        'FORBIDDEN',
+        'Non hai il permesso di decidere su questa approvazione',
+        403,
+      )
+    }
 
     if (existing.status !== 'PENDING') {
       return errorResponse(
@@ -37,14 +45,11 @@ export async function POST(
     }
 
     const result = await decideApproval(
-      params.id,
+      approvalId,
       parsed.data.action,
       parsed.data.notes,
     )
 
     return successResponse(result)
-  } catch (error) {
-    console.error('POST /api/approvals/[id]/decide error:', error)
-    return errorResponse('INTERNAL_ERROR', 'Errore nella decisione', 500)
-  }
-}
+  },
+)

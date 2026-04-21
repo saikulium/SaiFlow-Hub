@@ -1,0 +1,73 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: procureflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-procureflow_dev}
+      POSTGRES_DB: procureflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U procureflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://procureflow:${POSTGRES_PASSWORD:-procureflow_dev}@db:5432/procureflow
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET in .env}
+      N8N_WEBHOOK_BASE_URL: ${N8N_WEBHOOK_BASE_URL:-http://n8n:5678/webhook}
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-change-me}
+      WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-change-me}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      SEED_ON_STARTUP: ${SEED_ON_STARTUP:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        npx prisma migrate deploy
+        if [ "$$SEED_ON_STARTUP" = "true" ]; then
+          npx prisma db seed || echo "Seed failed or already applied"
+        fi
+        node server.js
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-change-me}
+      WEBHOOK_URL: ${N8N_EXTERNAL_URL:-http://localhost:5678}
+      PROCUREFLOW_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-change-me}
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: db
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: procureflow
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-procureflow_dev}
+    volumes:
+      - n8ndata:/home/node/.n8n
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  n8ndata:

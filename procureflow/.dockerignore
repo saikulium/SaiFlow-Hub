@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.env
+.env.local
+.env.production
+.superpowers
+.worktrees
+docs/clienti
+*.md
+!README.md
+tests

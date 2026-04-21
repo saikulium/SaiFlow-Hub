@@ -9,7 +9,7 @@ import {
   computeExhaustionDate,
   resolveMostRestrictive,
   buildCheckResult,
-} from '@/server/services/budget.service'
+} from '@/modules/core/budgets'
 import type { BudgetCapacity } from '@/types'
 
 describe('Budget capacity computation', () => {
@@ -78,20 +78,38 @@ describe('Budget capacity computation', () => {
     it('returns the budget with least available', () => {
       const budgets: BudgetCapacity[] = [
         {
-          budgetId: 'a', costCenter: 'CC-IT', department: null,
-          periodType: 'MONTHLY', periodStart: '', periodEnd: '',
-          allocated: 10000, spent: 3000, committed: 2000,
-          available: 5000, usagePercent: 50,
-          alertThreshold: 80, enforcementMode: 'SOFT',
-          isOverBudget: false, isWarning: false,
+          budgetId: 'a',
+          costCenter: 'CC-IT',
+          department: null,
+          periodType: 'MONTHLY',
+          periodStart: '',
+          periodEnd: '',
+          allocated: 10000,
+          spent: 3000,
+          committed: 2000,
+          available: 5000,
+          usagePercent: 50,
+          alertThreshold: 80,
+          enforcementMode: 'SOFT',
+          isOverBudget: false,
+          isWarning: false,
         },
         {
-          budgetId: 'b', costCenter: 'CC-IT', department: null,
-          periodType: 'QUARTERLY', periodStart: '', periodEnd: '',
-          allocated: 20000, spent: 15000, committed: 4000,
-          available: 1000, usagePercent: 95,
-          alertThreshold: 80, enforcementMode: 'HARD',
-          isOverBudget: false, isWarning: true,
+          budgetId: 'b',
+          costCenter: 'CC-IT',
+          department: null,
+          periodType: 'QUARTERLY',
+          periodStart: '',
+          periodEnd: '',
+          allocated: 20000,
+          spent: 15000,
+          committed: 4000,
+          available: 1000,
+          usagePercent: 95,
+          alertThreshold: 80,
+          enforcementMode: 'HARD',
+          isOverBudget: false,
+          isWarning: true,
         },
       ]
       const result = resolveMostRestrictive(budgets)
@@ -111,42 +129,75 @@ describe('Budget capacity computation', () => {
     })
 
     it('allows SOFT mode even when over budget', () => {
-      const budgets: BudgetCapacity[] = [{
-        budgetId: 'a', costCenter: 'CC-IT', department: null,
-        periodType: 'MONTHLY', periodStart: '', periodEnd: '',
-        allocated: 10000, spent: 8000, committed: 3000,
-        available: -1000, usagePercent: 110,
-        alertThreshold: 80, enforcementMode: 'SOFT',
-        isOverBudget: true, isWarning: true,
-      }]
+      const budgets: BudgetCapacity[] = [
+        {
+          budgetId: 'a',
+          costCenter: 'CC-IT',
+          department: null,
+          periodType: 'MONTHLY',
+          periodStart: '',
+          periodEnd: '',
+          allocated: 10000,
+          spent: 8000,
+          committed: 3000,
+          available: -1000,
+          usagePercent: 110,
+          alertThreshold: 80,
+          enforcementMode: 'SOFT',
+          isOverBudget: true,
+          isWarning: true,
+        },
+      ]
       const result = buildCheckResult(budgets, 1000)
       expect(result.allowed).toBe(true)
       expect(result.mode).toBe('SOFT')
     })
 
     it('blocks HARD mode when over budget', () => {
-      const budgets: BudgetCapacity[] = [{
-        budgetId: 'a', costCenter: 'CC-IT', department: null,
-        periodType: 'MONTHLY', periodStart: '', periodEnd: '',
-        allocated: 10000, spent: 8000, committed: 3000,
-        available: -1000, usagePercent: 110,
-        alertThreshold: 80, enforcementMode: 'HARD',
-        isOverBudget: true, isWarning: true,
-      }]
+      const budgets: BudgetCapacity[] = [
+        {
+          budgetId: 'a',
+          costCenter: 'CC-IT',
+          department: null,
+          periodType: 'MONTHLY',
+          periodStart: '',
+          periodEnd: '',
+          allocated: 10000,
+          spent: 8000,
+          committed: 3000,
+          available: -1000,
+          usagePercent: 110,
+          alertThreshold: 80,
+          enforcementMode: 'HARD',
+          isOverBudget: true,
+          isWarning: true,
+        },
+      ]
       const result = buildCheckResult(budgets, 1000)
       expect(result.allowed).toBe(false)
       expect(result.mode).toBe('HARD')
     })
 
     it('allows within budget with no warning', () => {
-      const budgets: BudgetCapacity[] = [{
-        budgetId: 'a', costCenter: 'CC-IT', department: null,
-        periodType: 'MONTHLY', periodStart: '', periodEnd: '',
-        allocated: 10000, spent: 3000, committed: 2000,
-        available: 5000, usagePercent: 50,
-        alertThreshold: 80, enforcementMode: 'SOFT',
-        isOverBudget: false, isWarning: false,
-      }]
+      const budgets: BudgetCapacity[] = [
+        {
+          budgetId: 'a',
+          costCenter: 'CC-IT',
+          department: null,
+          periodType: 'MONTHLY',
+          periodStart: '',
+          periodEnd: '',
+          allocated: 10000,
+          spent: 3000,
+          committed: 2000,
+          available: 5000,
+          usagePercent: 50,
+          alertThreshold: 80,
+          enforcementMode: 'SOFT',
+          isOverBudget: false,
+          isWarning: false,
+        },
+      ]
       const result = buildCheckResult(budgets, 1000)
       expect(result.allowed).toBe(true)
       expect(result.message).toContain('disponibile')
