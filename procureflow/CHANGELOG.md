@@ -38,6 +38,36 @@
     workflow n8n richiede aggiornamento operatore (documentato in
     `docs/internal/n8n-workflow-update-required.md`). (`feat/core-order-lifecycle`)
 
+- **Core Order Lifecycle — line-level extensions** (stesso branch
+  `feat/core-order-lifecycle`): 4 estensioni additive per scenari reali di
+  conferma fornitore con righe eterogenee.
+  - Enum `LineDeliveryStatus` (`CONFIRMED | PARTIAL | BACKORDERED | UNAVAILABLE | SHIPPED | DELIVERED | CANCELLED`)
+    applicato sia a `OrderConfirmationLine` sia a `RequestItem`.
+  - Nuovo modello `RequestItemShipment` (N:1 con `RequestItem`) per split
+    shipment: tracking_number, carrier, shipped_quantity, actual_ship_date,
+    expected_delivery_date, actual_delivery_date, status
+    (`PENDING | SHIPPED | DELIVERED | RETURNED | LOST | CANCELLED`). Cap con
+    tolleranza `DEFAULT_SHIPMENT_QUANTITY_TOLERANCE`.
+  - Service `rejectLines({confirmationId, userId, rejectedLineIds, reason, newRequestItemStatus})`:
+    rifiuto granulare per righe con propagazione di `UNAVAILABLE`/`CANCELLED`
+    sul `RequestItem` collegato. Transazione unica. TimelineEvent +
+    AuditLog + fail-soft notification.
+  - Stato nuovo `PARTIALLY_APPLIED` su `OrderConfirmation` (terminale)
+    quando un reject-lines avviene dopo che alcune righe erano già applicate.
+  - Service `createShipment` / `updateShipmentStatus` / `recomputeRequestItemDeliveryStatus`
+    con auto-stamp di `actual_ship_date` / `actual_delivery_date` nelle
+    transizioni stato.
+  - API: `POST /api/confirmations/[id]/reject-lines`,
+    `GET/POST /api/requests/[id]/shipments`, `PATCH /api/shipments/[id]`
+    (tutte ADMIN/MANAGER per le mutazioni).
+  - Hooks: `useRejectOrderConfirmationLines`, `useShipments`,
+    `useCreateShipment`, `useUpdateShipmentStatus`.
+  - UI: `OrderConfirmationReview` estesa con modalità "Rifiuta selezionate"
+    (dropdown `UNAVAILABLE | CANCELLED` + motivo) e badge
+    `PARTIALLY_APPLIED`. Nuovo tab "Spedizioni" (`SpedizioniTab`) nel detail
+    page con spedizioni raggruppate per `RequestItem`, inline status
+    transitions e `ShipmentForm` inline per la creazione.
+
 - Modulo **audit-log**: audit trail immutabile con Prisma extension + trigger
   Postgres. Registra automaticamente CREATE/UPDATE/DELETE su 17 modelli
   compliance-critical (User, PurchaseRequest, Invoice, Vendor, Commessa, ecc.).
