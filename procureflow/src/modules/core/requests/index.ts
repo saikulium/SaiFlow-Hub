@@ -105,13 +105,30 @@ export {
   useOrderConfirmations,
   useApplyOrderConfirmation,
   useRejectOrderConfirmation,
+  useRejectOrderConfirmationLines,
 } from './hooks/use-order-confirmations'
 export type {
   OrderConfirmation,
   OrderConfirmationLine,
   OrderConfirmationStatus,
   OrderConfirmationSource,
+  LineDeliveryStatus,
+  RejectedRequestItemStatus,
 } from './hooks/use-order-confirmations'
+
+// Hooks — shipments
+export {
+  useShipments,
+  useCreateShipment,
+  useUpdateShipmentStatus,
+} from './hooks/use-shipments'
+export type {
+  Shipment,
+  ShipmentStatus,
+  ShipmentSource,
+  CreateShipmentInput as CreateShipmentClientInput,
+  UpdateShipmentStatusInput as UpdateShipmentStatusClientInput,
+} from './hooks/use-shipments'
 
 // Notification hooks moved to @/modules/core/notifications.
 
@@ -140,12 +157,16 @@ export { AttachmentUpload } from './components/attachment-upload'
 export { AttachmentPreview } from './components/attachment-preview'
 export { CommentForm } from './components/comment-form'
 
+// Components — shipments
+export { ShipmentForm } from './components/shipment-form'
+
 // Components — tabs
 export { DettagliTab } from './components/tabs/dettagli-tab'
 export { TimelineTab } from './components/tabs/timeline-tab'
 export { ApprovazioniTab } from './components/tabs/approvazioni-tab'
 export { AllegatiTab } from './components/tabs/allegati-tab'
 export { CommentiTab } from './components/tabs/commenti-tab'
+export { SpedizioniTab } from './components/tabs/spedizioni-tab'
 
 // Validations — requests
 export {

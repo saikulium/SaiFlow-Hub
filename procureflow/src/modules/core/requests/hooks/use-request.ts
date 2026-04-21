@@ -14,6 +14,15 @@ export interface RequestItem {
   unit_price: number | null
   total_price: number | null
   sku: string | null
+  delivery_status?:
+    | 'CONFIRMED'
+    | 'PARTIAL'
+    | 'BACKORDERED'
+    | 'UNAVAILABLE'
+    | 'SHIPPED'
+    | 'DELIVERED'
+    | 'CANCELLED'
+    | null
 }
 
 export interface RequestApproval {

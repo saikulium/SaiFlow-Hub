@@ -28,9 +28,11 @@ import {
   useOrderConfirmations,
   useApplyOrderConfirmation,
   useRejectOrderConfirmation,
+  useRejectOrderConfirmationLines,
   type OrderConfirmation,
   type OrderConfirmationLine,
   type OrderConfirmationStatus,
+  type RejectedRequestItemStatus,
 } from '../hooks/use-order-confirmations'
 
 // --- Props -------------------------------------------------------------------
@@ -39,7 +41,19 @@ interface OrderConfirmationReviewProps {
   readonly requestId: string
 }
 
-const ACTIVE_STATES: ReadonlySet<OrderConfirmationStatus> =
+// "Open" = ancora possibile agire (apply/reject lines) — PARTIALLY_APPLIED
+// include perché alcune righe pendenti restano actionable.
+const OPEN_STATES: ReadonlySet<OrderConfirmationStatus> =
+  new Set<OrderConfirmationStatus>([
+    'RECEIVED',
+    'PARSED',
+    'ACKNOWLEDGED',
+    'PARTIALLY_APPLIED',
+  ])
+
+// "Initial" = reject globale ammesso solo qui; su PARTIALLY_APPLIED
+// l'utente deve usare reject-lines per non toccare le righe già applied.
+const INITIAL_STATES: ReadonlySet<OrderConfirmationStatus> =
   new Set<OrderConfirmationStatus>(['RECEIVED', 'PARSED', 'ACKNOWLEDGED'])
 
 // --- Helpers -----------------------------------------------------------------
@@ -74,6 +88,8 @@ function statusLabel(status: OrderConfirmationStatus): string {
       return 'Analizzata'
     case 'ACKNOWLEDGED':
       return 'Presa in carico'
+    case 'PARTIALLY_APPLIED':
+      return 'Parzialmente applicata'
     case 'APPLIED':
       return 'Applicata'
     case 'REJECTED':
@@ -86,6 +102,7 @@ function StatusBadge({ status }: { readonly status: OrderConfirmationStatus }) {
     RECEIVED: 'border-blue-500/30 bg-blue-500/10 text-blue-300',
     PARSED: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
     ACKNOWLEDGED: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-300',
+    PARTIALLY_APPLIED: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300',
     APPLIED: 'border-green-500/30 bg-green-500/10 text-green-300',
     REJECTED: 'border-red-500/30 bg-red-500/10 text-red-300',
   }
@@ -93,6 +110,7 @@ function StatusBadge({ status }: { readonly status: OrderConfirmationStatus }) {
     RECEIVED: Clock,
     PARSED: FileCheck,
     ACKNOWLEDGED: FileCheck,
+    PARTIALLY_APPLIED: FileCheck,
     APPLIED: CheckCircle2,
     REJECTED: Ban,
   }
@@ -235,8 +253,11 @@ interface ConfirmationCardProps {
   readonly requestId: string
 }
 
+type CardMode = 'view' | 'reject-global' | 'reject-lines'
+
 function ConfirmationCard({ confirmation, requestId }: ConfirmationCardProps) {
-  const isActive = ACTIVE_STATES.has(confirmation.status)
+  const isOpen = OPEN_STATES.has(confirmation.status)
+  const canRejectGlobally = INITIAL_STATES.has(confirmation.status)
 
   const selectableLineIds = useMemo(
     () =>
@@ -247,15 +268,21 @@ function ConfirmationCard({ confirmation, requestId }: ConfirmationCardProps) {
   )
 
   const [selected, setSelected] = useState<ReadonlySet<string>>(
-    () => new Set(isActive ? selectableLineIds : []),
+    () => new Set(isOpen ? selectableLineIds : []),
   )
-  const [rejectMode, setRejectMode] = useState(false)
+  const [mode, setMode] = useState<CardMode>('view')
   const [rejectReason, setRejectReason] = useState('')
+  const [rejectStatus, setRejectStatus] =
+    useState<RejectedRequestItemStatus>('UNAVAILABLE')
   const [error, setError] = useState<string | null>(null)
 
   const applyMutation = useApplyOrderConfirmation(requestId)
   const rejectMutation = useRejectOrderConfirmation(requestId)
-  const busy = applyMutation.isPending || rejectMutation.isPending
+  const rejectLinesMutation = useRejectOrderConfirmationLines(requestId)
+  const busy =
+    applyMutation.isPending ||
+    rejectMutation.isPending ||
+    rejectLinesMutation.isPending
 
   function toggleLine(id: string) {
     setSelected((prev) => {
@@ -290,7 +317,7 @@ function ConfirmationCard({ confirmation, requestId }: ConfirmationCardProps) {
     }
   }
 
-  async function handleReject() {
+  async function handleRejectGlobal() {
     setError(null)
     const reason = rejectReason.trim()
     if (reason.length === 0) {
@@ -302,11 +329,43 @@ function ConfirmationCard({ confirmation, requestId }: ConfirmationCardProps) {
         confirmationId: confirmation.id,
         reason,
       })
-      setRejectMode(false)
+      setMode('view')
       setRejectReason('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Errore sconosciuto')
     }
+  }
+
+  async function handleRejectLines() {
+    setError(null)
+    const reason = rejectReason.trim()
+    if (reason.length === 0) {
+      setError('Motivazione obbligatoria')
+      return
+    }
+    if (selected.size === 0) {
+      setError('Seleziona almeno una riga da rifiutare')
+      return
+    }
+    try {
+      await rejectLinesMutation.mutateAsync({
+        confirmationId: confirmation.id,
+        rejectedLineIds: Array.from(selected),
+        reason,
+        newRequestItemStatus: rejectStatus,
+      })
+      setMode('view')
+      setRejectReason('')
+      setSelected(new Set())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Errore sconosciuto')
+    }
+  }
+
+  function exitRejectMode() {
+    setMode('view')
+    setRejectReason('')
+    setError(null)
   }
 
   const header = confirmation.vendor_reference ?? confirmation.subject ?? '—'
@@ -346,7 +405,7 @@ function ConfirmationCard({ confirmation, requestId }: ConfirmationCardProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-pf-border text-left text-xs uppercase tracking-wider text-pf-text-secondary">
-              {isActive && (
+              {isOpen && (
                 <th className="pb-2 pr-2">
                   <input
                     type="checkbox"
@@ -372,7 +431,7 @@ function ConfirmationCard({ confirmation, requestId }: ConfirmationCardProps) {
               <LineRow
                 key={line.id}
                 line={line}
-                selectable={isActive}
+                selectable={isOpen}
                 selected={selected.has(line.id)}
                 onToggle={toggleLine}
               />
@@ -384,8 +443,8 @@ function ConfirmationCard({ confirmation, requestId }: ConfirmationCardProps) {
       {/* Error */}
       {error && <p className="text-xs text-red-400">{error}</p>}
 
-      {/* Actions */}
-      {isActive && !rejectMode && (
+      {/* Actions — view mode */}
+      {isOpen && mode === 'view' && (
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <button
             type="button"
@@ -402,23 +461,41 @@ function ConfirmationCard({ confirmation, requestId }: ConfirmationCardProps) {
           </button>
           <button
             type="button"
-            onClick={() => setRejectMode(true)}
-            disabled={busy}
-            className="bg-pf-bg-elevated inline-flex h-9 items-center gap-1.5 rounded-button border border-pf-border px-3 text-sm font-medium text-pf-text-primary transition-colors hover:bg-pf-bg-tertiary disabled:opacity-50"
+            onClick={() => {
+              setMode('reject-lines')
+              setError(null)
+            }}
+            disabled={busy || selected.size === 0}
+            className="inline-flex h-9 items-center gap-1.5 rounded-button border border-red-500/40 bg-red-500/10 px-3 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <XCircle className="h-4 w-4" />
-            Rifiuta conferma
+            Rifiuta selezionate ({selected.size})
           </button>
+          {canRejectGlobally && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode('reject-global')
+                setError(null)
+              }}
+              disabled={busy}
+              className="bg-pf-bg-elevated inline-flex h-9 items-center gap-1.5 rounded-button border border-pf-border px-3 text-sm font-medium text-pf-text-primary transition-colors hover:bg-pf-bg-tertiary disabled:opacity-50"
+            >
+              <Ban className="h-4 w-4" />
+              Rifiuta tutta la conferma
+            </button>
+          )}
         </div>
       )}
 
-      {isActive && rejectMode && (
+      {/* Reject global mode */}
+      {isOpen && mode === 'reject-global' && (
         <div className="space-y-2 rounded-card border border-red-500/30 bg-red-500/5 p-3">
           <label
             htmlFor={`reject-${confirmation.id}`}
             className="text-xs font-medium text-pf-text-secondary"
           >
-            Motivazione del rifiuto
+            Motivazione del rifiuto globale
           </label>
           <textarea
             id={`reject-${confirmation.id}`}
@@ -432,7 +509,7 @@ function ConfirmationCard({ confirmation, requestId }: ConfirmationCardProps) {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleReject}
+              onClick={handleRejectGlobal}
               disabled={busy || rejectReason.trim().length === 0}
               className="inline-flex h-8 items-center gap-1.5 rounded-button bg-red-600 px-3 text-xs font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50"
             >
@@ -441,15 +518,92 @@ function ConfirmationCard({ confirmation, requestId }: ConfirmationCardProps) {
               ) : (
                 <XCircle className="h-3.5 w-3.5" />
               )}
-              Conferma rifiuto
+              Conferma rifiuto globale
             </button>
             <button
               type="button"
-              onClick={() => {
-                setRejectMode(false)
-                setRejectReason('')
-                setError(null)
-              }}
+              onClick={exitRejectMode}
+              disabled={busy}
+              className="inline-flex h-8 items-center rounded-button border border-pf-border px-3 text-xs font-medium text-pf-text-secondary hover:bg-pf-bg-tertiary disabled:opacity-50"
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Reject lines mode */}
+      {isOpen && mode === 'reject-lines' && (
+        <div className="space-y-3 rounded-card border border-red-500/30 bg-red-500/5 p-3">
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-pf-text-secondary">
+              Rifiuto di {selected.size}{' '}
+              {selected.size === 1 ? 'riga' : 'righe'} della conferma. Lo stato
+              degli articoli collegati sarà aggiornato.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <label
+              htmlFor={`reject-lines-status-${confirmation.id}`}
+              className="text-xs font-medium text-pf-text-secondary"
+            >
+              Nuovo stato articoli
+            </label>
+            <select
+              id={`reject-lines-status-${confirmation.id}`}
+              value={rejectStatus}
+              onChange={(e) =>
+                setRejectStatus(e.target.value as RejectedRequestItemStatus)
+              }
+              className="h-8 rounded-button border border-pf-border bg-pf-bg-tertiary px-2 text-xs text-pf-text-primary outline-none focus:border-pf-accent"
+            >
+              <option value="UNAVAILABLE">
+                UNAVAILABLE — fornitore non può fornire
+              </option>
+              <option value="CANCELLED">
+                CANCELLED — annullato dall&apos;utente/fornitore
+              </option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label
+              htmlFor={`reject-lines-reason-${confirmation.id}`}
+              className="text-xs font-medium text-pf-text-secondary"
+            >
+              Motivazione
+            </label>
+            <textarea
+              id={`reject-lines-reason-${confirmation.id}`}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={2}
+              maxLength={2000}
+              className="w-full resize-none rounded-button border border-pf-border bg-pf-bg-tertiary px-3 py-2 text-sm text-pf-text-primary outline-none focus:border-pf-accent"
+              placeholder="Es: articolo fuori produzione, rottura di stock..."
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRejectLines}
+              disabled={
+                busy || rejectReason.trim().length === 0 || selected.size === 0
+              }
+              className="inline-flex h-8 items-center gap-1.5 rounded-button bg-red-600 px-3 text-xs font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50"
+            >
+              {rejectLinesMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <XCircle className="h-3.5 w-3.5" />
+              )}
+              Conferma rifiuto ({selected.size})
+            </button>
+            <button
+              type="button"
+              onClick={exitRejectMode}
               disabled={busy}
               className="inline-flex h-8 items-center rounded-button border border-pf-border px-3 text-xs font-medium text-pf-text-secondary hover:bg-pf-bg-tertiary disabled:opacity-50"
             >

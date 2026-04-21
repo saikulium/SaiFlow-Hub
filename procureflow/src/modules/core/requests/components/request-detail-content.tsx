@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 import {
   ArrowLeft,
   Edit,
@@ -12,6 +13,7 @@ import {
   MessageSquare,
   Loader2,
   Send,
+  Truck,
 } from 'lucide-react'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { PriorityBadge } from '@/components/shared/priority-badge'
@@ -24,13 +26,20 @@ import { TimelineTab } from './tabs/timeline-tab'
 import { ApprovazioniTab } from './tabs/approvazioni-tab'
 import { AllegatiTab } from './tabs/allegati-tab'
 import { CommentiTab } from './tabs/commenti-tab'
+import { SpedizioniTab } from './tabs/spedizioni-tab'
 import { PriceVarianceBanner } from './price-variance-banner'
 import { OrderConfirmationReview } from './order-confirmation-review'
 import { useOrderConfirmations } from '../hooks/use-order-confirmations'
 
 // --- Types ---
 
-type TabKey = 'dettagli' | 'timeline' | 'approvazioni' | 'allegati' | 'commenti'
+type TabKey =
+  | 'dettagli'
+  | 'timeline'
+  | 'approvazioni'
+  | 'spedizioni'
+  | 'allegati'
+  | 'commenti'
 
 interface TabDef {
   readonly key: TabKey
@@ -42,6 +51,7 @@ const TABS: readonly TabDef[] = [
   { key: 'dettagli', label: 'Dettagli', icon: FileText },
   { key: 'timeline', label: 'Timeline', icon: Clock },
   { key: 'approvazioni', label: 'Approvazioni', icon: CheckCircle2 },
+  { key: 'spedizioni', label: 'Spedizioni', icon: Truck },
   { key: 'allegati', label: 'Allegati', icon: Paperclip },
   { key: 'commenti', label: 'Commenti', icon: MessageSquare },
 ] as const
@@ -133,6 +143,9 @@ function SubmitButton({ requestId }: { requestId: string }) {
 export function RequestDetailContent({ requestId }: RequestDetailContentProps) {
   const { data, isLoading, error } = useRequest(requestId)
   const { data: confirmations } = useOrderConfirmations(requestId)
+  const { data: session } = useSession()
+  const role = session?.user?.role
+  const canManage = role === 'ADMIN' || role === 'MANAGER'
   const [activeTab, setActiveTab] = useState<TabKey>('dettagli')
   const [editOpen, setEditOpen] = useState(false)
 
@@ -267,6 +280,13 @@ export function RequestDetailContent({ requestId }: RequestDetailContentProps) {
         {activeTab === 'timeline' && <TimelineTab events={request.timeline} />}
         {activeTab === 'approvazioni' && (
           <ApprovazioniTab approvals={request.approvals} />
+        )}
+        {activeTab === 'spedizioni' && (
+          <SpedizioniTab
+            requestId={requestId}
+            items={request.items}
+            canManage={canManage}
+          />
         )}
         {activeTab === 'allegati' && <AllegatiTab requestId={requestId} />}
         {activeTab === 'commenti' && <CommentiTab requestId={requestId} />}

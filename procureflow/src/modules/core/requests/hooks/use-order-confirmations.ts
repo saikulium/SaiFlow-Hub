@@ -11,10 +11,25 @@ export type OrderConfirmationStatus =
   | 'RECEIVED'
   | 'PARSED'
   | 'ACKNOWLEDGED'
+  | 'PARTIALLY_APPLIED'
   | 'APPLIED'
   | 'REJECTED'
 
 export type OrderConfirmationSource = 'EMAIL' | 'WEBHOOK' | 'MANUAL' | 'IMPORT'
+
+export type LineDeliveryStatus =
+  | 'CONFIRMED'
+  | 'PARTIAL'
+  | 'BACKORDERED'
+  | 'UNAVAILABLE'
+  | 'SHIPPED'
+  | 'DELIVERED'
+  | 'CANCELLED'
+
+export type RejectedRequestItemStatus = Extract<
+  LineDeliveryStatus,
+  'UNAVAILABLE' | 'CANCELLED'
+>
 
 export interface OrderConfirmationLine {
   readonly id: string
@@ -39,8 +54,12 @@ export interface OrderConfirmationLine {
 
   readonly applied: boolean
   readonly applied_at: string | null
+  readonly applied_by: string | null
   readonly rejected: boolean
   readonly rejected_at: string | null
+  readonly rejected_by: string | null
+  readonly rejected_reason: string | null
+  readonly delivery_status: LineDeliveryStatus
   readonly notes: string | null
 
   readonly created_at: string
@@ -75,7 +94,7 @@ async function fetchConfirmations(
 ): Promise<readonly OrderConfirmation[]> {
   const res = await fetch(`/api/requests/${requestId}/confirmations`)
   if (!res.ok) {
-    throw new Error('Errore nel caricamento delle conferme d\'ordine')
+    throw new Error("Errore nel caricamento delle conferme d'ordine")
   }
   const json = (await res.json()) as ApiResponse<readonly OrderConfirmation[]>
   if (!json.success || !json.data) {
@@ -101,12 +120,12 @@ async function applyConfirmationRequest(
       notes: input.notes,
     }),
   })
-  const json = (await res.json().catch(() => null)) as
-    | ApiResponse<OrderConfirmation>
-    | null
+  const json = (await res
+    .json()
+    .catch(() => null)) as ApiResponse<OrderConfirmation> | null
   if (!res.ok || !json?.success || !json.data) {
     throw new Error(
-      json?.error?.message ?? 'Errore nell\'applicazione della conferma',
+      json?.error?.message ?? "Errore nell'applicazione della conferma",
     )
   }
   return json.data
@@ -125,12 +144,43 @@ async function rejectConfirmationRequest(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason: input.reason }),
   })
-  const json = (await res.json().catch(() => null)) as
-    | ApiResponse<OrderConfirmation>
-    | null
+  const json = (await res
+    .json()
+    .catch(() => null)) as ApiResponse<OrderConfirmation> | null
+  if (!res.ok || !json?.success || !json.data) {
+    throw new Error(json?.error?.message ?? 'Errore nel rifiuto della conferma')
+  }
+  return json.data
+}
+
+interface RejectLinesInput {
+  readonly confirmationId: string
+  readonly rejectedLineIds: readonly string[]
+  readonly reason: string
+  readonly newRequestItemStatus: RejectedRequestItemStatus
+}
+
+async function rejectLinesRequest(
+  input: RejectLinesInput,
+): Promise<OrderConfirmation> {
+  const res = await fetch(
+    `/api/confirmations/${input.confirmationId}/reject-lines`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rejected_line_ids: input.rejectedLineIds,
+        reason: input.reason,
+        new_request_item_status: input.newRequestItemStatus,
+      }),
+    },
+  )
+  const json = (await res
+    .json()
+    .catch(() => null)) as ApiResponse<OrderConfirmation> | null
   if (!res.ok || !json?.success || !json.data) {
     throw new Error(
-      json?.error?.message ?? 'Errore nel rifiuto della conferma',
+      json?.error?.message ?? 'Errore nel rifiuto delle righe della conferma',
     )
   }
   return json.data
@@ -166,6 +216,22 @@ export function useRejectOrderConfirmation(requestId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ['order-confirmations', requestId],
+      })
+      queryClient.invalidateQueries({ queryKey: ['request', requestId] })
+    },
+  })
+}
+
+export function useRejectOrderConfirmationLines(requestId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: rejectLinesRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['order-confirmations', requestId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['shipments', requestId],
       })
       queryClient.invalidateQueries({ queryKey: ['request', requestId] })
     },
