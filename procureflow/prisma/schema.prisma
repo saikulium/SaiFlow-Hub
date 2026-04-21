@@ -389,8 +389,14 @@ model RequestItem {
   confirmed_delivery DateTime?
   actual_delivery    DateTime?
 
-  confirmation_lines OrderConfirmationLine[]
+  /// Stato derivato — aggiornato da recomputeRequestItemDeliveryStatus() in
+  /// response a cambi di shipment o apply/reject confirmation.
+  delivery_status LineDeliveryStatus @default(CONFIRMED)
 
+  confirmation_lines OrderConfirmationLine[]
+  shipments          RequestItemShipment[]
+
+  @@index([delivery_status])
   @@map("request_items")
 }
 
@@ -1441,7 +1447,59 @@ enum OrderConfirmationStatus {
   PARSED
   ACKNOWLEDGED
   APPLIED
+  /// Applicate solo alcune righe; restano righe non ancora accepted/rejected.
+  /// Transizione automatica: torna ad APPLIED quando tutte le righe raggiungono
+  /// stato terminale (applied || rejected).
+  PARTIALLY_APPLIED
   REJECTED
+}
+
+/// Stato di consegna di una riga ordine o di una linea di conferma.
+/// Applicato sia a RequestItem (stato derivato, mantenuto dal service) sia a
+/// OrderConfirmationLine (stato proposto dal fornitore per quella riga).
+enum LineDeliveryStatus {
+  /// Default: il fornitore conferma come da richiesta.
+  CONFIRMED
+  /// Confermato parzialmente (quantità ridotta o split shipment).
+  PARTIAL
+  /// In attesa di disponibilità, data ignota.
+  BACKORDERED
+  /// Il fornitore non può fornire questa riga.
+  UNAVAILABLE
+  /// Almeno una shipment in transito (derivato).
+  SHIPPED
+  /// Tutte le shipment sono DELIVERED e coprono l'intera quantity (derivato).
+  DELIVERED
+  /// Annullata (dal fornitore o dall'utente).
+  CANCELLED
+}
+
+/// Stato di una singola spedizione per un RequestItem.
+enum ShipmentStatus {
+  /// Spedizione pianificata ma non ancora partita.
+  PENDING
+  /// In transito (fornitore ha spedito).
+  SHIPPED
+  /// Consegnata al destinatario.
+  DELIVERED
+  /// Resa al fornitore (danno / errore / rifiuto).
+  RETURNED
+  /// Dispersa / non localizzabile.
+  LOST
+  /// Cancellata prima della partenza.
+  CANCELLED
+}
+
+/// Origine del record di spedizione (chi l'ha creato).
+enum ShipmentSource {
+  /// Inserito manualmente in UI da un utente.
+  MANUAL
+  /// Estratto da email automatica del fornitore.
+  EMAIL
+  /// Estratto da parsing di un DDT / bolla allegata.
+  DDT_PARSING
+  /// Ricevuto via integrazione API (future).
+  API
 }
 
 /// Singola riga di una OrderConfirmation.
@@ -1476,11 +1534,21 @@ model OrderConfirmationLine {
   price_delta_pct     Decimal? @db.Decimal(7, 4) // es. -0.1234 = -12.34%
   delivery_delay_days Int?
 
-  // Audit apply per riga (una confirmation può applicare un sottoinsieme di righe)
+  // Audit apply/reject per riga (una confirmation può applicare un sottoinsieme di righe)
   applied     Boolean   @default(false)
   applied_at  DateTime?
+  applied_by  String?
   rejected    Boolean   @default(false)
   rejected_at DateTime?
+  rejected_by String?
+
+  /// Motivo del rifiuto quando rejected=true (es. "fornitore non può fornire",
+  /// "cliente ha annullato l'articolo").
+  rejected_reason String?
+
+  /// Stato proposto dal fornitore per questa specifica riga (popolato
+  /// dall'agent AI durante create_order_confirmation o dall'utente in UI).
+  delivery_status LineDeliveryStatus @default(CONFIRMED)
 
   notes String?
 
@@ -1488,7 +1556,50 @@ model OrderConfirmationLine {
 
   @@index([confirmation_id])
   @@index([request_item_id])
+  @@index([delivery_status])
   @@map("order_confirmation_lines")
+}
+
+/// Spedizione di un RequestItem.
+/// Una riga d'ordine (RequestItem) può essere spedita in N tranche:
+/// ciascuna con quantità, tracking, date e stato propri. Il delivery_status
+/// del RequestItem è derivato dallo stato aggregato delle sue shipments.
+///
+/// source_email_log_id usa il pattern string-ref loose (come
+/// OrderConfirmation.email_log_id) per evitare una back-relation su EmailLog.
+model RequestItemShipment {
+  id              String      @id @default(cuid())
+  request_item_id String
+  request_item    RequestItem @relation(fields: [request_item_id], references: [id], onDelete: Cascade)
+
+  /// Quantità spedita in questa specifica tranche. Decimal per supportare
+  /// unità frazionarie (kg, m, litri) — i RequestItem oggi hanno quantity Int,
+  /// ma le shipment possono avere grain più fine.
+  shipped_quantity Decimal @db.Decimal(12, 4)
+
+  expected_ship_date     DateTime?
+  actual_ship_date       DateTime?
+  expected_delivery_date DateTime?
+  actual_delivery_date   DateTime?
+
+  tracking_number String?
+  carrier         String?
+  tracking_url    String?
+
+  status ShipmentStatus @default(PENDING)
+  notes  String?
+
+  source              ShipmentSource @default(MANUAL)
+  /// Traceability ad EmailLog (loose ref — niente back-relation su EmailLog).
+  source_email_log_id String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([request_item_id])
+  @@index([status])
+  @@index([tracking_number])
+  @@map("request_item_shipments")
 }
 
 // --- Integration Configurations ---
