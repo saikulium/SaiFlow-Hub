@@ -58,6 +58,15 @@ export const rejectConfirmationSchema = z.object({
   reason: z.string().min(1, 'Motivazione obbligatoria').max(2000),
 })
 
+/** Reject granulare per riga: propaga UNAVAILABLE o CANCELLED al RequestItem. */
+export const rejectLinesSchema = z.object({
+  rejected_line_ids: z
+    .array(z.string().min(1))
+    .min(1, 'Almeno una riga da rifiutare'),
+  reason: z.string().min(1, 'Motivazione obbligatoria').max(2000),
+  new_request_item_status: z.enum(['UNAVAILABLE', 'CANCELLED']),
+})
+
 export type CreateOrderConfirmationInput = z.infer<
   typeof createOrderConfirmationSchema
 >
@@ -66,3 +75,4 @@ export type OrderConfirmationLineInput = z.infer<
 >
 export type ApplyConfirmationInput = z.infer<typeof applyConfirmationSchema>
 export type RejectConfirmationInput = z.infer<typeof rejectConfirmationSchema>
+export type RejectLinesInput = z.infer<typeof rejectLinesSchema>

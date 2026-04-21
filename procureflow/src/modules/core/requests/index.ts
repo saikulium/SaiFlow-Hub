@@ -24,6 +24,8 @@ export {
   createOrderConfirmation,
   applyConfirmation,
   rejectConfirmation,
+  rejectLines,
+  isConfirmationComplete,
   getOrderConfirmation,
   listOrderConfirmations,
   OrderConfirmationNotFoundError,
@@ -33,8 +35,28 @@ export {
 export type {
   ApplyConfirmationParams,
   RejectConfirmationParams,
+  RejectLinesParams,
   OrderConfirmationWithLines,
 } from './server/order-confirmation.service'
+
+// Server — shipments
+export {
+  createShipment,
+  updateShipmentStatus,
+  listShipmentsForRequestItem,
+  listShipmentsForPurchaseRequest,
+  getTotalShippedQuantity,
+  getTotalDeliveredQuantity,
+  recomputeRequestItemDeliveryStatus,
+  DEFAULT_SHIPMENT_QUANTITY_TOLERANCE,
+  RequestItemNotFoundError,
+  ShipmentNotFoundError,
+  ShipmentQuantityExceededError,
+} from './server/shipment.service'
+export type {
+  CreateShipmentInput as CreateShipmentServiceInput,
+  UpdateShipmentStatusInput as UpdateShipmentStatusServiceInput,
+} from './server/shipment.service'
 
 // Notifications moved to @/modules/core/notifications (feat/email-notifications).
 
@@ -159,13 +181,27 @@ export {
   createOrderConfirmationSchema,
   applyConfirmationSchema,
   rejectConfirmationSchema,
+  rejectLinesSchema,
 } from './validations/order-confirmation'
 export type {
   CreateOrderConfirmationInput,
   OrderConfirmationLineInput,
   ApplyConfirmationInput,
   RejectConfirmationInput,
+  RejectLinesInput,
 } from './validations/order-confirmation'
+
+// Validations — shipments
+export {
+  createShipmentSchema,
+  updateShipmentStatusSchema,
+  shipmentStatusSchema,
+  shipmentSourceSchema,
+} from './validations/shipment'
+export type {
+  CreateShipmentInput,
+  UpdateShipmentStatusInput,
+} from './validations/shipment'
 
 // Notification validations moved to @/modules/core/notifications.
 

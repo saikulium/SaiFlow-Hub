@@ -19,9 +19,11 @@
 
 import { Prisma } from '@prisma/client'
 import type {
+  LineDeliveryStatus,
   OrderConfirmation,
   OrderConfirmationLine,
   OrderConfirmationSource,
+  OrderConfirmationStatus,
   RequestItem,
 } from '@prisma/client'
 import { prisma } from '@/lib/db'
@@ -67,7 +69,47 @@ export type OrderConfirmationWithLines = OrderConfirmation & {
 
 // --- Helpers ------------------------------------------------------------------
 
-const ACTIVE_STATES = new Set(['RECEIVED', 'PARSED', 'ACKNOWLEDGED'])
+/**
+ * Stati in cui una confirmation può ancora ricevere operazioni di apply/reject
+ * (sulle righe non ancora terminate). `PARTIALLY_APPLIED` è incluso perché
+ * rappresenta una confirmation con un sottoinsieme di righe già applicato o
+ * rifiutato — restano altre righe su cui operare.
+ */
+const OPEN_STATES = new Set<OrderConfirmationStatus>([
+  'RECEIVED',
+  'PARSED',
+  'ACKNOWLEDGED',
+  'PARTIALLY_APPLIED',
+])
+
+/**
+ * Stati iniziali in cui una confirmation non ha ancora ricevuto alcuna
+ * operazione terminale sulle righe. Usato da `rejectConfirmation` per evitare
+ * di sovrascrivere una apply parziale con un reject globale.
+ */
+const INITIAL_STATES = new Set<OrderConfirmationStatus>([
+  'RECEIVED',
+  'PARSED',
+  'ACKNOWLEDGED',
+])
+
+type ConfirmationLineTerminalState = Pick<
+  OrderConfirmationLine,
+  'id' | 'applied' | 'rejected'
+>
+
+/**
+ * True quando ogni riga della confirmation ha raggiunto uno stato terminale
+ * (applied oppure rejected). Usato da `applyConfirmation` e `rejectLines` per
+ * decidere fra lo stato finale `APPLIED` e quello intermedio
+ * `PARTIALLY_APPLIED`.
+ */
+export function isConfirmationComplete(
+  lines: ReadonlyArray<ConfirmationLineTerminalState>,
+): boolean {
+  if (lines.length === 0) return false
+  return lines.every((l) => l.applied || l.rejected)
+}
 
 function computePriceDeltaPct(
   original: Prisma.Decimal | null | undefined,
@@ -132,7 +174,7 @@ export async function createOrderConfirmation(
 ): Promise<OrderConfirmationWithLines> {
   if (input.lines.length === 0) {
     throw new InvalidConfirmationLineError(
-      'Una conferma d\'ordine deve avere almeno una riga',
+      "Una conferma d'ordine deve avere almeno una riga",
     )
   }
 
@@ -240,21 +282,31 @@ export async function applyConfirmation(
   if (!existing) {
     throw new OrderConfirmationNotFoundError(params.confirmationId)
   }
-  if (!ACTIVE_STATES.has(existing.status)) {
+  if (!OPEN_STATES.has(existing.status)) {
     throw new InvalidConfirmationStateError(existing.status, 'apply')
   }
 
   const acceptedIdsSet = new Set(params.acceptedLineIds)
-  const acceptedLines = existing.lines.filter((l) => acceptedIdsSet.has(l.id))
+  const matchedLines = existing.lines.filter((l) => acceptedIdsSet.has(l.id))
 
-  if (acceptedLines.length === 0) {
-    throw new InvalidConfirmationLineError(
-      'Nessuna riga valida tra accepted_line_ids',
-    )
-  }
-  if (acceptedLines.length !== acceptedIdsSet.size) {
+  if (matchedLines.length !== acceptedIdsSet.size) {
     throw new InvalidConfirmationLineError(
       'Una o più accepted_line_ids non appartengono a questa confirmation',
+    )
+  }
+
+  // Rifiuta se una riga è già terminale (applied o rejected): rende l'apply
+  // idempotente e previene sovrascritture accidentali.
+  const alreadyTerminal = matchedLines.filter((l) => l.applied || l.rejected)
+  if (alreadyTerminal.length > 0) {
+    throw new InvalidConfirmationLineError(
+      `Righe già in stato terminale: ${alreadyTerminal.map((l) => l.id).join(', ')}`,
+    )
+  }
+
+  if (matchedLines.length === 0) {
+    throw new InvalidConfirmationLineError(
+      'Nessuna riga valida tra accepted_line_ids',
     )
   }
 
@@ -269,22 +321,24 @@ export async function applyConfirmation(
         confirmed_delivery: Date | null
         quantity: number
         total_price: Prisma.Decimal | null
+        delivery_status: LineDeliveryStatus
       }
       after: {
         unit_price: Prisma.Decimal | null
         confirmed_delivery: Date | null
         quantity: number
         total_price: Prisma.Decimal | null
+        delivery_status: LineDeliveryStatus
       }
     }> = []
 
-    for (const line of acceptedLines) {
+    for (const line of matchedLines) {
       if (!line.request_item_id) {
         // Riga senza link all'item: marchiala applied ma non c'è nulla da
-        // aggiornare lato prezzi
+        // aggiornare lato prezzi / stato riga
         await tx.orderConfirmationLine.update({
           where: { id: line.id },
-          data: { applied: true, applied_at: now },
+          data: { applied: true, applied_at: now, applied_by: params.userId },
         })
         continue
       }
@@ -311,6 +365,14 @@ export async function applyConfirmation(
             )
           : currentItem.total_price
 
+      // Propaga il delivery_status della linea di conferma sul RequestItem
+      // quando diverso dal default (CONFIRMED) — così la UI mostra PARTIAL,
+      // BACKORDERED, ecc. sulla riga dopo l'apply.
+      const nextDeliveryStatus: LineDeliveryStatus =
+        line.delivery_status !== 'CONFIRMED'
+          ? line.delivery_status
+          : currentItem.delivery_status
+
       await tx.requestItem.update({
         where: { id: currentItem.id },
         data: {
@@ -318,12 +380,13 @@ export async function applyConfirmation(
           quantity: nextQuantity,
           total_price: nextTotalPrice,
           confirmed_delivery: nextConfirmedDelivery,
+          delivery_status: nextDeliveryStatus,
         },
       })
 
       await tx.orderConfirmationLine.update({
         where: { id: line.id },
-        data: { applied: true, applied_at: now },
+        data: { applied: true, applied_at: now, applied_by: params.userId },
       })
 
       itemChanges.push({
@@ -333,6 +396,7 @@ export async function applyConfirmation(
           confirmed_delivery: currentItem.confirmed_delivery,
           quantity: currentItem.quantity,
           total_price: currentItem.total_price,
+          delivery_status: currentItem.delivery_status,
         },
         after: {
           unit_price:
@@ -340,16 +404,31 @@ export async function applyConfirmation(
           confirmed_delivery: nextConfirmedDelivery,
           quantity: nextQuantity,
           total_price: nextTotalPrice,
+          delivery_status: nextDeliveryStatus,
         },
       })
     }
 
+    // Calcola lo stato finale: APPLIED se ogni riga è ora terminale,
+    // altrimenti PARTIALLY_APPLIED. Le righe appena applicate sono per
+    // costruzione terminali; le altre mantengono il loro stato originale.
+    const projectedLines: ConfirmationLineTerminalState[] = existing.lines.map(
+      (l) =>
+        acceptedIdsSet.has(l.id)
+          ? { id: l.id, applied: true, rejected: l.rejected }
+          : l,
+    )
+    const complete = isConfirmationComplete(projectedLines)
+    const nextStatus: OrderConfirmationStatus = complete
+      ? 'APPLIED'
+      : 'PARTIALLY_APPLIED'
+
     const updated = await tx.orderConfirmation.update({
       where: { id: params.confirmationId },
       data: {
-        status: 'APPLIED',
-        applied_at: now,
-        applied_by: params.userId,
+        status: nextStatus,
+        applied_at: complete ? now : existing.applied_at,
+        applied_by: complete ? params.userId : existing.applied_by,
         notes: params.notes ?? existing.notes,
       },
       include: { lines: true },
@@ -358,12 +437,17 @@ export async function applyConfirmation(
     await tx.timelineEvent.create({
       data: {
         request_id: existing.request_id,
-        type: 'order_confirmation_applied',
-        title: 'Conferma d\'ordine applicata',
-        description: `${acceptedLines.length} righe applicate su ${existing.lines.length}`,
+        type: complete
+          ? 'order_confirmation_applied'
+          : 'order_confirmation_partially_applied',
+        title: complete
+          ? "Conferma d'ordine applicata"
+          : "Conferma d'ordine applicata parzialmente",
+        description: `${matchedLines.length} righe applicate su ${existing.lines.length}`,
         metadata: {
           confirmation_id: existing.id,
           accepted_line_ids: params.acceptedLineIds,
+          final_status: nextStatus,
           changes: itemChanges.map((c) => ({
             item_id: c.itemId,
             unit_price: {
@@ -382,13 +466,17 @@ export async function applyConfirmation(
               old: c.before.confirmed_delivery?.toISOString() ?? null,
               new: c.after.confirmed_delivery?.toISOString() ?? null,
             },
+            delivery_status: {
+              old: c.before.delivery_status,
+              new: c.after.delivery_status,
+            },
           })),
         },
         actor: params.userId,
       },
     })
 
-    return updated
+    return { updated, nextStatus }
   })
 
   // Audit log fuori transazione, fail-soft
@@ -401,12 +489,12 @@ export async function applyConfirmation(
       entityId: params.confirmationId,
       entityLabel: existing.vendor_reference ?? existing.subject ?? null,
       changes: {
-        status: { old: existing.status, new: 'APPLIED' },
+        status: { old: existing.status, new: result.nextStatus },
       },
       metadata: {
         request_id: existing.request_id,
         request_code: existing.request.code,
-        accepted_line_count: acceptedLines.length,
+        accepted_line_count: matchedLines.length,
         total_line_count: existing.lines.length,
       },
     })
@@ -417,7 +505,7 @@ export async function applyConfirmation(
     )
   }
 
-  return result
+  return result.updated
 }
 
 /**
@@ -441,7 +529,10 @@ export async function rejectConfirmation(
   if (!existing) {
     throw new OrderConfirmationNotFoundError(params.confirmationId)
   }
-  if (!ACTIVE_STATES.has(existing.status)) {
+  // Reject globale ammesso solo da stati iniziali: su PARTIALLY_APPLIED
+  // usare rejectLines per rifiutare le righe pendenti senza toccare quelle
+  // già applicate.
+  if (!INITIAL_STATES.has(existing.status)) {
     throw new InvalidConfirmationStateError(existing.status, 'reject')
   }
 
@@ -450,7 +541,12 @@ export async function rejectConfirmation(
   const result = await prisma.$transaction(async (tx) => {
     await tx.orderConfirmationLine.updateMany({
       where: { confirmation_id: params.confirmationId },
-      data: { rejected: true, rejected_at: now },
+      data: {
+        rejected: true,
+        rejected_at: now,
+        rejected_by: params.userId,
+        rejected_reason: params.reason,
+      },
     })
 
     const updated = await tx.orderConfirmation.update({
@@ -468,7 +564,7 @@ export async function rejectConfirmation(
       data: {
         request_id: existing.request_id,
         type: 'order_confirmation_rejected',
-        title: 'Conferma d\'ordine rifiutata',
+        title: "Conferma d'ordine rifiutata",
         description: params.reason,
         metadata: {
           confirmation_id: existing.id,
@@ -506,6 +602,190 @@ export async function rejectConfirmation(
   }
 
   return result
+}
+
+/**
+ * Rifiuta granularmente solo le righe specificate.
+ *
+ * Comportamento:
+ *  - Ogni riga in `rejectedLineIds` viene marcata rejected=true con
+ *    reason e userId. Errore se la riga non appartiene alla confirmation
+ *    o è già terminale (applied/rejected).
+ *  - Se la riga ha `request_item_id`, il campo `RequestItem.delivery_status`
+ *    viene propagato a `newRequestItemStatus` (UNAVAILABLE o CANCELLED).
+ *  - Dopo gli update, lo stato della confirmation diventa:
+ *      - `APPLIED` se tutte le righe sono ora terminali
+ *      - `PARTIALLY_APPLIED` altrimenti
+ *    Da PARTIALLY_APPLIED lo stato può tornare APPLIED con ulteriori apply
+ *    o reject-lines.
+ *  - TimelineEvent + AuditLog (fail-soft).
+ */
+export interface RejectLinesParams {
+  confirmationId: string
+  userId: string
+  rejectedLineIds: readonly string[]
+  reason: string
+  /**
+   * Stato da propagare al `RequestItem.delivery_status` delle righe rifiutate.
+   * `UNAVAILABLE` = il fornitore non può fornire. `CANCELLED` = annullata
+   * dall'utente o dal fornitore.
+   */
+  newRequestItemStatus: Extract<LineDeliveryStatus, 'UNAVAILABLE' | 'CANCELLED'>
+}
+
+export async function rejectLines(
+  params: RejectLinesParams,
+): Promise<OrderConfirmationWithLines> {
+  const existing = await prisma.orderConfirmation.findUnique({
+    where: { id: params.confirmationId },
+    include: { lines: true, request: { select: { code: true } } },
+  })
+
+  if (!existing) {
+    throw new OrderConfirmationNotFoundError(params.confirmationId)
+  }
+  if (!OPEN_STATES.has(existing.status)) {
+    throw new InvalidConfirmationStateError(existing.status, 'reject lines')
+  }
+
+  const rejectedIdsSet = new Set(params.rejectedLineIds)
+  const matchedLines = existing.lines.filter((l) => rejectedIdsSet.has(l.id))
+
+  if (matchedLines.length !== rejectedIdsSet.size) {
+    throw new InvalidConfirmationLineError(
+      'Una o più rejected_line_ids non appartengono a questa confirmation',
+    )
+  }
+  if (matchedLines.length === 0) {
+    throw new InvalidConfirmationLineError(
+      'Nessuna riga valida tra rejected_line_ids',
+    )
+  }
+
+  const alreadyTerminal = matchedLines.filter((l) => l.applied || l.rejected)
+  if (alreadyTerminal.length > 0) {
+    throw new InvalidConfirmationLineError(
+      `Righe già in stato terminale: ${alreadyTerminal.map((l) => l.id).join(', ')}`,
+    )
+  }
+
+  const now = new Date()
+
+  const result = await prisma.$transaction(async (tx) => {
+    const itemChanges: Array<{
+      itemId: string
+      before: LineDeliveryStatus
+      after: LineDeliveryStatus
+    }> = []
+
+    for (const line of matchedLines) {
+      await tx.orderConfirmationLine.update({
+        where: { id: line.id },
+        data: {
+          rejected: true,
+          rejected_at: now,
+          rejected_by: params.userId,
+          rejected_reason: params.reason,
+        },
+      })
+
+      if (!line.request_item_id) continue
+
+      const currentItem = await tx.requestItem.findUnique({
+        where: { id: line.request_item_id },
+      })
+      if (!currentItem) {
+        // RequestItem rimosso dopo la creazione della confirmation: niente da
+        // propagare ma la riga risulta rifiutata correttamente.
+        continue
+      }
+
+      await tx.requestItem.update({
+        where: { id: currentItem.id },
+        data: { delivery_status: params.newRequestItemStatus },
+      })
+
+      itemChanges.push({
+        itemId: currentItem.id,
+        before: currentItem.delivery_status,
+        after: params.newRequestItemStatus,
+      })
+    }
+
+    // Proietta lo stato finale: le righe appena rifiutate sono terminali
+    const projectedLines: ConfirmationLineTerminalState[] = existing.lines.map(
+      (l) =>
+        rejectedIdsSet.has(l.id)
+          ? { id: l.id, applied: l.applied, rejected: true }
+          : l,
+    )
+    const complete = isConfirmationComplete(projectedLines)
+    const nextStatus: OrderConfirmationStatus = complete
+      ? 'APPLIED'
+      : 'PARTIALLY_APPLIED'
+
+    const updated = await tx.orderConfirmation.update({
+      where: { id: params.confirmationId },
+      data: {
+        status: nextStatus,
+        applied_at: complete
+          ? (existing.applied_at ?? now)
+          : existing.applied_at,
+        applied_by: complete
+          ? (existing.applied_by ?? params.userId)
+          : existing.applied_by,
+      },
+      include: { lines: true },
+    })
+
+    await tx.timelineEvent.create({
+      data: {
+        request_id: existing.request_id,
+        type: 'order_confirmation_lines_rejected',
+        title: `${matchedLines.length} righe conferma rifiutate`,
+        description: params.reason,
+        metadata: {
+          confirmation_id: existing.id,
+          rejected_line_ids: params.rejectedLineIds,
+          new_request_item_status: params.newRequestItemStatus,
+          final_status: nextStatus,
+          item_status_changes: itemChanges,
+        },
+        actor: params.userId,
+      },
+    })
+
+    return { updated, nextStatus }
+  })
+
+  try {
+    await writeAuditLog({
+      actorId: params.userId,
+      actorType: 'USER',
+      action: 'UPDATE',
+      entityType: 'OrderConfirmation',
+      entityId: params.confirmationId,
+      entityLabel: existing.vendor_reference ?? existing.subject ?? null,
+      changes: {
+        status: { old: existing.status, new: result.nextStatus },
+      },
+      metadata: {
+        request_id: existing.request_id,
+        request_code: existing.request.code,
+        rejected_line_count: matchedLines.length,
+        total_line_count: existing.lines.length,
+        reason: params.reason,
+        new_request_item_status: params.newRequestItemStatus,
+      },
+    })
+  } catch (err) {
+    console.warn(
+      '[order-confirmation] Audit log failed (swallowed):',
+      err instanceof Error ? err.message : String(err),
+    )
+  }
+
+  return result.updated
 }
 
 /**

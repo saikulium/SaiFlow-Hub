@@ -72,6 +72,8 @@ function makeConfirmation(overrides: Record<string, unknown> = {}) {
     vendor_reference: 'Ord.14177',
     subject: null,
     notes: null,
+    applied_at: null,
+    applied_by: null,
     lines: [
       {
         id: 'line_1',
@@ -81,6 +83,9 @@ function makeConfirmation(overrides: Record<string, unknown> = {}) {
         confirmed_quantity: null,
         confirmed_delivery: new Date('2026-05-15'),
         original_unit_price: new Prisma.Decimal('10.00'),
+        applied: false,
+        rejected: false,
+        delivery_status: 'CONFIRMED',
       },
       {
         id: 'line_2',
@@ -90,6 +95,9 @@ function makeConfirmation(overrides: Record<string, unknown> = {}) {
         confirmed_quantity: 5,
         confirmed_delivery: null,
         original_unit_price: new Prisma.Decimal('18.00'),
+        applied: false,
+        rejected: false,
+        delivery_status: 'CONFIRMED',
       },
     ],
     request: { code: 'PR-2026-00001' },
@@ -117,6 +125,7 @@ function makeItem(id: string, overrides: Record<string, unknown> = {}) {
     vat_nature: null,
     is_split_payment: false,
     is_reverse_charge: false,
+    delivery_status: 'CONFIRMED',
     ...overrides,
   }
 }
@@ -292,6 +301,11 @@ describe('applyConfirmation', () => {
     itemFindUnique.mockResolvedValue(makeItem('item_1'))
     itemUpdate.mockResolvedValue({})
     lineUpdate.mockResolvedValue({})
+    confirmationUpdate.mockResolvedValueOnce({
+      id: 'conf_1',
+      status: 'PARTIALLY_APPLIED',
+      lines: [],
+    })
     writeAuditLogMock.mockRejectedValueOnce(new Error('audit db down'))
 
     const result = await applyConfirmation({
@@ -300,6 +314,186 @@ describe('applyConfirmation', () => {
       acceptedLineIds: ['line_1'],
     })
 
-    expect(result.status).toBe('APPLIED')
+    expect(result.status).toBe('PARTIALLY_APPLIED')
+  })
+
+  it('transizione a PARTIALLY_APPLIED se resta almeno una riga pendente', async () => {
+    confirmationFindUnique.mockResolvedValue(makeConfirmation())
+    itemFindUnique.mockResolvedValue(makeItem('item_1'))
+    itemUpdate.mockResolvedValue({})
+    lineUpdate.mockResolvedValue({})
+
+    await applyConfirmation({
+      confirmationId: 'conf_1',
+      userId: 'user_admin',
+      acceptedLineIds: ['line_1'], // 1 su 2
+    })
+
+    const updateCall = confirmationUpdate.mock.calls[0]?.[0] as {
+      data: { status: string; applied_at: Date | null }
+    }
+    expect(updateCall.data.status).toBe('PARTIALLY_APPLIED')
+    // applied_at non è stampato quando la confirmation non è completa
+    expect(updateCall.data.applied_at).toBeNull()
+  })
+
+  it('transizione a APPLIED quando tutte le righe diventano terminali', async () => {
+    confirmationFindUnique.mockResolvedValue(makeConfirmation())
+    itemFindUnique
+      .mockResolvedValueOnce(makeItem('item_1'))
+      .mockResolvedValueOnce(makeItem('item_2'))
+    itemUpdate.mockResolvedValue({})
+    lineUpdate.mockResolvedValue({})
+
+    await applyConfirmation({
+      confirmationId: 'conf_1',
+      userId: 'user_admin',
+      acceptedLineIds: ['line_1', 'line_2'], // tutte
+    })
+
+    const updateCall = confirmationUpdate.mock.calls[0]?.[0] as {
+      data: {
+        status: string
+        applied_at: Date | null
+        applied_by: string | null
+      }
+    }
+    expect(updateCall.data.status).toBe('APPLIED')
+    expect(updateCall.data.applied_at).toBeInstanceOf(Date)
+    expect(updateCall.data.applied_by).toBe('user_admin')
+  })
+
+  it('permette apply partendo da PARTIALLY_APPLIED (righe residue)', async () => {
+    const conf = makeConfirmation({
+      status: 'PARTIALLY_APPLIED',
+      lines: [
+        {
+          id: 'line_1',
+          confirmation_id: 'conf_1',
+          request_item_id: 'item_1',
+          confirmed_unit_price: new Prisma.Decimal('12.00'),
+          applied: true, // già applicata
+          rejected: false,
+          delivery_status: 'CONFIRMED',
+        },
+        {
+          id: 'line_2',
+          confirmation_id: 'conf_1',
+          request_item_id: 'item_2',
+          confirmed_unit_price: new Prisma.Decimal('20.00'),
+          confirmed_quantity: 5,
+          applied: false,
+          rejected: false,
+          delivery_status: 'CONFIRMED',
+        },
+      ],
+    })
+    confirmationFindUnique.mockResolvedValue(conf)
+    itemFindUnique.mockResolvedValue(makeItem('item_2'))
+    itemUpdate.mockResolvedValue({})
+    lineUpdate.mockResolvedValue({})
+
+    await applyConfirmation({
+      confirmationId: 'conf_1',
+      userId: 'user_admin',
+      acceptedLineIds: ['line_2'], // completa la confirmation
+    })
+
+    const updateCall = confirmationUpdate.mock.calls[0]?.[0] as {
+      data: { status: string }
+    }
+    expect(updateCall.data.status).toBe('APPLIED')
+  })
+
+  it('propaga line.delivery_status (es. PARTIAL) al RequestItem', async () => {
+    const conf = makeConfirmation({
+      lines: [
+        {
+          id: 'line_1',
+          confirmation_id: 'conf_1',
+          request_item_id: 'item_1',
+          confirmed_unit_price: new Prisma.Decimal('12.00'),
+          applied: false,
+          rejected: false,
+          delivery_status: 'PARTIAL',
+        },
+      ],
+    })
+    confirmationFindUnique.mockResolvedValue(conf)
+    itemFindUnique.mockResolvedValue(makeItem('item_1'))
+    itemUpdate.mockResolvedValue({})
+    lineUpdate.mockResolvedValue({})
+
+    await applyConfirmation({
+      confirmationId: 'conf_1',
+      userId: 'user_admin',
+      acceptedLineIds: ['line_1'],
+    })
+
+    const updateCall = itemUpdate.mock.calls[0]?.[0] as {
+      data: { delivery_status: string }
+    }
+    expect(updateCall.data.delivery_status).toBe('PARTIAL')
+  })
+
+  it('delivery_status CONFIRMED sulla linea non sovrascrive quello corrente del item', async () => {
+    const conf = makeConfirmation({
+      lines: [
+        {
+          id: 'line_1',
+          confirmation_id: 'conf_1',
+          request_item_id: 'item_1',
+          confirmed_unit_price: new Prisma.Decimal('12.00'),
+          applied: false,
+          rejected: false,
+          delivery_status: 'CONFIRMED',
+        },
+      ],
+    })
+    confirmationFindUnique.mockResolvedValue(conf)
+    itemFindUnique.mockResolvedValue(
+      makeItem('item_1', { delivery_status: 'BACKORDERED' }),
+    )
+    itemUpdate.mockResolvedValue({})
+    lineUpdate.mockResolvedValue({})
+
+    await applyConfirmation({
+      confirmationId: 'conf_1',
+      userId: 'user_admin',
+      acceptedLineIds: ['line_1'],
+    })
+
+    const updateCall = itemUpdate.mock.calls[0]?.[0] as {
+      data: { delivery_status: string }
+    }
+    // Mantiene lo stato precedente (BACKORDERED) invece di forzare CONFIRMED
+    expect(updateCall.data.delivery_status).toBe('BACKORDERED')
+  })
+
+  it('errore se la riga è già applicata (idempotency per riga)', async () => {
+    const conf = makeConfirmation({
+      lines: [
+        {
+          id: 'line_1',
+          confirmation_id: 'conf_1',
+          request_item_id: 'item_1',
+          confirmed_unit_price: new Prisma.Decimal('12.00'),
+          applied: true, // già terminale
+          rejected: false,
+          delivery_status: 'CONFIRMED',
+        },
+      ],
+    })
+    confirmationFindUnique.mockResolvedValue(conf)
+
+    await expect(
+      applyConfirmation({
+        confirmationId: 'conf_1',
+        userId: 'user_admin',
+        acceptedLineIds: ['line_1'],
+      }),
+    ).rejects.toBeInstanceOf(InvalidConfirmationLineError)
+
+    expect(itemUpdate).not.toHaveBeenCalled()
   })
 })
