@@ -133,9 +133,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const enrichedResult = { ...result, agent_enrichment: agentEnrichment }
     const responseData = {
       success: true,
-      data: { ...result, agent_enrichment: agentEnrichment },
+      data: enrichedResult,
     }
 
     // Registra idempotency
@@ -148,7 +149,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return successResponse(result)
+    return successResponse(enrichedResult)
   } catch (error) {
     console.error('POST /api/webhooks/email-ingestion error:', error)
     return errorResponse('INTERNAL_ERROR', 'Errore interno del server', 500)

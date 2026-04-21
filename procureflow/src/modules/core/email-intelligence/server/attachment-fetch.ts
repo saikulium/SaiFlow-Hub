@@ -14,6 +14,55 @@ const DEFAULT_TIMEOUT_MS = 5_000
 const DEFAULT_MAX_BYTES = 10 * 1024 * 1024 // 10 MB
 const PDF_MAGIC = Buffer.from('%PDF-', 'ascii')
 
+// ---------------------------------------------------------------------------
+// SSRF protection — block requests to private/internal networks
+// ---------------------------------------------------------------------------
+
+const BLOCKED_HOSTNAMES = new Set([
+  'localhost',
+  'metadata.google.internal',       // GCP metadata
+  'metadata.google.internal.',
+])
+
+/**
+ * Returns true if the hostname resolves to a private/reserved IP range.
+ * Blocks: loopback, link-local, private RFC-1918, AWS metadata, IPv6 equivalents.
+ */
+function isPrivateOrReservedHost(hostname: string): boolean {
+  if (BLOCKED_HOSTNAMES.has(hostname.toLowerCase())) return true
+
+  // Detect raw IP addresses (IPv4)
+  const ipv4Match = hostname.match(
+    /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/,
+  )
+  if (ipv4Match) {
+    const [, a, b, c] = ipv4Match.map(Number)
+    // 127.x.x.x — loopback
+    if (a === 127) return true
+    // 10.x.x.x — private
+    if (a === 10) return true
+    // 172.16.0.0 – 172.31.255.255 — private
+    if (a === 172 && b! >= 16 && b! <= 31) return true
+    // 192.168.x.x — private
+    if (a === 192 && b === 168) return true
+    // 169.254.x.x — link-local / AWS metadata
+    if (a === 169 && b === 254) return true
+    // 0.x.x.x — "this" network
+    if (a === 0) return true
+    // 100.64–127.x.x — CGN (shared address space)
+    if (a === 100 && b! >= 64 && b! <= 127) return true
+  }
+
+  // IPv6 loopback / link-local
+  const lower = hostname.toLowerCase()
+  if (lower === '::1' || lower === '[::1]') return true
+  if (lower.startsWith('fe80') || lower.startsWith('[fe80')) return true
+  if (lower.startsWith('fc') || lower.startsWith('[fc')) return true
+  if (lower.startsWith('fd') || lower.startsWith('[fd')) return true
+
+  return false
+}
+
 export interface FetchAttachmentOptions {
   readonly timeoutMs?: number
   readonly maxBytes?: number
@@ -50,6 +99,14 @@ export async function fetchAttachmentBytes(
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     console.warn(
       `[attachment-fetch] unsupported protocol ${parsed.protocol} for ${label}`,
+    )
+    return null
+  }
+
+  // SSRF protection: block private/internal network targets
+  if (isPrivateOrReservedHost(parsed.hostname)) {
+    console.warn(
+      `[attachment-fetch] SSRF blocked: private/reserved host ${parsed.hostname} for ${label}`,
     )
     return null
   }
