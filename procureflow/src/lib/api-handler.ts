@@ -79,11 +79,10 @@ function handleDefaultError(error: unknown, message: string): NextResponse {
 function extractRouteParams(
   args: ReadonlyArray<unknown>,
 ): Record<string, string> {
-  // Next.js passes route params as second arg: { params: { id: '...' } }
-  if (args.length >= 2) {
-    const second = args[1] as { params?: Record<string, string> } | undefined
-    if (second?.params) return second.params
-  }
+  // Next.js 14 calls the route handler as (req, ctx) where ctx = { params }.
+  // `args` here is the rest after `req`, so ctx lives at args[0].
+  const ctx = args[0] as { params?: Record<string, string> } | undefined
+  if (ctx?.params) return ctx.params
   return {}
 }
 

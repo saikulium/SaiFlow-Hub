@@ -35,7 +35,7 @@ const createBodySchema = z.object({
 export const GET = withApiHandler(
   {
     auth: true,
-    errorMessage: 'Errore nel recupero delle conferme d\'ordine',
+    errorMessage: "Errore nel recupero delle conferme d'ordine",
   },
   async ({ params }) => {
     const request = await prisma.purchaseRequest.findUnique({
@@ -53,7 +53,7 @@ export const POST = withApiHandler(
   {
     auth: ['ADMIN', 'MANAGER'],
     bodySchema: createBodySchema,
-    errorMessage: 'Errore nella creazione della conferma d\'ordine',
+    errorMessage: "Errore nella creazione della conferma d'ordine",
   },
   async ({ params, body }) => {
     const requestId = params.id
